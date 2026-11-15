@@ -557,8 +557,8 @@ describe('Google provider profiles', () => {
     expect(oauth.GOOGLE_DRIVE_PROFILE.accountCheck.url).toBe(oauth.GOOGLE_ABOUT_URL);
     expect(oauth.GOOGLE_GMAIL_PROFILE.accountCheck.url).toBe('https://gmail.googleapis.com/gmail/v1/users/me/profile');
     expect(oauth.GOOGLE_GMAIL_PROFILE.endpoint).toBe(oauth.GOOGLE_GMAIL_ENDPOINT);
-    const drive = oauth.GOOGLE_DRIVE_PROFILE.accountCheck.emailOf;
-    const gmail = oauth.GOOGLE_GMAIL_PROFILE.accountCheck.emailOf;
+    const drive = oauth.GOOGLE_DRIVE_PROFILE.accountCheck.accountOf;
+    const gmail = oauth.GOOGLE_GMAIL_PROFILE.accountCheck.accountOf;
     expect(drive({ user: { emailAddress: 'a@example.com' } })).toBe('a@example.com');
     expect(drive({ emailAddress: 'a@example.com' })).toBeNull();
     expect(drive({ user: {} })).toBeNull();

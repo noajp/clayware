@@ -12,7 +12,7 @@ Clayware の AI（Athena）がアプリの AI パネルでできることを、�
 
 | 範囲 | 読み取り | 書き込み・削除 |
 |---|---|---|
-| Execution | listMyDomains / listObjects / listElements / getElement / findByText / getProgress / getRecentActivity / listWorkers | Element・Sub-element・Object の作成・更新・削除、移動、Object への結び付け、担当・ラベル・コメント、一括作成・一括更新・一括削除 |
+| Execution | listMyDomains / listObjects / listElements / getElement / findByText / getProgress / getRecentActivity / listWorkers / listDependencies | Element・Sub-element・Object の作成・更新・削除、移動、Object への結び付け、担当・ラベル・ラベルの色・コメント、依存の追加・削除、一括作成・一括更新・一括削除 |
 | Strategy | listInitiatives / getInitiative / getInitiativeExecution | Strategy の作成・更新・削除、成功条件・前提・意思決定の追加・更新・取り下げ、ハーネスの定義を書く、campaignMeasure |
 | Table | tableData（list / get） | tableData（Table・列・行・セルの create / update / delete） |
 | ファイル・ハーネス | listFiles / searchFiles / readFile / listHarnesses / readHarness | writeFile / createHarness / updateHarness（保存の前にアプリと同じ検査を通し、エラーがあれば保存しない） |
@@ -29,13 +29,17 @@ REST API（[api.md](api.md)）は、このうち日常の読み書き（`_shared
 
 担当にできるのは、Element と同じ Space の Worker だけ。`listWorkers` は `elementId` を渡すとその Element に割り当てられる Worker を、`objectId` / `domainId` を渡すとその Domain を見られる人を、引数なしなら本人が属する Space 全体の Worker を返す。`addElementAssignee` は Space の外の Worker を `Worker is outside this Element's Space` で断り、`createElement` の `assigneeWorkerIds` は割り当てられない Worker を飛ばして `assigneeError` に名前を返す。`createElement` の `basisIntentIds` には、その Element が何のためにあるか（Strategy の成功条件・前提・意思決定の intent id。`getInitiative` で読める）を渡す。一つずつ判定し、置き換えられた intent、Element の Object が属していない Strategy の intent、編集できない Strategy の intent は結び付けず、`basisError` に id と理由を返す（ほかの id は結び付く）。
 
+Timeline に出る予定も、人が画面で組むのと同じように組める。Element の期間は `createElement`・`createElements`・`updateElement`・`bulkUpdateElements` の `start_date` / `due_date`、Object の期間・アイコン・色・type・Lead は `createObject`・`updateObject` の `start_date` / `due_date` / `icon` / `color` / `type` / `leadWorkerId` で書く。日付は `YYYY-MM-DD`（`null` で解除）で、始まりが終わりより後になる値は断る。アイコンと色はアプリが描ける形（`glyph:<Name>` / `lucide:<kebab-name>` / 絵文字、ラベルの色の名前か `#rrggbb`）だけを受け付ける。
+
+依存は「`waitingId` が `blockerId` を待つ」で、`addDependency` / `removeDependency` / `listDependencies` が Element どうし（`target: "element"`）と Object どうし（`target: "object"`）を扱う。つなぐ端は `kind`（`fs` 終わったら始める・既定 / `ss` / `ff` / `sf`）。輪になる依存は断り、同じ組がすでにあれば、`kind` を渡したときだけ合わせ、渡さなければそのままにする。`listDependencies` は待っている相手（`waitsFor`）と待たれている相手（`blocks`）を、日付が順番に反していれば `conflict` を付けて返す。Timeline が赤い線で描くのと同じ判定。ラベルの色は `setLabelColor` で Domain ごとに決める（決めた色を外すのは Settings から）。Object の Lead にできるのは、その Domain で担当にできる Worker だけ。
+
 ## Clayware の考え方を伝える
 
 外部の AI にも、Clayware の設計の考え方で動いてもらうために、3 段で伝える（`_shared/claywareGuide.ts`）。
 
 1. 接続したときにサーバーが渡す説明（instructions）の冒頭に、考え方の要点を置く。人と AI の分担、Strategy → Object → Element、外の世界のものは Table に置くこと、ハーネスに従うこと、仕事を始める前に `getClaywareGuide` を読むこと。
 2. `getClaywareGuide` は考え方の全体と、見られる Space ごとの目指す姿（最上位の Strategy）とハーネスの一覧を返す。道具の一覧の先頭に置く。
-3. 考え方から外れた操作は、理由と、代わりにどうするかを添えて断る。judge / decide / approve / answer の Element を完了・レビュー待ちにすること（`updateElement`・`bulkUpdateElements`・Sub-element の完了・`reportOutcome` の completed）と、その動詞を外すことは断り、判断の材料をコメントに書くか `reportOutcome` の blocked で人に回すよう返す。REST API の同じ操作も同じく断る。よく取り違えられる道具（`createObject`・`createElement`・`createElements`・`updateElement`・`tableData`）は、説明にも置き場所を書き足す。
+3. 考え方から外れた操作は、理由と、代わりにどうするかを添えて断る。judge / decide / approve / answer の Element を完了・レビュー待ちにすること（`updateElement`・`bulkUpdateElements`・Sub-element の完了・`reportOutcome` の completed）、`createElement`・`createElements` で最初から完了・レビュー待ちとして作ること、その動詞を外すことは断り、判断の材料をコメントに書くか `reportOutcome` の blocked で人に回すよう返す。REST API の同じ操作も同じく断る。よく取り違えられる道具（`createObject`・`createElement`・`createElements`・`updateElement`・`tableData`）は、説明にも置き場所を書き足す。
 
 Element の `action`（求める行動）は `createElement`・`createElements`・`updateElement` で書ける。
 
@@ -119,9 +123,17 @@ Google Drive は資格情報を貼り付けず、owner が Google にサイン�
 
 GitHub も資格情報を貼り付けず、owner が GitHub にサインインしてつなぐ（Settings › Connectors から）。スコープは `repo` で、サインインした人が触れるリポジトリを読み書きできる。この接続を、Element のコード変更（差分の取得、判定・行コメントの投稿、マージ）とエージェント（GitHub の MCP サーバー）の両方が使い、投稿・マージ・push はサインインした GitHub アカウントの名義になる。トークンは期限切れにならず、切断（GitHub の grant の取り消し）か、本人が GitHub の Settings › Applications で Clayware を外すまで使える。アクセスが GitHub アカウントに付き、一方の Space で切断すると同じアカウントの他の Space も切れるのは Google と同じ。
 
+### Microsoft 365（OAuth）
+
+Microsoft 365 も資格情報を貼り付けず、owner が職場または学校の Microsoft アカウントでサインインしてつなぐ（Settings › Connectors の「Microsoft 365」から）。サインインは `organizations` のエンドポイントを使うので、個人の Microsoft アカウントは使えない。いま求めるのは `openid` `profile` `offline_access` `User.Read` だけで、接続はサインインした人のプロフィールを読めるところまで。アクセストークンは短く、Microsoft はリフレッシュのたびに新しいリフレッシュトークンを返すので、そのたびに保存し直す。同じ接続を二つの実行が同時にリフレッシュしたときは、遅れた側が先に保存されたトークンを読み直して使う。
+
+組織の多くは、社員が自分でアプリに同意することを止めている。その場合サインインは Microsoft に断られ、アプリに `integration_oauth=admin_consent` で戻って「組織の管理者の承認が必要」と示す。owner は `POST /integration-oauth/admin-consent { integrationId }` で得た承認のリンクを管理者に送り、管理者が承認したあとでもう一度サインインする。管理者の承認はサインインと同じコールバックに戻り、承認されたかを文で返すだけで、何も保存しない。
+
+Microsoft にはこの接続の許可を取り消す口がないので、切断は Clayware に保存したトークンを消すだけで、`/revoke` は `revoked: false` を返す。許可そのものは、組織の管理者が Entra 管理センターのエンタープライズ アプリケーションで外す。
+
 ### サインインの流れ（共通）
 
-サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` なら Google、`github` なら GitHub）で相手を決める。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
+サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` と `gmail` なら Google、`github` なら GitHub、`microsoft-365` なら Microsoft）で相手を決める。相手ごとの URL・スコープ・トークンの扱い・本人確認・取り消しは `supabase/functions/_shared/oauthProviders.ts` の表にある。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke`・`/admin-consent` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
 
 配置は順番を守る。アプリは `integrations.external_account` を読むので、先に migration `20261006090000_integration_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
 
@@ -132,7 +144,7 @@ env -u SUPABASE_ACCESS_TOKEN supabase functions deploy run-agent --project-ref r
 env -u SUPABASE_ACCESS_TOKEN supabase functions deploy code-changes --project-ref rkugtcqztkkacvoylupw --use-api
 ```
 
-Edge Function のシークレットに次を入れる。相手ごとのクライアントか `APP_ORIGIN` がない間、`GET /integration-oauth/status` はその相手を `false`（`{ "google": false, "github": false }`）で返し、画面は「… サインインはまだ設定されていません」と示して接続を押せなくする。
+Edge Function のシークレットに次を入れる。相手ごとのクライアントか `APP_ORIGIN` がない間、`GET /integration-oauth/status` はその相手を `false`（`{ "google": false, "github": false, "microsoft": false }`）で返し、画面は「… サインインはまだ設定されていません」と示して接続を押せなくする。
 
 | シークレット | 内容 |
 | --- | --- |
@@ -140,6 +152,8 @@ Edge Function のシークレットに次を入れる。相手ごとのクライ
 | `GOOGLE_OAUTH_CLIENT_SECRET` | 同じクライアントのシークレット |
 | `GITHUB_OAUTH_CLIENT_ID` | GitHub の OAuth App の Client ID |
 | `GITHUB_OAUTH_CLIENT_SECRET` | 同じ OAuth App の Client secret |
+| `MICROSOFT_OAUTH_CLIENT_ID` | Entra ID のアプリの登録の「アプリケーション (クライアント) ID」 |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | 同じアプリの登録のクライアント シークレットの値。期限（最長 24 か月）が来る前に作り直して入れ替える |
 | `APP_ORIGIN` | サインイン後に戻るアプリの origin（例 `https://clayware.example.com`）。パスは付けない。保存を確定する `/finish` はこのアプリから呼ばれるので、ない間はサインインを完了できない（コールバックは何も保存せず「APP_ORIGIN を設定してください」と返す） |
 
-Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に `https://www.googleapis.com/auth/drive.file` を加える。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。
+Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に `https://www.googleapis.com/auth/drive.file` を加える。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。Microsoft は Entra 管理センターの「アプリの登録」で新規に登録し、サポートされるアカウントの種類を「任意の組織ディレクトリ内のアカウント（マルチテナント）」にして、プラットフォーム「Web」のリダイレクト URI に同じ URL を入れる（管理者の承認もここに戻る）。API のアクセス許可には Microsoft Graph の委任されたアクセス許可 `openid` `profile` `offline_access` `User.Read` を加える。他の組織の人が自分で同意できるようにするには、発行元の確認（Microsoft AI Cloud Partner Program の ID とドメインの確認）を済ませておく。確認のないアプリは、管理者の承認がなければ多くの組織で使えない。

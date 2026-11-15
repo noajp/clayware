@@ -81,6 +81,11 @@ export const INTEGRATION_PRESETS: readonly IntegrationPreset[] = [
     credentialLabel: 'GitHub account', category: 'development', source: 'official', builtBy: 'GitHub', featured: false, custom: false,
   },
   {
+    id: 'microsoft-365', name: 'Microsoft 365', icon: '/integrations/microsoft.svg', kind: 'http', endpoint: 'https://graph.microsoft.com/v1.0', auth: 'oauth',
+    description: 'Connect a Microsoft 365 work or school account through Microsoft Graph. Your organization’s administrator may need to approve Clayware first.',
+    credentialLabel: 'Microsoft work or school account', category: 'communication', source: 'official', builtBy: 'Microsoft', featured: false, custom: false,
+  },
+  {
     id: 'slack', name: 'Slack', icon: '/integrations/slack.svg', kind: 'http', endpoint: 'https://slack.com/api', auth: 'bearer',
     description: 'Read channels and post messages through the Slack Web API.',
     credentialLabel: 'Bot token (xoxb-)', category: 'communication', source: 'official', builtBy: 'Slack', featured: false, custom: false,
@@ -148,16 +153,28 @@ export function signsInWithOAuth(preset: IntegrationPreset): boolean {
   return !preset.custom && preset.auth === 'oauth';
 }
 
-export type OAuthProvider = 'google' | 'github';
+export type OAuthProvider = 'google' | 'github' | 'microsoft';
+
+/** The provider's proper name, for "Sign in with {provider}". */
+export const OAUTH_PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', github: 'GitHub', microsoft: 'Microsoft' };
+
+export const OAUTH_PROVIDERS = Object.keys(OAUTH_PROVIDER_NAMES) as OAuthProvider[];
+
+/** Whom each sign-in preset signs in with — the web side of the server's
+ *  provider registry (supabase/functions/_shared/oauthProviders.ts), which
+ *  web code cannot import; a test keeps the two in step. */
+const OAUTH_PRESET_PROVIDERS: Readonly<Record<string, OAuthProvider>> = {
+  'google-drive': 'google',
+  gmail: 'google',
+  github: 'github',
+  'microsoft-365': 'microsoft',
+};
 
 /** Whom a sign-in preset signs in with; null for one that takes a credential. */
 export function oauthProviderOf(preset: IntegrationPreset): OAuthProvider | null {
   if (!signsInWithOAuth(preset)) return null;
-  return preset.id === 'github' ? 'github' : 'google';
+  return OAUTH_PRESET_PROVIDERS[preset.id] ?? 'google';
 }
-
-/** The provider's proper name, for "Sign in with {provider}". */
-export const OAUTH_PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', github: 'GitHub' };
 
 // ── Connection method ──────────────────────────────────────────────────────
 //

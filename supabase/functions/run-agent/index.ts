@@ -1050,9 +1050,10 @@ async function execute(a: ExecArgs): Promise<void> {
         continue;
       }
       // OAuth is a sign-in this engine can complete (oauthRowOpens, shared
-      // with the chat assembly): Google's — Drive's typed rows and any
-      // Google profile's manifest rows, Gmail's included — or GitHub's.
-      // Any other OAuth row has no way to authenticate and stays closed.
+      // with the chat assembly): a row a provider's profile claims in the
+      // registry — Google's (Drive's typed rows, Gmail's manifest rows),
+      // GitHub's, Microsoft's. Any other OAuth row has no way to
+      // authenticate and stays closed.
       if (!oauthRowOpens(row)) continue;
       const prefix = integrationPrefix(row.name, row.id);
       const fingerprint = await planFingerprint(row);

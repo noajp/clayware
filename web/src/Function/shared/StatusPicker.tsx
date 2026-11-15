@@ -10,6 +10,7 @@ import type { ElementWithDetails } from '@/hooks/useSupabase';
 import type { ElementStatus } from '@/types/database';
 import { cn } from '@/lib/utils';
 import { stepProgress } from '@/Function/shared/progressStep';
+import { progressForStatus } from '@/Function/shared/statusProgress';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { notifyError } from '@/Function/shared/toastStore';
 
@@ -66,13 +67,13 @@ export function StatusPicker({ element, size = 16, progress: progressOverride, t
 
   const applyStatus = async (newStatus: ElementStatus) => {
     // Picking In Progress while progress is already 100% is effectively
-    // Done — snap to Done so the mark and status stay aligned.
+    // Done — snap to Done so the mark and status stay aligned. Taken back
+    // out of Done, it picks up at 75 instead.
     const resolved: ElementStatus =
-      newStatus === 'in_progress' && (element.progress ?? 0) >= 100 ? 'done' : newStatus;
+      newStatus === 'in_progress' && element.status !== 'done' && (element.progress ?? 0) >= 100 ? 'done' : newStatus;
     const updates: { status: ElementStatus; progress?: number | null } = { status: resolved };
-    // Auto-normalise progress at the endpoints so the mark stays in sync.
-    if (resolved === 'done') updates.progress = 100;
-    else if (resolved === 'backlog' || resolved === 'todo') updates.progress = null;
+    const progress = progressForStatus(element.status, resolved);
+    if (progress !== undefined) updates.progress = progress;
     try {
       await updateElement(element.id, updates);
       lastCommitted.current = null;
@@ -121,7 +122,12 @@ export function StatusPicker({ element, size = 16, progress: progressOverride, t
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(next) => {
+      // Opening reads the Element as it is now (Done reads 100); it is
+      // picking In Progress that moves a Done one to 75.
+      if (next) setProgressDraft(String(triggerProgress));
+      setOpen(next);
+    }}>
       <PopoverTrigger asChild>
         {trigger ?? (
           <button

@@ -203,7 +203,7 @@ export function TeamSettings({ domainId }: TeamSettingsProps = {}) {
     () => catalogGroups(
       INTEGRATION_PRESETS.filter((p) => p.kind === 'model'),
       installedPresetIds(spaceIntegrations),
-      { google: null, github: null },
+      { google: null, github: null, microsoft: null },
     ).flatMap((g) => g.cards),
     [spaceIntegrations],
   );

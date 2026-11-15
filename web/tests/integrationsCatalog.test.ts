@@ -70,6 +70,7 @@ describe('connectionMethodOf', () => {
     'google-drive': 'sign-in',
     gmail: 'sign-in',
     github: 'sign-in',
+    'microsoft-365': 'sign-in',
     slack: 'token',
     deepseek: 'token',
     kimi: 'token',
@@ -85,14 +86,14 @@ describe('connectionMethodOf', () => {
 });
 
 describe('catalogGroups', () => {
-  const CONFIGURED: Record<OAuthProvider, boolean | null> = { google: true, github: true };
+  const CONFIGURED: Record<OAuthProvider, boolean | null> = { google: true, github: true, microsoft: true };
   const NONE_INSTALLED: ReadonlySet<string> = new Set();
   const ids = (groups: ReturnType<typeof catalogGroups>) =>
     groups.map((g) => ({ method: g.method, ids: g.cards.map((c) => c.preset.id), states: g.cards.map((c) => c.state) }));
 
   it('groups the whole catalog by method, in order, all ready', () => {
     expect(ids(catalogGroups(INTEGRATION_PRESETS, NONE_INSTALLED, CONFIGURED))).toEqual([
-      { method: 'sign-in', ids: ['google-drive', 'gmail', 'github'], states: ['ready', 'ready', 'ready'] },
+      { method: 'sign-in', ids: ['google-drive', 'gmail', 'github', 'microsoft-365'], states: ['ready', 'ready', 'ready', 'ready'] },
       { method: 'token', ids: ['linear', 'asana', 'slack', 'deepseek', 'kimi'], states: ['ready', 'ready', 'ready', 'ready', 'ready'] },
       { method: 'custom', ids: ['custom-mcp', 'custom-http', 'custom-model'], states: ['ready', 'ready', 'ready'] },
     ]);
@@ -101,31 +102,32 @@ describe('catalogGroups', () => {
   it('fed only the business presets, yields exactly the design groups', () => {
     const business = INTEGRATION_PRESETS.filter((p) => p.kind !== 'model');
     expect(ids(catalogGroups(business, NONE_INSTALLED, CONFIGURED))).toEqual([
-      { method: 'sign-in', ids: ['google-drive', 'gmail', 'github'], states: ['ready', 'ready', 'ready'] },
+      { method: 'sign-in', ids: ['google-drive', 'gmail', 'github', 'microsoft-365'], states: ['ready', 'ready', 'ready', 'ready'] },
       { method: 'token', ids: ['linear', 'asana', 'slack'], states: ['ready', 'ready', 'ready'] },
       { method: 'custom', ids: ['custom-mcp', 'custom-http'], states: ['ready', 'ready'] },
     ]);
   });
 
   it('a provider the server has not configured makes its cards setup-needed, per provider', () => {
-    const groups = catalogGroups(INTEGRATION_PRESETS, NONE_INSTALLED, { google: false, github: true });
+    const groups = catalogGroups(INTEGRATION_PRESETS, NONE_INSTALLED, { google: false, github: true, microsoft: false });
     const signIn = groups.find((g) => g.method === 'sign-in')!;
     expect(signIn.cards.map((c) => [c.preset.id, c.state])).toEqual([
       ['google-drive', 'setup-needed'],
       ['gmail', 'setup-needed'],
       ['github', 'ready'],
+      ['microsoft-365', 'setup-needed'],
     ]);
   });
 
   it('a provider still loading (null) reads as ready', () => {
-    const groups = catalogGroups(INTEGRATION_PRESETS, NONE_INSTALLED, { google: null, github: null });
+    const groups = catalogGroups(INTEGRATION_PRESETS, NONE_INSTALLED, { google: null, github: null, microsoft: null });
     for (const g of groups) for (const c of g.cards) expect(c.state).toBe('ready');
   });
 
   it('excludes installed presets and omits a group they empty', () => {
     const installed = new Set(['google-drive', 'linear', 'asana', 'slack', 'deepseek', 'kimi']);
     expect(ids(catalogGroups(INTEGRATION_PRESETS, installed, CONFIGURED))).toEqual([
-      { method: 'sign-in', ids: ['gmail', 'github'], states: ['ready', 'ready'] },
+      { method: 'sign-in', ids: ['gmail', 'github', 'microsoft-365'], states: ['ready', 'ready', 'ready'] },
       { method: 'custom', ids: ['custom-mcp', 'custom-http', 'custom-model'], states: ['ready', 'ready', 'ready'] },
     ]);
   });

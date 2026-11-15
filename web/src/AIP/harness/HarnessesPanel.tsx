@@ -194,10 +194,12 @@ export function HarnessesPanel() {
     if (!stored || stored.spaceId !== spaceId) return;
     const def = library.data.find((d) => d.id === stored.definitionId);
     if (!def) return;
-    if (oauthOutcome.status === 'error') {
+    if (oauthOutcome.status === 'error' || oauthOutcome.status === 'admin_consent') {
       setSession({
         definitionId: def.id, catalogId: stored.catalogId, phase: 'incomplete', totalMissing: 1, attempted: [],
-        note: t('Sign-in did not finish, so nothing was connected. Try again.'),
+        note: oauthOutcome.status === 'admin_consent'
+          ? t('Your organization requires an administrator to approve Clayware before this can be connected. Settings › Connectors has the approval link.')
+          : t('Sign-in did not finish, so nothing was connected. Try again.'),
       });
       return;
     }
