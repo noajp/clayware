@@ -1,16 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { historyLine, readStatusChange } from '@/Function/shared/historyLine';
+import { historyLine, readableDetail, readStatusChange } from '@/Function/shared/historyLine';
 
-const e = (id: string, kind: string) => ({ id, kind });
+const e = (id: string, kind: string, detail = '') => ({ id, kind, detail });
+const shape = (items: ReturnType<typeof historyLine<ReturnType<typeof e>>>) =>
+  items.map((i) => i.type === 'edits' ? `edits:${i.entries.map((x) => x.id).join('')}` : `${i.entry.id}${i.small ? 's' : ''}`);
 
 describe('historyLine', () => {
-  it('folds a run of small edits and keeps a lone one as a point', () => {
-    const items = historyLine([e('1', 'status'), e('2', 'renamed'), e('3', 'due'), e('4', 'assigned'), e('5', 'description'), e('6', 'created')]);
-    expect(items.map((i) => i.type === 'edits' ? `edits:${i.entries.length}` : `${i.entry.id}${i.small ? 's' : ''}`))
-      .toEqual(['1', 'edits:2', '4', '5s', '6']);
+  it('keeps what moves the work on the line and folds the details between', () => {
+    expect(shape(historyLine([e('1', 'status'), e('2', 'renamed'), e('3', 'assigned'), e('4', 'moved'), e('5', 'description'), e('6', 'created')])))
+      .toEqual(['1', 'edits:23', '4', '5s', '6']);
+  });
+  it('shows only where a field set again and again ended', () => {
+    expect(shape(historyLine([
+      e('1', 'status'), e('2', 'due', 'Due date → 2026-11-18'), e('3', 'due', 'Due date → 2026-11-15'),
+      e('4', 'due', 'Start date → 2026-11-14'), e('5', 'assigned'), e('6', 'assigned'), e('7', 'created'),
+    ]))).toEqual(['1', 'edits:2456', '7']);
   });
   it('folds a run at the very end', () => {
     expect(historyLine([e('1', 'due'), e('2', 'priority')])).toEqual([{ type: 'edits', id: 'edits:1', entries: [e('1', 'due'), e('2', 'priority')] }]);
+  });
+});
+
+describe('readableDetail', () => {
+  it('drops the midnight after a date', () => {
+    expect(readableDetail('Start date → 2026-11-14 00:00:00+00')).toBe('Start date → 2026-11-14');
   });
 });
 

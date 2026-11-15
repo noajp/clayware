@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { ChevronRight } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { formatAge } from '@/Function/shared/dateUtils';
-import { historyLine, readStatusChange } from '@/Function/shared/historyLine';
+import { historyLine, readStatusChange, readableDetail } from '@/Function/shared/historyLine';
 import { statusLabel } from '@/shared/designTokens';
 
 // An Element's Activity as one line in the key blue, drawn as a git graph is:
 // each change a point on it, the newest a ring (how the Element is now), and
-// small rewrites in a row folded into one numbered point that opens.
+// the details between (dates, people, wording) folded into one numbered
+// point that opens.
 
 interface Entry { id: string; kind: string; detail: string; author: string; createdAt: Date }
 
@@ -55,7 +56,7 @@ export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; c
   const metaCls = compact ? 'text-[11px] text-muted-foreground' : 'text-[11.5px] text-muted-foreground';
   const say = (e: Entry) => {
     const change = e.kind === 'status' ? readStatusChange(e.detail) : null;
-    return change ? `${change[0] === '—' ? '—' : statusLabel(change[0])} → ${statusLabel(change[1])}` : e.detail;
+    return change ? `${change[0] === '—' ? '—' : statusLabel(change[0])} → ${statusLabel(change[1])}` : readableDetail(e.detail);
   };
   const line = historyLine(entries);
   const points: React.ReactNode[] = [];
@@ -84,7 +85,7 @@ export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; c
         <button type="button" onClick={toggle} aria-expanded={isOpen}
           className={`-ml-1 flex items-center gap-1 rounded-md px-1 text-left text-muted-foreground hover:bg-muted/40 hover:text-foreground ${textCls}`}>
           <ChevronRight size={12} className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-          {t('Small edits · {n}', { n: item.entries.length })}
+          {t('Small changes · {n}', { n: item.entries.length })}
         </button>
         <p className={metaCls}>
           {formatAge(newest.createdAt, true) === formatAge(oldest.createdAt, true)

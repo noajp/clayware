@@ -170,7 +170,7 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   'Pinned': ['ピン留め済み', '고정됨', 'Épinglé', 'Fijado'],
   'Pin': ['ピン留め', '고정', 'Épingler', 'Fijar'],
   'Unpin': ['ピン留めを解除', '고정 해제', 'Désépingler', 'Desfijar'],
-  'Small edits · {n}': ['細かい書き換え {n} 件', '작은 수정 {n}건', '{n} petites modifications', '{n} cambios pequeños'],
+  'Small changes · {n}': ['細かい変更 {n} 件', '작은 변경 {n}건', '{n} petits changements', '{n} cambios pequeños'],
   'No activity yet': ['アクティビティはまだありません', '아직 활동이 없습니다', 'Aucune activité pour l’instant', 'Aún no hay actividad'],
   'Activity · {n}': ['アクティビティ · {n}', '활동 · {n}', 'Activité · {n}', 'Actividad · {n}'],
   'Created “{title}”': ['「{title}」を作成', '“{title}” 생성', 'A créé « {title} »', 'Creó «{title}»'],
