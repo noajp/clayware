@@ -1,5 +1,38 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "mcp__Clayware__getClaywareGuide",
+      "mcp__Clayware__findByText",
+      "mcp__Clayware__getElement",
+      "mcp__Clayware__listElements",
+      "mcp__Clayware__listDependencies",
+      "mcp__Clayware__listObjects",
+      "mcp__Clayware__listMyDomains",
+      "mcp__Clayware__listWorkers",
+      "mcp__Clayware__listInitiatives",
+      "mcp__Clayware__getInitiative",
+      "mcp__Clayware__getInitiativeExecution",
+      "mcp__Clayware__getProgress",
+      "mcp__Clayware__getRecentActivity",
+      "mcp__Clayware__listHarnesses",
+      "mcp__Clayware__readHarness",
+      "mcp__Clayware__listFiles",
+      "mcp__Clayware__searchFiles",
+      "mcp__Clayware__readFile",
+      "mcp__Clayware__recall_memory",
+      "mcp__Clayware__claimElement",
+      "mcp__Clayware__releaseElement",
+      "mcp__Clayware__logProgress",
+      "mcp__Clayware__reportOutcome",
+      "mcp__Clayware__addElementComment",
+      "mcp__Clayware__updateElement",
+      "mcp__Clayware__createElement",
+      "mcp__Clayware__createSubelement",
+      "mcp__Clayware__updateSubelement",
+      "mcp__Clayware__toggleSubelementComplete"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
