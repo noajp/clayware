@@ -33,27 +33,30 @@ export function GeneratedAppWidget({ host, instanceId, params }: WidgetProps) {
   // the start has done its work and is not applied again.
   const started = useRef(false);
   const start = canvasStart(params?.start);
-  const applyTemplate = store.useTemplate;
-  const saveState = store.saveState;
+  // The store hands out new functions on every render; the start reads the
+  // latest through a ref so a render is not a reason to run it again.
+  const actions = useRef({ applyTemplate: store.useTemplate, saveState: store.saveState });
+  useEffect(() => { actions.current = { applyTemplate: store.useTemplate, saveState: store.saveState }; });
   useEffect(() => {
     if (store.loading || store.error || host.readOnly || started.current || !start) return;
     if (app?.current_app || app?.draft_app) { started.current = true; return; }
     const tpl = CANVAS_TEMPLATES.find((x) => x.id === start.template);
     if (!tpl) return;
+    // Tried once. A failure is shown, not retried by itself: the request box
+    // and the templates below stay there to start it by hand.
     started.current = true;
     void (async () => {
       setBusy(true);
       try {
-        await applyTemplate(tpl.source);
-        if (start.state) await saveState(start.state, {});
+        await actions.current.applyTemplate(tpl.source);
+        if (start.state) await actions.current.saveState(start.state, {});
       } catch (e) {
-        started.current = false;
         setError(e instanceof Error ? e.message : t('Could not save the app.'));
       } finally {
         setBusy(false);
       }
     })();
-  }, [store.loading, store.error, host.readOnly, start, app?.current_app, app?.draft_app, applyTemplate, saveState, t]);
+  }, [store.loading, store.error, host.readOnly, start, app?.current_app, app?.draft_app, t]);
   const [skillsOpen, setSkillsOpen] = useState(false);
   useWidgetMeta(app?.draft_app?.title ?? app?.current_app?.title ?? null);
   useEffect(() => {
