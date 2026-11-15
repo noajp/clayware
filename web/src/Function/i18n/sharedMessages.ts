@@ -110,6 +110,7 @@ const SHARED_MESSAGES: Record<string, Row> = {
   'Move right': ['右へ移動', '오른쪽으로 이동', 'Déplacer à droite', 'Mover a la derecha'],
   'Hide column': ['列を隠す', '열 숨기기', 'Masquer la colonne', 'Ocultar columna'],
   'Resize column': ['列幅を変更', '열 너비 조정', 'Redimensionner la colonne', 'Cambiar ancho de columna'],
+  'Drag to resize. Double-click to fit.': ['ドラッグで幅を変更、ダブルクリックで中身に合わせる', '드래그하여 너비 조정, 더블클릭하여 내용에 맞춤', 'Glissez pour redimensionner. Double-cliquez pour ajuster.', 'Arrastra para cambiar el ancho. Doble clic para ajustar.'],
   'Range': ['期間', '기간', 'Période', 'Rango'],
   'Pick the start, then the due date': ['開始日、次に期日を選びます', '시작일, 그다음 마감일을 고르세요', 'Choisissez le début, puis l’échéance', 'Elige el inicio y luego la fecha límite'],
 

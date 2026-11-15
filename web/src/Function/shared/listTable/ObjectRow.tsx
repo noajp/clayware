@@ -32,12 +32,14 @@ interface ObjectRowProps {
   onObjectUpdate?: (objectId: string, updates: { type?: string | null; due_date?: string | null; lead_id?: string | null }) => void | Promise<void>;
   objectWorkers: Worker[];
   onObjectCustomColumnValueChange?: (columnId: string, objectId: string, value: Json) => void | Promise<void>;
+  /** The row's place among all the list's rows, when only some are drawn. */
+  ariaRowIndex?: number;
 }
 
 export const ObjectRow = memo(function ObjectRow({
   obj, isSelected, hasSelectionRef, visibleColumns, hasTrailingCol,
   elementTypes, canRowSelect, onAddType, onRemoveType, dropEdge, selPrev, selNext, onSelectObject, onRowSelect,
-  onObjectUpdate, objectWorkers, onObjectCustomColumnValueChange,
+  onObjectUpdate, objectWorkers, onObjectCustomColumnValueChange, ariaRowIndex,
 }: ObjectRowProps) {
   const dragId = OBJECT_DRAG_PREFIX + obj.id;
   // No sortable transform — rows stay static; the DragOverlay card and blue
@@ -59,6 +61,9 @@ export const ObjectRow = memo(function ObjectRow({
   return (
     <tr
       ref={setNodeRef}
+      data-row
+      data-row-id={obj.id}
+      aria-rowindex={ariaRowIndex}
       style={dragStyle}
       {...attributes}
       // A table row stays a row to assistive tech: dnd-kit gives it

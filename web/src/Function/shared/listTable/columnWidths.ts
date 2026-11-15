@@ -1,34 +1,77 @@
 // How wide each column of a list is, and how the table is laid out.
 //
-// Every column holds one kind of value, and the kind decides its width: a
-// date is a few characters, a person a face and a name, a set of chips more.
-// Each kind has a least width (below it the value cannot be read), a usual
-// one (what a new column opens at) and a most (past it the column is only
-// air). Dragging a column's edge moves within those.
+// Every column holds one kind of value, and the kind decides how wide it
+// may be made: a date a little, a set of chips or a text much more.
+// Every column opens at the same width (PITCH), so the headings stand
+// evenly along the header, close together; a value longer than that ends
+// in "…" (the whole of it is in the cell's menu or the Element). That
+// width is also the least a column can be. Its edge can be dragged wider,
+// up to its kind's most — past which it would only be air — and back; a
+// width set by hand is kept.
 //
-// The table is laid out left to right and stays anchored at its left edge:
-// the pinned mark, Name, then each column at its own width, the "+" and, if
-// the view is wider than all of that, an empty filler that takes the rest.
-// Nothing to the left of a column moves when it is resized; the columns to
-// its right shift, and the filler (or the horizontal scroll) takes up the
-// change. Until Name has been sized it fills what the columns leave of the
-// view, within its own bounds.
+// The table is laid out from the left: the pinned mark, Name, each column
+// at its own width, then the "+". Every boundary belongs to the column on
+// its left and is dragged like any other: left narrows that column, right
+// widens it, the boundary stays under the pointer and everything after it
+// moves along.
+//
+// The columns are packed to the right: Name takes whatever room they leave,
+// so a wide pane gives its room to the titles. While a column is being
+// dragged Name holds still (the boundary must follow the pointer); when
+// the drag ends it takes up the difference again. Name can be dragged
+// wider than that, to read long titles, up to its most: the table is then
+// wider than the view and scrolls sideways, the title pinned and the
+// columns sliding under its edge, the leftmost first. It cannot be made
+// narrower than the room the columns leave — that room is always its own.
 
-export interface WidthSpec { min: number; base: number; max: number }
+export interface WidthSpec {
+  min: number;
+  base: number;
+  max: number;
+  /** 'end' sets the header and the values flush right: figures are compared
+   *  digit against digit. Everything else reads from the left. */
+  align?: 'end';
+  /** false when what the column holds fills whatever width it is given (a
+   *  bar): there is nothing to fit it to, so it keeps its usual width. */
+  fits?: false;
+}
 
-const DATE: WidthSpec = { min: 80, base: 104, max: 160 };
-const PERSON: WidthSpec = { min: 96, base: 136, max: 240 };
-const CHIPS: WidthSpec = { min: 96, base: 160, max: 320 };
-const CHOICE: WidthSpec = { min: 80, base: 112, max: 220 };
-const TEXT: WidthSpec = { min: 96, base: 160, max: 400 };
-const NUMBER: WidthSpec = { min: 64, base: 88, max: 160 };
-const CHECK: WidthSpec = { min: 56, base: 72, max: 104 };
-const BAR: WidthSpec = { min: 96, base: 128, max: 240 };
-const SIGNAL: WidthSpec = { min: 72, base: 96, max: 160 };
-const COUNT: WidthSpec = { min: 64, base: 80, max: 120 };
+/** What the widths depend on besides the kind of value. */
+export interface WidthEnv {
+  /** The viewer's language: a date is "Nov 24" in one and "11月24日" in another. */
+  locale?: string;
+  /** Compact rows set their text smaller, so every column needs less. */
+  compact?: boolean;
+}
 
-/** Name: the title, and the row's signals beside it. */
-export const NAME_SPEC: WidthSpec = { min: 240, base: 440, max: 1200 };
+/** The width every column opens at, and the least it can be: one pitch for
+ *  all of them, so their headings stand evenly along the header. */
+const PITCH = 104;
+
+const DATE: WidthSpec = { min: PITCH, base: PITCH, max: 160 };
+/** A short date in the languages that write it with 月/日 or 월/일 marks, or
+ *  with the month spelled after the day, runs wider than "Nov 24". */
+const DATE_WIDE: WidthSpec = { min: PITCH, base: PITCH, max: 168 };
+const PERSON: WidthSpec = { min: PITCH, base: PITCH, max: 240 };
+const CHIPS: WidthSpec = { min: PITCH, base: PITCH, max: 320 };
+const CHOICE: WidthSpec = { min: PITCH, base: PITCH, max: 220 };
+const TEXT: WidthSpec = { min: PITCH, base: PITCH, max: 400 };
+const NUMBER: WidthSpec = { min: PITCH, base: PITCH, max: 160, align: 'end' };
+const CHECK: WidthSpec = { min: PITCH, base: PITCH, max: 104 };
+const BAR: WidthSpec = { min: PITCH, base: PITCH, max: 240, fits: false };
+const SIGNAL: WidthSpec = { min: PITCH, base: PITCH, max: 160 };
+const COUNT: WidthSpec = { min: PITCH, base: PITCH, max: 120, align: 'end' };
+
+/** The least of the title that always shows. The title is pinned: when the
+ *  columns need more room than the view has, they scroll and slide under
+ *  it at this edge, the leftmost first, and the title itself never gets
+ *  narrower than this. */
+export const TITLE_MIN = 320;
+
+/** Name: the title, and the row's signals (comments, labels) beside it. Its
+ *  least leaves the title its own least and a little for the signals; its
+ *  most is as far as it can be dragged to read long titles. */
+export const NAME_SPEC: WidthSpec = { min: TITLE_MIN + 80, base: 440, max: 800 };
 
 const BUILTIN: Record<string, WidthSpec> = {
   due_date: DATE,
@@ -53,6 +96,8 @@ const BY_FIELD_TYPE: Record<string, WidthSpec> = {
   select: CHOICE,
   status: CHOICE,
   number: NUMBER,
+  budget: NUMBER,
+  progress: BAR,
   checkbox: CHECK,
   text: TEXT,
   url: TEXT,
@@ -60,10 +105,17 @@ const BY_FIELD_TYPE: Record<string, WidthSpec> = {
   phone: CHOICE,
 };
 
-/** Pure. The width bounds of a column, by the kind of value it holds. */
-export function widthSpec(column: { id: string; custom?: { column_type?: string | null } | null }): WidthSpec {
-  if (column.custom) return BY_FIELD_TYPE[column.custom.column_type ?? ''] ?? TEXT;
-  return BUILTIN[column.id] ?? CHOICE;
+/** How much of a comfortable row's width a compact one needs. */
+const COMPACT = 0.9;
+
+/** Pure. The width bounds of a column: by the kind of value it holds, the
+ *  language its dates are written in, and how tight the rows are set. */
+export function widthSpec(column: { id: string; custom?: { column_type?: string | null } | null }, env: WidthEnv = {}): WidthSpec {
+  let spec = column.custom ? BY_FIELD_TYPE[column.custom.column_type ?? ''] ?? TEXT : BUILTIN[column.id] ?? CHOICE;
+  if (spec === DATE && env.locale && !env.locale.startsWith('en')) spec = DATE_WIDE;
+  if (!env.compact) return spec;
+  // The most stays: it is a limit on air, not on what the text needs.
+  return { ...spec, min: Math.round(spec.min * COMPACT), base: Math.round(spec.base * COMPACT) };
 }
 
 /** Pure. A width held to its bounds. */
@@ -71,12 +123,16 @@ export function clampWidth(width: number, spec: WidthSpec): number {
   return Math.max(spec.min, Math.min(spec.max, Math.round(width)));
 }
 
-/** Pure. The table's tracks for a view `view` px wide: Name's width (its set
- *  one, or until set, what the columns leave of the view, within its
- *  bounds), the filler after the last column, and the table's whole width.
- *  `fixed` is the pinned mark plus the "+"; `columns` the data columns' sum. */
-export function tableLayout({ view, fixed, columns, name }: { view: number; fixed: number; columns: number; name: number | null }): { name: number; filler: number; width: number } {
-  const n = name ?? clampWidth(view > 0 ? view - fixed - columns : NAME_SPEC.base, NAME_SPEC);
+/** Pure. The table's tracks for a view `view` px wide. Name takes whatever
+ *  the columns leave of it, so they sit at the right edge — or the width
+ *  set on it by hand (`name`) when that is more, in which case the table
+ *  is wider than the view and scrolls. `fixed` is the pinned mark plus the
+ *  "+"; `columns` the data columns' sum. `held` is for the moment a column
+ *  is being dragged: Name stays exactly that wide, and the room left over
+ *  is an empty filler after the last column, so the dragged edge stays
+ *  under the pointer. */
+export function tableLayout({ view, fixed, columns, name, held }: { view: number; fixed: number; columns: number; name: number | null; held?: number }): { name: number; filler: number; width: number } {
+  const n = held ?? Math.max(name ?? NAME_SPEC.min, view - fixed - columns);
   const packed = fixed + n + columns;
   const filler = Math.max(0, view - packed);
   return { name: n, filler, width: packed + filler };

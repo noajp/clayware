@@ -6424,6 +6424,7 @@ export type Database = {
           display_names: string
           first_day_of_week: string
           home_view: string
+          list_layouts: Json
           send_comment_shortcut: string
           timeline_months_ahead: number
           timeline_months_back: number
@@ -6439,6 +6440,7 @@ export type Database = {
           display_names?: string
           first_day_of_week?: string
           home_view?: string
+          list_layouts?: Json
           send_comment_shortcut?: string
           timeline_months_ahead?: number
           timeline_months_back?: number
@@ -6454,6 +6456,7 @@ export type Database = {
           display_names?: string
           first_day_of_week?: string
           home_view?: string
+          list_layouts?: Json
           send_comment_shortcut?: string
           timeline_months_ahead?: number
           timeline_months_back?: number
@@ -7759,6 +7762,10 @@ export type Database = {
       }
       set_integration_secret: {
         Args: { p_integration_id: string; p_secret: string }
+        Returns: undefined
+      }
+      set_list_layout: {
+        Args: { p_key: string; p_layout: Json }
         Returns: undefined
       }
       set_oauth_client_access: {
