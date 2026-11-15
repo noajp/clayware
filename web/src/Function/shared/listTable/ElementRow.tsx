@@ -74,6 +74,8 @@ interface ElementRowProps {
   /** Unfinished `depends_on` upstreams — undefined when the Element is ready,
    *  so the row shows nothing. */
   blockers?: DependencyBlocker[];
+  /** The row's place among all the list's rows, when only some are drawn. */
+  ariaRowIndex?: number;
 }
 
 export const ElementRow = memo(function ElementRow({
@@ -81,7 +83,7 @@ export const ElementRow = memo(function ElementRow({
   hasTrailingCol, canUpdate, canRowSelect, canAddType, onAddType,
   canRemoveType, onRemoveType, dropEdge, selPrev, selNext,
   onElementUpdate, onRefresh, onSelectElement, onRowSelect, onCustomColumnValueChange,
-  allCustomColumns, blockers,
+  allCustomColumns, blockers, ariaRowIndex,
 }: ElementRowProps) {
   const { t, locale } = useI18n();
   const labelsShown = rowLabels(el.labels);
@@ -134,6 +136,9 @@ export const ElementRow = memo(function ElementRow({
       <ContextMenuTrigger asChild>
     <tr
       ref={setNodeRef}
+      data-row
+      data-row-id={el.id}
+      aria-rowindex={ariaRowIndex}
       style={dragStyle}
       {...attributes}
       // A table row stays a row to assistive tech: dnd-kit gives it

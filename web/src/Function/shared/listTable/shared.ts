@@ -3,6 +3,7 @@
 import { parseDateOnly } from '@/Function/shared/dateUtils';
 import type { ClaywareObjectWithChildren, CustomColumnWithValues, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import type { SectionGroup } from '@/Function/shared/listControls/sectionGroup';
+import { TITLE_MIN } from './columnWidths';
 
 // Stable empty defaults — destructuring `= []` inline would allocate a NEW
 // array every render, which breaks ElementRow's React.memo (the prop ref
@@ -27,9 +28,9 @@ export function rowLabels(labels: readonly string[] | null | undefined, shown = 
 
 /** Pure. The width the rows' signals (comments, waits, labels) may take
  *  of Name as it is drawn: all they need, as long as the title keeps at
- *  least half of it and never less than 160px. */
+ *  least half of it and never less than its own least (TITLE_MIN). */
 export function signalsTrackWidth(measured: number, drawnName: number): number {
-  const titleFloor = Math.max(160, Math.round(drawnName / 2));
+  const titleFloor = Math.max(TITLE_MIN, Math.round(drawnName / 2));
   return Math.max(0, Math.min(measured, drawnName - titleFloor));
 }
 

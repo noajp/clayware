@@ -12,10 +12,10 @@ Clayware の AI（Athena）がアプリの AI パネルでできることを、�
 
 | 範囲 | 読み取り | 書き込み・削除 |
 |---|---|---|
-| Execution | listMyDomains / listObjects / getObject / listElements / getElement / findByText / getProgress / getRecentActivity / listWorkers / listDependencies | Element・Sub-element・Object の作成・更新・削除、移動、Object への結び付け、担当・ラベル・ラベルの色・コメント、依存の追加・削除、一括作成・一括更新・一括削除 |
+| Execution | getMe / search / listMyDomains / listObjects / getObject / listElements / getElement / listElementComments / getElementHistory / findByText / getProgress / getRecentActivity / listWorkers / listDependencies | Element・Sub-element・Object の作成・更新・削除、移動、Object への結び付け、担当・ラベル・ラベルの色・コメント、依存の追加・削除、一括作成・一括更新・一括削除 |
 | Strategy | listInitiatives / getInitiative / getInitiativeExecution | Strategy の作成・更新・削除、成功条件・前提・意思決定の追加・更新・取り下げ、ハーネスの定義を書く、campaignMeasure |
 | Table | tableData（list / get） | tableData（Table・列・行・セルの create / update / delete） |
-| ファイル・ハーネス | listFiles / searchFiles / readFile / listHarnesses / readHarness | writeFile / createHarness / updateHarness（保存の前にアプリと同じ検査を通し、エラーがあれば保存しない） |
+| Note・ファイル・ハーネス | listNotes / readNote / listFiles / searchFiles / readFile / listHarnesses / readHarness | writeFile / createHarness / updateHarness（保存の前にアプリと同じ検査を通し、エラーがあれば保存しない） |
 | 記憶・ボード | recall_memory / widgetBoard（list / get） | remember / note_pending_capability / widgetBoard（create / update / delete） |
 | 着手・報告 | | claimElement / releaseElement / logProgress / reportOutcome |
 
@@ -32,6 +32,14 @@ REST API（[api.md](api.md)）は、このうち日常の読み書き（`_shared
 Timeline に出る予定も、人が画面で組むのと同じように組める。Element の期間は `createElement`・`createElements`・`updateElement`・`bulkUpdateElements` の `start_date` / `due_date`、Object の期間・アイコン・色・type・Lead は `createObject`・`updateObject` の `start_date` / `due_date` / `icon` / `color` / `type` / `leadWorkerId` で書く。日付は `YYYY-MM-DD`（`null` で解除）で、始まりが終わりより後になる値は断る。アイコンと色はアプリが描ける形（`glyph:<Name>` / `lucide:<kebab-name>` / 絵文字、ラベルの色の名前か `#rrggbb`）だけを受け付ける。
 
 依存は「`waitingId` が `blockerId` を待つ」で、`addDependency` / `removeDependency` / `listDependencies` が Element どうし（`target: "element"`）と Object どうし（`target: "object"`）を扱う。つなぐ端は `kind`（`fs` 終わったら始める・既定 / `ss` / `ff` / `sf`）。輪になる依存は断り、同じ組がすでにあれば、`kind` を渡したときだけ合わせ、渡さなければそのままにする。`listDependencies` は待っている相手（`waitsFor`）と待たれている相手（`blocks`）を、日付が順番に反していれば `conflict` を付けて返す。Timeline が赤い線で描くのと同じ判定。ラベルの色は `setLabelColor` で Domain ごとに決める（決めた色を外すのは Settings から）。Object の Lead にできるのは、その Domain で担当にできる Worker だけ。
+
+## 読み方（画像・Resources・Prompts）
+
+- 一覧は続きを読める。`listElements` は `offset` と答えの `meta.nextOffset`（null なら終わり）、`listElementComments` と `getElementHistory` は答えの `nextOffset`。`listElements` は担当（`assigneeWorkerId`、`"me"` で本人）・ラベル・親（`parentId`、`"none"` で親なし）・更新日時（`updatedSince`）で絞れる。
+- `getElement` / `getObject` / `readNote` は、本文に置かれたファイル（画像を貼ると Artifacts のファイルとして置かれる）を `placedFiles` に並べる。`readFile` は画像（PNG / JPEG / GIF / WebP、3.75 MB まで）を MCP の `image` として返すので、クライアントがそのまま見られる。
+- 記録を読む道具の答えには、アプリでその記録を開く `url`（`APP_URL` の `/?element=` など）が付く。
+- Resources：`clayware://element/{id}`・`object`・`strategy`・`note`・`file` で記録を読める（`resources/read`。中身は対応する読み取りの道具と同じ）。`resources/list` は見られる Object を返す。Claude Code では `@` で指せる。
+- Prompts：`work-on-element`（Element を取って進め、結果を報告する）・`review-object`（Object の状況と次の一手）・`my-work`（自分の担当）。Claude Code ではスラッシュコマンドになる。書き込む `work-on-element` は読み取りのみの接続には出さない。
 
 ## Clayware の考え方を伝える
 
