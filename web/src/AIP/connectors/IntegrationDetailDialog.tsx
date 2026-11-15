@@ -800,7 +800,9 @@ function OwnOAuthFields(p: {
       )}
       {hosts.authorize && hosts.token && (
         <p className="text-[12px] text-muted-foreground">
-          {t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
+          {hosts.revoke
+            ? t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}. To revoke access, the client secret and the token are sent to {revoke}.', { host: hosts.authorize, token: hosts.token, revoke: hosts.revoke })
+            : t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
         </p>
       )}
       {!p.isNew && (

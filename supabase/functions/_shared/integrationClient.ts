@@ -501,7 +501,11 @@ export async function resolveCredential(
   if (!provider.refresh.rotates) return null;
   const { data: storedNow } = await admin.rpc("get_integration_secret", { p_integration_id: row.id });
   const current = provider.parse(storedNow);
-  return current?.expires_at !== undefined && !needsRefresh({ expires_at: current.expires_at }, now) ? current.access_token : null;
+  if (!current || current.expires_at === undefined || needsRefresh({ expires_at: current.expires_at }, now)) return null;
+  // The same binding rule as on the way in: a set stored for another
+  // binding is not this connection's.
+  if (isCustomProvider(provider) && current.binding !== await customOAuthBinding(row)) return null;
+  return current.access_token;
 }
 
 /**

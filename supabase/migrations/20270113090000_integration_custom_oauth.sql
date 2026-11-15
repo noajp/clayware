@@ -29,10 +29,19 @@
 --   integrations_drop_oauth_client_secret
 --                                        a deleted connection takes its client
 --                                        secret with it.
---   copy_integration_secret              a draft's staging clone also gets the
---                                        original's client secret.
+--   copy_integration_secret              a draft's staging clone gets the
+--                                        original's credential only for the same
+--                                        destination sent the same way, and its
+--                                        OAuth client secret only for the same
+--                                        client sent to the same places. An OAuth
+--                                        token set is never copied: the clone
+--                                        signs in on its own.
 --   activate_integration_draft           an OAuth draft's config is bound like
 --                                        the rest of its content (client aside).
+--   integration_drafts insert            a browser role inserts only the request
+--                                        (name, purpose, docs URL…): the candidate,
+--                                        its target and its evidence are the
+--                                        drafting driver's to write.
 --
 -- Guarded for preview replay: each part checks what it touches first.
 
@@ -171,38 +180,55 @@ begin
   execute 'create trigger trg_integrations_drop_oauth_client_secret after delete on public.integrations
              for each row execute function public.integrations_drop_oauth_client_secret()';
 
-  -- A draft's staging clone tests as the original would: with its token set
-  -- and, now, its OAuth client secret (both copied by the server only).
+  -- A draft's staging clone tests as the original would, but a secret
+  -- follows only to where the original sends it. The clone's endpoint and
+  -- OAuth config are the draft's, written by whatever the drafting read:
+  -- the original's key goes to the clone only when the clone's endpoint,
+  -- auth type and auth header are the original's, and its OAuth client
+  -- secret only when the token URL, revoke URL, client ID and client
+  -- authentication all are. An OAuth token set never goes: a refresh on
+  -- the clone would spend a rotating refresh token the original still
+  -- needs, so the clone signs in on its own (on the review screen).
   execute $ddl$
     create or replace function public.copy_integration_secret(p_from_id uuid, p_to_id uuid)
     returns boolean language plpgsql security definer set search_path = public, vault as $f$
     declare
-      v_from_space uuid;
-      v_from_secret uuid;
-      v_to_space uuid;
-      v_to_secret uuid;
+      v_from public.integrations%rowtype;
+      v_to public.integrations%rowtype;
       v_secret text;
       v_client text;
       v_new_id uuid;
     begin
-      select activity_space_id, secret_id into v_from_space, v_from_secret
-      from public.integrations where id = p_from_id;
-      select activity_space_id, secret_id into v_to_space, v_to_secret
-      from public.integrations where id = p_to_id;
-      if v_from_space is null or v_to_space is null or v_from_space <> v_to_space then
+      select * into v_from from public.integrations where id = p_from_id;
+      select * into v_to from public.integrations where id = p_to_id;
+      if v_from.id is null or v_to.id is null or v_from.activity_space_id <> v_to.activity_space_id then
         return false;
       end if;
-      select decrypted_secret into v_client from vault.decrypted_secrets
-      where name = 'integration-oauth-client:' || p_from_id::text;
-      if v_client is not null then
-        delete from vault.secrets where name = 'integration-oauth-client:' || p_to_id::text;
-        v_new_id := vault.create_secret(v_client, 'integration-oauth-client:' || p_to_id::text, 'Alcon integration OAuth client secret (draft staging copy)');
-        update public.integrations set oauth_client_secret_id = v_new_id, updated_at = now() where id = p_to_id;
+      if v_from.auth_type = 'oauth' and v_to.auth_type = 'oauth'
+         and v_from.oauth_config is not null and v_to.oauth_config is not null
+         and (v_from.oauth_config ->> 'client_id') is not null
+         and (v_from.oauth_config ->> 'token_url') is not distinct from (v_to.oauth_config ->> 'token_url')
+         and (v_from.oauth_config ->> 'revoke_url') is not distinct from (v_to.oauth_config ->> 'revoke_url')
+         and (v_from.oauth_config ->> 'client_id') is not distinct from (v_to.oauth_config ->> 'client_id')
+         and coalesce(v_from.oauth_config ->> 'token_auth', 'client_secret_post') = coalesce(v_to.oauth_config ->> 'token_auth', 'client_secret_post') then
+        select decrypted_secret into v_client from vault.decrypted_secrets
+        where name = 'integration-oauth-client:' || p_from_id::text;
+        if v_client is not null then
+          delete from vault.secrets where name = 'integration-oauth-client:' || p_to_id::text;
+          v_new_id := vault.create_secret(v_client, 'integration-oauth-client:' || p_to_id::text, 'Alcon integration OAuth client secret (draft staging copy)');
+          update public.integrations set oauth_client_secret_id = v_new_id, updated_at = now() where id = p_to_id;
+        end if;
       end if;
-      if v_from_secret is null then return false; end if;
-      select decrypted_secret into v_secret from vault.decrypted_secrets where id = v_from_secret;
+      if v_from.auth_type = 'oauth'
+         or v_from.endpoint is distinct from v_to.endpoint
+         or v_from.auth_type is distinct from v_to.auth_type
+         or v_from.auth_header is distinct from v_to.auth_header then
+        return false;
+      end if;
+      if v_from.secret_id is null then return false; end if;
+      select decrypted_secret into v_secret from vault.decrypted_secrets where id = v_from.secret_id;
       if v_secret is null then return false; end if;
-      if v_to_secret is not null then delete from vault.secrets where id = v_to_secret; end if;
+      if v_to.secret_id is not null then delete from vault.secrets where id = v_to.secret_id; end if;
       v_new_id := vault.create_secret(v_secret, 'integration:' || p_to_id::text, 'Alcon integration credential (draft staging copy)');
       update public.integrations set secret_id = v_new_id, updated_at = now() where id = p_to_id;
       return true;
@@ -239,6 +265,14 @@ begin
     return;
   end if;
   execute 'alter table public.integration_drafts add column if not exists oauth_config jsonb';
+
+  -- A browser role starts a draft with the request only (draftData's
+  -- createDraft): the candidate (endpoint, auth, OAuth config, manifest),
+  -- the connection it updates and its evidence are written by the drafting
+  -- driver with the service role, after its own checks. RLS still decides
+  -- who may insert at all (a member, as themselves, in drafting).
+  execute 'revoke insert on public.integration_drafts from authenticated, anon';
+  execute 'grant insert (activity_space_id, name, name_key, kind, status, request_context, created_by) on public.integration_drafts to authenticated';
 
   -- Activation binds an OAuth draft's config like the rest of what was
   -- tested: the draft, the tested payload and the staged row must agree on

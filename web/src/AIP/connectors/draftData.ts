@@ -16,7 +16,17 @@ const MAX_OPEN_DRAFTS_PER_SPACE = 10;
 const MAX_OPEN_DRAFTS_PER_REQUESTER = 5;
 
 const OPEN_STATUSES = ['drafting', 'awaiting_input', 'testing', 'awaiting_review'];
-const DRAFT_COLUMNS = 'id, activity_space_id, name, name_key, kind, status, request_context, endpoint, auth_type, auth_header, manifest, guide, test_inputs, sources, test_results, required_commands, dropped_commands, tested_hash, tested_structure_hash, tested_permission_hash, tested_content, materialized_integration_id, target_integration_id, activated_integration_id, draft_run_id, decided_by, decided_at, activated_hash, activated_structure_hash, activated_permission_hash, failure_class, awaiting_question, change_events, expires_at, created_by, created_at, updated_at';
+const DRAFT_COLUMNS = 'id, activity_space_id, name, name_key, kind, status, request_context, endpoint, auth_type, auth_header, oauth_config, manifest, guide, test_inputs, sources, test_results, required_commands, dropped_commands, tested_hash, tested_structure_hash, tested_permission_hash, tested_content, materialized_integration_id, target_integration_id, activated_integration_id, draft_run_id, decided_by, decided_at, activated_hash, activated_structure_hash, activated_permission_hash, failure_class, awaiting_question, change_events, expires_at, created_by, created_at, updated_at';
+
+/** The column names a select string lists. */
+type ColumnsOf<S extends string, Acc = never> = S extends `${infer Head}, ${infer Rest}` ? ColumnsOf<Rest, Acc | Head> : Acc | S;
+/** Every field of IntegrationDraft that DRAFT_COLUMNS does not select. The
+ *  reads below cast their rows to IntegrationDraft, so a field the type has
+ *  but the select lacks would read as undefined everywhere without a type
+ *  error; this makes it one. */
+type UnselectedDraftFields = Exclude<keyof IntegrationDraft, ColumnsOf<typeof DRAFT_COLUMNS>>;
+const everyDraftFieldSelected: [UnselectedDraftFields] extends [never] ? true : UnselectedDraftFields = true;
+void everyDraftFieldSelected;
 
 const draftsKey = (spaceId: string | null) => ['integration-drafts', spaceId] as const;
 

@@ -161,7 +161,7 @@ export function openDraftsForNames(
 // Two-level public suffixes this product's services commonly sit under.
 // A simplification, stated as one: registrableDomain is eTLD+1 for the
 // common cases, not a full public-suffix database.
-const TWO_LEVEL_SUFFIXES = new Set([
+export const TWO_LEVEL_SUFFIXES: ReadonlySet<string> = new Set([
   "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "ed.jp", "lg.jp",
   "co.uk", "org.uk", "ac.uk", "com.au", "net.au", "org.au", "co.nz",
   "com.br", "com.cn", "com.tw", "co.kr", "ne.kr", "com.mx", "co.in",
@@ -177,9 +177,34 @@ export function registrableDomain(host: string): string {
   return TWO_LEVEL_SUFFIXES.has(last2) ? labels.slice(-3).join(".") : last2;
 }
 
+// Domains under which anyone can get a host of their own (hosting and
+// tenant platforms). Sharing one says nothing about who runs a host:
+// api.example.github.io and evil.github.io are strangers. A host under
+// one of these is the same site only as itself.
+export const MULTI_TENANT_SUFFIXES: readonly string[] = [
+  "github.io", "gitlab.io", "vercel.app", "now.sh", "netlify.app", "pages.dev", "workers.dev", "trycloudflare.com",
+  "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "deno.dev", "run.app", "appspot.com", "web.app",
+  "firebaseapp.com", "cloudfunctions.net", "googleusercontent.com", "cloudfront.net", "amazonaws.com", "on.aws",
+  "azurewebsites.net", "azurestaticapps.net", "azure-api.net", "cloudapp.net", "blob.core.windows.net",
+  "supabase.co", "ngrok.io", "ngrok-free.app", "ngrok.app", "loca.lt", "repl.co", "replit.app", "glitch.me",
+  "surge.sh", "blogspot.com", "myshopify.com", "webflow.io", "wixsite.com", "cybozu.com", "kintone.com",
+];
+
+function normalHost(host: string): string {
+  return host.toLowerCase().replace(/\.+$/, "");
+}
+
+/** Pure. True for a host under a multi-tenant suffix (or the suffix itself). */
+export function isMultiTenantHost(host: string): boolean {
+  const h = normalHost(host);
+  return MULTI_TENANT_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+}
+
 /** Pure. Whether two hosts are the same registrable domain — the only
- *  sense in which a spec's alternative server may be picked automatically. */
+ *  sense in which a spec's alternative server may be picked automatically.
+ *  A host on a multi-tenant platform matches only itself. */
 export function sameRegistrableDomain(a: string, b: string): boolean {
+  if (isMultiTenantHost(a) || isMultiTenantHost(b)) return normalHost(a) === normalHost(b);
   return registrableDomain(a) === registrableDomain(b);
 }
 
@@ -248,8 +273,9 @@ export function validateGuide(guide: string | null, endpointHost: string | null)
  * verb, the endpoint must pass the same guard every request passes, the
  * auth is a key-shaped one or an OAuth config of the service's own (its
  * URLs on public https hosts, in the registrable domain of the person's
- * host when known — else of the endpoint — and no client in it: the person
- * enters theirs, and confirms the hosts before activation), no command may
+ * documentation URL when they gave one — else of the endpoint, never a
+ * source the drafter cited — and no client in it: the person enters
+ * theirs, and confirms the hosts before activation), no command may
  * name a response transform or a body builder (a code reference is
  * first-party only), the guide obeys validateGuide, and — when the
  * person's own host is known — the endpoint must sit in that host's

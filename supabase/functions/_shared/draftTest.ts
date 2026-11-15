@@ -61,7 +61,12 @@ function scrub(message: string, secret: string | null): string {
  * candidate) on demand. An update draft's staging is a clone of the
  * live row — the original is never the test surface — and the clone
  * receives the original's credential through the service-role-only
- * copy RPC, so the test authenticates as the real connection would.
+ * copy RPC, so the test authenticates as the real connection would —
+ * but only where the original would send it: the RPC copies the key
+ * only when the clone's endpoint and auth are the original's, the OAuth
+ * client secret only when the client and where it is sent are, and
+ * never an OAuth token set (the clone signs in on its own). Otherwise
+ * the clone has no credential and the owner enters one for it.
  */
 export async function materializeDraft(
   admin: SupabaseClient, draft: DraftRow,
@@ -120,8 +125,9 @@ export async function materializeDraft(
   if (error || !created) return { error: `素材化できませんでした: ${error?.message ?? "unknown"}` };
   const row = created as unknown as StagedRow;
   if (draft.target_integration_id) {
-    // Best-effort: no secret on the original simply means the clone has
-    // none either (the RPC answers false, not an error).
+    // Best-effort: no secret on the original — or a clone that would
+    // send it somewhere else — simply means the clone has none (the RPC
+    // answers false, not an error).
     await admin.rpc("copy_integration_secret", {
       p_from_id: draft.target_integration_id, p_to_id: row.id,
     }).then(() => {}, () => {});

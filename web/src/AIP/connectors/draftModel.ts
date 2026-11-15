@@ -405,6 +405,49 @@ function parseManifestTwin(raw: unknown): { commands: TwinCommand[]; aliases: Re
   return { commands: kept, aliases, defaults };
 }
 
+// ── Same site: the server's sameRegistrableDomain (connectorDraft.ts) ────
+//
+// The review flags a sign-in or token host that is not the API's own site,
+// judged exactly as the drafting rules judge it: eTLD+1 for the common
+// cases, and a host on a multi-tenant platform (where anyone can get a
+// host) matching only itself. A test keeps both lists equal to the server's.
+
+export const TWO_LEVEL_SUFFIXES_WEB: ReadonlySet<string> = new Set([
+  'co.jp', 'ne.jp', 'or.jp', 'ac.jp', 'go.jp', 'ed.jp', 'lg.jp',
+  'co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'org.au', 'co.nz',
+  'com.br', 'com.cn', 'com.tw', 'co.kr', 'ne.kr', 'com.mx', 'co.in',
+  'com.sg', 'com.hk', 'com.ar', 'com.co', 'co.za', 'com.pl', 'com.tr',
+]);
+
+export const MULTI_TENANT_SUFFIXES_WEB: readonly string[] = [
+  'github.io', 'gitlab.io', 'vercel.app', 'now.sh', 'netlify.app', 'pages.dev', 'workers.dev', 'trycloudflare.com',
+  'herokuapp.com', 'onrender.com', 'fly.dev', 'railway.app', 'deno.dev', 'run.app', 'appspot.com', 'web.app',
+  'firebaseapp.com', 'cloudfunctions.net', 'googleusercontent.com', 'cloudfront.net', 'amazonaws.com', 'on.aws',
+  'azurewebsites.net', 'azurestaticapps.net', 'azure-api.net', 'cloudapp.net', 'blob.core.windows.net',
+  'supabase.co', 'ngrok.io', 'ngrok-free.app', 'ngrok.app', 'loca.lt', 'repl.co', 'replit.app', 'glitch.me',
+  'surge.sh', 'blogspot.com', 'myshopify.com', 'webflow.io', 'wixsite.com', 'cybozu.com', 'kintone.com',
+];
+
+const normalHost = (host: string) => host.toLowerCase().replace(/\.+$/, '');
+
+function registrableDomainWeb(host: string): string {
+  const labels = normalHost(host).split('.').filter(Boolean);
+  if (labels.length <= 2) return labels.join('.');
+  const last2 = labels.slice(-2).join('.');
+  return TWO_LEVEL_SUFFIXES_WEB.has(last2) ? labels.slice(-3).join('.') : last2;
+}
+
+function isMultiTenantHostWeb(host: string): boolean {
+  const h = normalHost(host);
+  return MULTI_TENANT_SUFFIXES_WEB.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+}
+
+/** Pure. Whether two hosts are the same site, as the drafting rules judge it. */
+export function sameSiteWeb(a: string, b: string): boolean {
+  if (isMultiTenantHostWeb(a) || isMultiTenantHostWeb(b)) return normalHost(a) === normalHost(b);
+  return registrableDomainWeb(a) === registrableDomainWeb(b);
+}
+
 export interface DraftContentLike {
   name: string;
   endpoint: string;

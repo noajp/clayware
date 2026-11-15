@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { buildCustomOAuthConfig, buildIntegrationRow, customOAuthFormOf, customOAuthHosts, oauthRedirectUriFor, presetById, EMPTY_CUSTOM_OAUTH } from '@/AIP/connectors/catalog';
-import { draftStructureHashWeb } from '@/AIP/connectors/draftModel';
+import { MULTI_TENANT_SUFFIXES_WEB, TWO_LEVEL_SUFFIXES_WEB, draftStructureHashWeb, sameSiteWeb } from '@/AIP/connectors/draftModel';
 
 // A connection's own OAuth config (supabase/functions/_shared/customOAuth.ts):
 // any OAuth 2.0 service signs in through the same flow as the providers
@@ -297,5 +298,89 @@ describe('drafting a service that signs in with OAuth', () => {
     // The web twin hashes a live connection's structure the same way, client aside.
     const live = { ...base, oauth_config: { ...DRAFTED, client_id: 'mine' } };
     expect(await draftStructureHashWeb(live)).toBe(await cd.draftStructureHash(withConfig));
+  });
+});
+
+describe('review fixes: where a secret may follow, and whose yardstick a host is judged by', () => {
+  const migration = readFileSync(new URL('../../supabase/migrations/20270113090000_integration_custom_oauth.sql', import.meta.url), 'utf8');
+  const copyFn = migration.slice(migration.indexOf('create or replace function public.copy_integration_secret'), migration.indexOf("revoke all on function public.copy_integration_secret"));
+
+  it('copies an OAuth client secret to a draft’s clone only for the same client sent to the same places', () => {
+    for (const field of ['token_url', 'revoke_url', 'client_id']) {
+      expect(copyFn).toContain(`(v_from.oauth_config ->> '${field}') is not distinct from (v_to.oauth_config ->> '${field}')`);
+    }
+    expect(copyFn).toContain("coalesce(v_from.oauth_config ->> 'token_auth', 'client_secret_post') = coalesce(v_to.oauth_config ->> 'token_auth', 'client_secret_post')");
+  });
+
+  it('copies a key only to the same destination sent the same way, and never an OAuth token set', () => {
+    const guard = copyFn.slice(copyFn.indexOf("if v_from.auth_type = 'oauth'\n"), copyFn.indexOf('if v_from.secret_id is null'));
+    expect(guard).toContain('v_from.endpoint is distinct from v_to.endpoint');
+    expect(guard).toContain('v_from.auth_type is distinct from v_to.auth_type');
+    expect(guard).toContain('v_from.auth_header is distinct from v_to.auth_header');
+    expect(guard).toContain('return false');
+    // The guard stands before the only place the token secret is created.
+    expect(copyFn.indexOf("'integration:' || p_to_id::text")).toBeGreaterThan(copyFn.indexOf('v_from.endpoint is distinct from v_to.endpoint'));
+  });
+
+  it('lets a browser role insert a draft’s request only — exactly what createDraft sends', () => {
+    const sent = ['activity_space_id', 'name', 'name_key', 'kind', 'status', 'request_context', 'created_by'];
+    expect(migration).toContain("revoke insert on public.integration_drafts from authenticated, anon");
+    expect(migration).toContain(`grant insert (${sent.join(', ')}) on public.integration_drafts to authenticated`);
+    const source = readFileSync(new URL('../src/AIP/connectors/draftData.ts', import.meta.url), 'utf8');
+    const insert = source.slice(source.indexOf(".from('integration_drafts').insert({"), source.indexOf('}).select(DRAFT_COLUMNS).single();'));
+    const keys = [...insert.matchAll(/^ {4}([a-z_]+)(?::|,)/gm)].map((m) => m[1]);
+    expect(keys.sort()).toEqual([...sent].sort());
+  });
+
+  it('judges a host on a multi-tenant platform only as itself, on both sides', () => {
+    const pairs: [string, string, boolean][] = [
+      ['api.example.com', 'accounts.example.com', true],
+      ['api.example.co.jp', 'auth.example.co.jp', true],
+      ['api.example.com', 'example.net', false],
+      ['app.vercel.app', 'evil.vercel.app', false],
+      ['app.vercel.app', 'app.vercel.app', true],
+      ['owner.github.io', 'attacker.github.io', false],
+      ['api.foo.github.io', 'foo.github.io', false],
+      ['x.execute-api.us-east-1.amazonaws.com', 'y.execute-api.us-east-1.amazonaws.com', false],
+      ['mine.cybozu.com', 'theirs.cybozu.com', false],
+      ['Mine.Cybozu.com.', 'mine.cybozu.com', true],
+    ];
+    for (const [a, b, same] of pairs) {
+      expect(cd.sameRegistrableDomain(a, b), `${a} ~ ${b}`).toBe(same);
+      expect(sameSiteWeb(a, b), `web ${a} ~ ${b}`).toBe(same);
+    }
+    expect([...MULTI_TENANT_SUFFIXES_WEB]).toEqual([...cd.MULTI_TENANT_SUFFIXES]);
+    expect([...TWO_LEVEL_SUFFIXES_WEB].sort()).toEqual([...cd.TWO_LEVEL_SUFFIXES].sort());
+  });
+
+  it('holds a drafted config to the endpoint when the person gave no docs, never to a cited source', () => {
+    const MANIFEST = { version: 1, defaults: { read: 'allow', write: 'ask' }, commands: [{ name: 'list_items', action: 'items.list', effect: 'read', http: { method: 'GET', path: '/items' } }] };
+    const base = {
+      name: 'Example', endpoint: 'https://api.example.com/v1', authType: 'oauth', authHeader: null, manifest: MANIFEST, guide: null, testInputs: {},
+      oauth: { authorize_url: 'https://login.collect.example.net/a', token_url: 'https://login.collect.example.net/t', scopes: [] },
+    };
+    // The drafter citing the other domain as its source does not make it official.
+    expect(cd.validateDraftCandidate({ ...base, sources: ['https://collect.example.net/docs'] }).errors.join(' ')).toContain('collect.example.net');
+    // A multi-tenant endpoint admits only its own host.
+    const vercel = { ...base, endpoint: 'https://app.vercel.app/api', sources: ['https://app.vercel.app/docs'] };
+    expect(cd.validateDraftCandidate({ ...vercel, oauth: { ...base.oauth, authorize_url: 'https://evil.vercel.app/a', token_url: 'https://evil.vercel.app/t' } }).errors.join(' ')).toContain('evil.vercel.app');
+    expect(cd.validateDraftCandidate({ ...vercel, oauth: { ...base.oauth, authorize_url: 'https://app.vercel.app/a', token_url: 'https://app.vercel.app/t' } }).errors).toEqual([]);
+  });
+
+  it('rescues a lost concurrent refresh only with a set stored for this connection’s binding', async () => {
+    const binding = await custom.customOAuthBinding(ROW);
+    const now = 1_000_000;
+    const tokens = { v: 1, provider: 'custom', access_token: 'old', refresh_token: 'r1', expires_at: now, scope: '', binding };
+    const fetchImpl = async () => new Response(JSON.stringify({ access_token: 'mine', refresh_token: 'r3', expires_in: 3600 }), { status: 200 });
+    const adminWith = (stored: unknown) => ({
+      rpc: async (fn: string) => ({
+        data: fn === 'store_integration_oauth_token' ? false : fn === 'get_integration_oauth_client_secret' ? 'shh' : stored,
+        error: null,
+      }),
+      from: () => ({ update: () => ({ eq: async () => ({ error: null }) }) }),
+    });
+    const winner = { ...tokens, access_token: 'theirs', refresh_token: 'r2', expires_at: now + 3_600_000 };
+    expect(await client.resolveCredential(adminWith(JSON.stringify(winner)), ROW, JSON.stringify(tokens), { now, fetchImpl })).toBe('theirs');
+    expect(await client.resolveCredential(adminWith(JSON.stringify({ ...winner, binding: 'c'.repeat(64) })), ROW, JSON.stringify(tokens), { now, fetchImpl })).toBeNull();
   });
 });

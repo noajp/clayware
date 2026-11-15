@@ -5068,16 +5068,24 @@ async function reconcileForDraft(a: ExecArgs, d: DraftRow): Promise<ReconcileRes
       return { note: `既存の接続「${target?.name ?? d.name}」への定義の更新として起草します。テストは複製行で行い、有効化のときに原本へ反映されます。既存の接続は止めません。` };
     }
     case "create":
+      // A new connection updates nothing: a target left on the draft (from
+      // an earlier reconcile, or written by anyone but this driver) is cleared.
+      if (d.target_integration_id) {
+        await admin.from("integration_drafts").update({ target_integration_id: null, updated_at: new Date().toISOString() }).eq("id", d.id);
+        d.target_integration_id = null;
+      }
       return { note: "既存の経路（接続・プリセット・Registry・進行中の起草）はありません。新規の接続として起草します。" };
   }
 }
 
-/** The host a candidate's endpoint must agree with: the person's own
- *  documentation URL when they gave one, else the first cited source's. */
-function officialHostFor(d: DraftRow, candidate: DraftCandidate): string | null {
+/** The host a candidate's endpoint (and its OAuth hosts) must agree
+ *  with: the person's own documentation URL when they gave one. Never a
+ *  source the drafter cited — the drafter would be choosing its own
+ *  yardstick; without the person's URL, OAuth hosts are held to the
+ *  endpoint instead (validateDraftCandidate). */
+function officialHostFor(d: DraftRow): string | null {
   const context = (d.request_context ?? {}) as { docsUrl?: string | null };
-  const from = context.docsUrl ?? candidate.sources[0] ?? null;
-  try { return from ? new URL(from).hostname : null; } catch { return null; }
+  try { return context.docsUrl ? new URL(context.docsUrl).hostname : null; } catch { return null; }
 }
 
 async function draft(a: ExecArgs, said: string): Promise<void> {
@@ -5202,7 +5210,7 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
         sources: Array.isArray(input.sources) ? input.sources.filter((s): s is string => typeof s === "string") : [],
         oauth: input.oauth ?? null,
       };
-      const { errors, manifest, oauth } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d, candidate) });
+      const { errors, manifest, oauth } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d) });
       if (errors.length || !manifest) {
         await addStep(admin, run.id, "error", "候補が検証に通りませんでした", errors.join("\n"));
         return { content: `検証で落ちました。直して出し直してください:\n- ${errors.join("\n- ")}`, is_error: true };

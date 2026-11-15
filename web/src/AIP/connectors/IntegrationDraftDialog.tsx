@@ -13,7 +13,7 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 import type { Integration, IntegrationDraft } from '@/types/database';
 import { CRITICAL_CLASS_LABELS, customOAuthFormOf, customOAuthHosts, oauthRedirectUriFor } from './catalog';
 import {
-  DRAFT_FAILURE_LABELS, DRAFT_STATUS_LABELS, readManifestCommands, readTestRounds,
+  DRAFT_FAILURE_LABELS, DRAFT_STATUS_LABELS, readManifestCommands, readTestRounds, sameSiteWeb,
 } from './draftModel';
 import { activateDraft, rejectDraft, runDraftTest, sendDraftMessage, settleDraftToReview, useDraftDetail } from './draftData';
 import { useIntegrationActions } from './data';
@@ -44,15 +44,6 @@ function hostOf(raw: string | null): string | null {
   try { return new URL(raw).hostname; } catch { return null; }
 }
 
-// The server's registrableDomain (connectorDraft.ts), for the flag only:
-// eTLD+1 for the common cases.
-const TWO_LEVEL = new Set(['co.jp', 'ne.jp', 'or.jp', 'ac.jp', 'go.jp', 'co.uk', 'org.uk', 'com.au', 'co.nz', 'com.br', 'co.kr', 'com.cn', 'com.tw', 'com.sg']);
-function siteOf(host: string): string {
-  const labels = host.toLowerCase().replace(/\.+$/, '').split('.').filter(Boolean);
-  if (labels.length <= 2) return labels.join('.');
-  const last2 = labels.slice(-2).join('.');
-  return TWO_LEVEL.has(last2) ? labels.slice(-3).join('.') : last2;
-}
 
 export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview, onClose, onChanged }: {
   draft: IntegrationDraft;
@@ -455,9 +446,11 @@ function OAuthDraftSignIn({ draft, staged, canReview, onChanged }: {
   const [clientSecret, setClientSecret] = useState('');
   const [error, setError] = useState<string | null>(null);
   const hosts = customOAuthHosts(draft.oauth_config);
-  const apiHost = hostOf(draft.endpoint);
+  // The same base the drafting rules held the hosts to: the person's own
+  // documentation URL when they gave one, else the API's endpoint.
+  const baseHost = hostOf(draft.request_context.docsUrl ?? null) ?? hostOf(draft.endpoint);
   const offSite = [hosts.authorize, hosts.token, hosts.revoke]
-    .filter((h): h is string => !!h && !!apiHost && siteOf(h) !== siteOf(apiHost));
+    .filter((h): h is string => !!h && !!baseHost && !sameSiteWeb(h, baseHost));
   const needsSecret = customOAuthFormOf(draft.oauth_config).tokenAuth !== 'none';
   const clientSaved = !!stagedForm.clientId && stagedForm.clientId === clientId.trim();
   const ready = clientSaved && (!needsSecret || !!staged.oauth_client_secret_id);
@@ -491,12 +484,14 @@ function OAuthDraftSignIn({ draft, staged, canReview, onChanged }: {
     <div className="space-y-2">
       {hosts.authorize && hosts.token && (
         <p className="text-[12px] text-muted-foreground">
-          {t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
+          {hosts.revoke
+            ? t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}. To revoke access, the client secret and the token are sent to {revoke}.', { host: hosts.authorize, token: hosts.token, revoke: hosts.revoke })
+            : t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
         </p>
       )}
-      {offSite.length > 0 && apiHost && (
+      {offSite.length > 0 && baseHost && (
         <p className="rounded-md bg-[var(--status-warning-subtle)] px-3 py-2 text-[12px] text-foreground">
-          {t('{host} is not on the same domain as the API ({api}). Make sure the service’s own documentation names it before you sign in.', { host: [...new Set(offSite)].join(', '), api: apiHost })}
+          {t('{host} is not on the same domain as {base}. Make sure the service’s own documentation names it before you sign in.', { host: [...new Set(offSite)].join(', '), base: baseHost })}
         </p>
       )}
       <CopyField value={oauthRedirectUriFor(supabaseProjectUrl)} label={t('Redirect URI')} />
