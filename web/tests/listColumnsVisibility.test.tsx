@@ -36,5 +36,11 @@ describe('view column preferences', () => {
     // Never narrower than the width every column opens at.
     act(() => result.current.setWidth('objects', 20));
     expect(result.current.widthFor('objects')).toBe(result.current.specFor('objects').min);
+    // Name is sized by hand too, up to its most, and can be let go again.
+    act(() => result.current.setWidth('__name__', 5000));
+    expect(result.current.widthFor('__name__')).toBe(result.current.specFor('__name__').max);
+    expect(result.current.isSized('__name__')).toBe(true);
+    act(() => result.current.resetWidth('__name__'));
+    expect(result.current.isSized('__name__')).toBe(false);
   });
 });

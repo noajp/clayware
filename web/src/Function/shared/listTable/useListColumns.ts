@@ -258,6 +258,8 @@ export interface ListColumnsState {
   /** Set the live width of `id` (persisted on every change so a reload
    *  recovers the last sized state). */
   setWidth: (id: ColumnId, width: number) => void;
+  /** Forget a width set by hand: the column goes back to its own. */
+  resetWidth: (id: ColumnId) => void;
   /** Currently active sort (or null = natural order). */
   sort: ColumnSort | null;
   /** Direct setter for the sort state — used by toolbar menus that pick
@@ -411,6 +413,16 @@ export function useListColumns(
     return typeof stored === 'number' && stored > 0 ? clampWidth(stored, spec) : spec.base;
   }, [widths, specFor]);
 
+  const resetWidth = useCallback((id: ColumnId) => {
+    if (!storageKey) return;
+    setSnapshot(storageKey, (prev) => {
+      if (!(id in prev.widths)) return prev;
+      const widths = { ...prev.widths };
+      delete widths[id];
+      return { ...prev, widths };
+    });
+  }, [storageKey]);
+
   const isSized = useCallback((id: ColumnId) => typeof widths[id] === 'number' && widths[id] > 0, [widths]);
 
   const isVisible = useCallback(
@@ -475,6 +487,7 @@ export function useListColumns(
     allColumns,
     widthFor,
     specFor,
+    resetWidth,
     isSized,
     isVisible,
     toggleVisible,
