@@ -51,6 +51,9 @@ export interface IntegrationPreset {
   bundledManifest?: Json;
   /** Why the preset cannot be connected yet; the connect button is disabled. */
   unavailableReason?: string;
+  /** The service's own documentation for this kind of connection, linked
+   *  from the connection's dialog. */
+  docsUrl?: string;
 }
 
 export const INTEGRATION_PRESETS: readonly IntegrationPreset[] = [
@@ -58,37 +61,44 @@ export const INTEGRATION_PRESETS: readonly IntegrationPreset[] = [
     id: 'linear', name: 'Linear', icon: '/integrations/linear.svg', kind: 'mcp', endpoint: 'https://mcp.linear.app/mcp', auth: 'bearer',
     description: "Read and update Linear issues, projects and cycles through Linear's MCP server.",
     credentialLabel: 'Linear API key', category: 'project', source: 'official', builtBy: 'Linear', featured: true, custom: false,
+    docsUrl: 'https://linear.app/docs/mcp',
   },
   {
     id: 'asana', name: 'Asana', icon: '/integrations/asana.svg', kind: 'http', endpoint: 'https://app.asana.com/api/1.0', auth: 'bearer',
     description: 'Read and update Asana projects and their work through the Asana REST API.',
     credentialLabel: 'Personal access token', category: 'project', source: 'official', builtBy: 'Asana', featured: true, custom: false,
+    docsUrl: 'https://developers.asana.com/docs',
   },
   {
     id: 'google-drive', name: 'Google Drive', icon: '/integrations/google-drive.svg', kind: 'http', endpoint: 'https://www.googleapis.com/drive/v3', auth: 'oauth',
     description: 'Search, read, create and update Google Drive files. Agents see only files Clayware created or that you chose.',
     credentialLabel: 'Google account', category: 'files', source: 'official', builtBy: 'Google', featured: true, custom: false,
+    docsUrl: 'https://developers.google.com/drive/api',
   },
   {
     id: 'gmail', name: 'Gmail', icon: '/integrations/gmail.svg', kind: 'http', endpoint: 'https://gmail.googleapis.com/gmail/v1/users/me', auth: 'oauth',
     description: 'Search, read and send Gmail messages, reply in threads, and mark messages with labels. Agents cannot delete mail.',
     credentialLabel: 'Google account', category: 'communication', source: 'official', builtBy: 'Google', featured: false, custom: false,
+    docsUrl: 'https://developers.google.com/gmail/api',
     bundledManifest: GMAIL_MANIFEST,
   },
   {
     id: 'github', name: 'GitHub', icon: '/integrations/github.svg', kind: 'mcp', endpoint: 'https://api.githubcopilot.com/mcp/', auth: 'oauth',
     description: "Review and merge pull requests in Clayware, and let agents work with repositories, issues and pull requests through GitHub's MCP server.",
     credentialLabel: 'GitHub account', category: 'development', source: 'official', builtBy: 'GitHub', featured: false, custom: false,
+    docsUrl: 'https://github.com/github/github-mcp-server',
   },
   {
     id: 'microsoft-365', name: 'Microsoft 365', icon: '/integrations/microsoft.svg', kind: 'http', endpoint: 'https://graph.microsoft.com/v1.0', auth: 'oauth',
     description: 'Connect a Microsoft 365 work or school account through Microsoft Graph. Your organization’s administrator may need to approve Clayware first.',
     credentialLabel: 'Microsoft work or school account', category: 'communication', source: 'official', builtBy: 'Microsoft', featured: false, custom: false,
+    docsUrl: 'https://learn.microsoft.com/graph/overview',
   },
   {
     id: 'slack', name: 'Slack', icon: '/integrations/slack.svg', kind: 'http', endpoint: 'https://slack.com/api', auth: 'bearer',
     description: 'Read channels and post messages through the Slack Web API.',
     credentialLabel: 'Bot token (xoxb-)', category: 'communication', source: 'official', builtBy: 'Slack', featured: false, custom: false,
+    docsUrl: 'https://api.slack.com/web',
   },
   // Model providers. Each serves Anthropic's Messages format under the base
   // URL its own docs give for that format; any other such provider (GLM on
@@ -203,7 +213,7 @@ export interface CatalogGroup {
 }
 
 /** The method groups' fixed order on the catalog page. */
-export const CONNECTION_METHOD_ORDER: readonly ConnectionMethod[] = ['sign-in', 'token', 'custom'];
+const CONNECTION_METHOD_ORDER: readonly ConnectionMethod[] = ['sign-in', 'token', 'custom'];
 
 /** The "Add a connection" groups over the presets offered: grouped by
  *  connection method in the fixed order, installed presets excluded (a
@@ -222,15 +232,85 @@ export function catalogGroups(
   for (const preset of presets) {
     if (!preset.custom && installed.has(preset.id)) continue;
     const method = connectionMethodOf(preset);
-    const provider = oauthProviderOf(preset);
-    const state: CatalogCardState = provider !== null && oauthConfigured[provider] === false ? 'setup-needed' : 'ready';
     const cards = byMethod.get(method) ?? [];
-    cards.push({ preset, state });
+    cards.push({ preset, state: catalogCardState(preset, oauthConfigured) });
     byMethod.set(method, cards);
   }
   return CONNECTION_METHOD_ORDER
     .filter((method) => byMethod.has(method))
     .map((method) => ({ method, cards: byMethod.get(method)! }));
+}
+
+/** Pure. A sign-in card whose provider the server reports as not
+ *  configured is 'setup-needed'; a provider still loading (null) reads
+ *  as ready — the dialog re-checks. */
+export function catalogCardState(preset: IntegrationPreset, oauthConfigured: Record<OAuthProvider, boolean | null>): CatalogCardState {
+  const provider = oauthProviderOf(preset);
+  return provider !== null && oauthConfigured[provider] === false ? 'setup-needed' : 'ready';
+}
+
+// ── Catalog by purpose ─────────────────────────────────────────────────────
+//
+// Settings › Connectors groups the services by what they are for — the way
+// people look for them — not by how the connection is made. Custom
+// connections are not a purpose: they sit under "Other ways to connect".
+// Model providers live in Settings › Team.
+
+/** The purpose sections' fixed order on the Connectors page. */
+export const CATALOG_CATEGORY_ORDER: readonly IntegrationCategory[] = ['communication', 'files', 'project', 'development'];
+
+/** The purpose sections' headings (t() keys). */
+export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  communication: 'Communication',
+  files: 'Files',
+  project: 'Project management',
+  development: 'Development',
+  models: 'AI models',
+  custom: 'Custom',
+};
+
+export interface CategoryGroup {
+  category: IntegrationCategory;
+  cards: { preset: IntegrationPreset; state: CatalogCardState }[];
+}
+
+/** Pure. The catalog by purpose, in CATALOG_CATEGORY_ORDER: presets the
+ *  Space already has are left out (they show under Connected), as are
+ *  custom presets and any category outside the order (models); empty
+ *  sections are omitted. */
+export function catalogByCategory(
+  presets: readonly IntegrationPreset[],
+  installed: ReadonlySet<string>,
+  oauthConfigured: Record<OAuthProvider, boolean | null>,
+): CategoryGroup[] {
+  return CATALOG_CATEGORY_ORDER
+    .map((category) => ({
+      category,
+      cards: presets
+        .filter((p) => p.category === category && !p.custom && !installed.has(p.id))
+        .map((preset) => ({ preset, state: catalogCardState(preset, oauthConfigured) })),
+    }))
+    .filter((g) => g.cards.length > 0);
+}
+
+const foldForSearch = (s: string) => s.normalize('NFKC').toLowerCase();
+
+/** Pure. Whether every word of the query appears somewhere in the texts
+ *  (case- and width-insensitive). An empty query matches everything. */
+export function matchesQuery(texts: readonly (string | null | undefined)[], query: string): boolean {
+  const words = foldForSearch(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = foldForSearch(texts.filter(Boolean).join(' '));
+  return words.every((w) => haystack.includes(w));
+}
+
+/** Pure. A preset against the search box, in English and in the reader's
+ *  language (`translate` is the page's t()). */
+export function presetMatchesQuery(preset: IntegrationPreset, query: string, translate: (s: string) => string = (s) => s): boolean {
+  return matchesQuery([
+    preset.id, preset.name, preset.description, preset.builtBy,
+    translate(preset.name), translate(preset.description), translate(CATEGORY_LABELS[preset.category]),
+  ], query);
 }
 
 /** The preset ids this Space already has at least one connection for. */
