@@ -163,7 +163,7 @@ Clayware が登録した相手（Google・GitHub・Microsoft）のほかに、OA
 
 サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` と `gmail` なら Google、`github` なら GitHub、`microsoft-365` なら Microsoft、それ以外で自分の OAuth 設定を持つ行はその設定）で相手を決める。相手ごとの URL・スコープ・トークンの扱い・本人確認・取り消しは `supabase/functions/_shared/oauthProviders.ts` の表に、接続ごとの設定の扱いは `customOAuth.ts` にある。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke`・`/admin-consent` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
 
-配置は順番を守る。アプリと関数は `integrations.external_account`・`oauth_config`・`oauth_client_secret_id` を読むので、先に migration `20261006090000_integration_oauth.sql` と `20270113090000_integration_custom_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
+配置は順番を守る。アプリと関数は `integrations.external_account`・`oauth_config`・`oauth_client_secret_id` を読むので、先に migration `20261006090000_integration_oauth.sql` と `20270113100000_integration_custom_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
 
 ```bash
 env -u SUPABASE_ACCESS_TOKEN supabase functions deploy integration-oauth --project-ref rkugtcqztkkacvoylupw --no-verify-jwt --use-api
