@@ -81,8 +81,11 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
   const endpointHost = hostOf(draft.endpoint);
   const sourceHosts = [...new Set(draft.sources.map((s) => hostOf(s)).filter(Boolean))];
   const runAtRest = !!run && (run.status === 'awaiting_input' || run.status === 'paused');
-  // run-agent takes a message only from the person who started the run.
-  const isStarter = !!run && userId !== null && run.triggered_by === userId;
+  // run-agent takes a message only from the person who started the run,
+  // and a draft's run is always started by the draft's creator (createDraft;
+  // the agent_runs insert policy requires both), so the draft row answers
+  // it at once — no wait on the run's fetch.
+  const isStarter = userId !== null && draft.created_by === userId;
   const canSend = OPEN.includes(draft.status) && runAtRest && isStarter && !sending;
 
   const send = async () => {
