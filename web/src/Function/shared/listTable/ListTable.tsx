@@ -20,7 +20,7 @@ import { refreshAwaitingAnswers, useAwaitingAnswerElementIds } from '@/hooks/awa
 import { useQuestionNotificationCount, useUnreadCommentElementIds } from '@/hooks/notificationData';
 import { EMPTY_CUSTOM_COLUMNS, EMPTY_ELEMENT_TYPES, EMPTY_WORKERS, EMPTY_ELEMENT_IDS, type ElementUpdate, type ListSection, HEADER_DRAG_PREFIX, OBJECT_DRAG_PREFIX, ROW_ROUND_BASE, STICKY_TINT_HOVER, LEAD_CELL, LEAD_CELL_HOVER, signalsTrackWidth } from './shared';
 import { FIRST_ROWS, WINDOW_FROM, splitRange, widenRange, windowRange, type RowRange } from './rowWindow';
-import { clampWidth, fittedWidths, NAME_SPEC, tableLayout } from './columnWidths';
+import { clampWidth, NAME_SPEC, tableLayout } from './columnWidths';
 
 /** Runs `then` with what `find` returns as soon as it returns something: a
  *  row scrolled to is drawn a moment after the scroll, not with it. Gives up
@@ -43,9 +43,6 @@ function naturalWidth(content: HTMLElement): number {
   return last.getBoundingClientRect().right - first.getBoundingClientRect().left + hidden;
 }
 
-// The widths each list's columns were last fitted to, so a list opened
-// again starts from them instead of from the usual widths.
-const FITTED = new Map<string, Record<string, number>>();
 import { ElementRow } from './ElementRow';
 import { reorderWithinSections } from './rowReorder';
 import { ObjectRow } from './ObjectRow';
@@ -545,12 +542,7 @@ export function ListTable({
   }, []);
   // The trailing "+" (which fields show) is one 28px button.
   const TRAILING_COL_WIDTH = 40;
-  // A column not sized by hand is exactly as wide as the widest thing in
-  // it — its values and its heading (columnWidths), measured off the rows
-  // once they are drawn, below — so the columns sit as close as their
-  // cells' padding allows. One sized by hand keeps the width it was given.
-  const [fitted, setFitted] = useState<Record<string, number>>(() => (colStorageKey ? FITTED.get(colStorageKey) ?? {} : {}));
-  const drawnWidth = (c: DataColumn) => (cols.isSized(c.id) ? cols.widthFor(c.id) : fitted[c.id] ?? cols.widthFor(c.id));
+  const drawnWidth = (c: DataColumn) => cols.widthFor(c.id);
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
   const fixedWidth = 52 + (hasTrailingCol ? TRAILING_COL_WIDTH : 0);
   // Name is pinned while the rest scrolls under it, so a set Name wider than
@@ -637,45 +629,6 @@ export function ListTable({
     // viewer, unread comments, blockers): each is measured again when it
     // lands, or a mark that came late would sit in a track of the old width.
   }, [sortedSections, visibleColumns, nameWidth, awaitingAnswer, unreadComments, elementBlockers, ranges]);
-  // Measure what each column holds, right after the rows are drawn; the widest seen is kept while the same rows are shown, so a
-  // long list does not change its columns as it scrolls.
-  const fitSeen = useRef<{ rows: unknown; widths: Record<string, number> } | null>(null);
-  const specFor = cols.specFor;
-  useEffect(() => {
-    const table = tableRef.current;
-    if (!table) return;
-    let stale = false;
-    queueMicrotask(() => {
-      if (stale) return;
-      const measured: Record<string, number> = {};
-      visibleColumns.forEach((c, index) => {
-        let need = 0;
-        // The lead mark, the title and the signals come before the data columns.
-        table.querySelectorAll<HTMLElement>(`tbody tr[data-row] > td:nth-child(${index + 4})`).forEach((cell) => {
-          const content = cell.firstElementChild as HTMLElement | null;
-          if (!content) return;
-          const style = getComputedStyle(cell);
-          need = Math.max(need, naturalWidth(content) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight));
-        });
-        // The heading: its word (the button around it fills the cell, so
-        // the word itself is measured), the button's and the cell's
-        // padding, and the sort arrow when it holds the sort.
-        const label = table.querySelector<HTMLElement>(`thead th[data-col-id="${CSS.escape(c.id)}"] button > span`);
-        if (label) need = Math.max(need, label.scrollWidth + 24 + (cols.sort?.id === c.id ? 16 : 0));
-        if (need > 0) measured[c.id] = Math.ceil(need) + 2;
-      });
-      const before = fitSeen.current?.rows === sortedSections ? fitSeen.current.widths : null;
-      const next = fittedWidths(measured, before, specFor);
-      fitSeen.current = { rows: sortedSections, widths: next };
-      if (colStorageKey) FITTED.set(colStorageKey, next);
-      setFitted((prev) => {
-        const ids = Object.keys(next);
-        return ids.length === Object.keys(prev).length && ids.every((id) => prev[id] === next[id]) ? prev : next;
-      });
-    });
-    return () => { stale = true; };
-  }, [sortedSections, visibleColumns, ranges, density, specFor, colStorageKey, cols.sort?.id]);
-
   // Per section: which of its rows to draw (all of them in a short list;
   // before a windowed one is measured, the first few, shared across the
   // sections), and where its first row counts for assistive tech (from 1,
@@ -808,9 +761,19 @@ export function ListTable({
       if (need > 0) cols.setWidth(NAME_COL_KEY, need + signals);
       return;
     }
-    // A column already measures what it holds: fitting it is setting it
-    // to that.
-    const fit = fitted[id] ?? cols.specFor(id).base;
+    // As wide as the widest value drawn in it, within its bounds.
+    const index = visibleColumns.findIndex((c) => c.id === id);
+    if (index < 0) return;
+    let need = 0;
+    // The lead mark, the title and the signals come before the data columns.
+    table.querySelectorAll<HTMLElement>(`tbody tr[data-row] > td:nth-child(${index + 4})`).forEach((cell) => {
+      const content = cell.firstElementChild as HTMLElement | null;
+      if (!content) return;
+      const style = getComputedStyle(cell);
+      need = Math.max(need, naturalWidth(content) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 2);
+    });
+    const spec = cols.specFor(id);
+    const fit = spec.fits === false ? spec.base : clampWidth(Math.ceil(need), spec);
     cols.setWidth(id, fit);
     drawWidth(id, fit);
   };

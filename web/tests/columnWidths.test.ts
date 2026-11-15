@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { clampWidth, fittedWidths, NAME_SPEC, tableLayout, widthSpec } from '@/Function/shared/listTable/columnWidths';
+import { clampWidth, NAME_SPEC, tableLayout, widthSpec } from '@/Function/shared/listTable/columnWidths';
 
 describe('column widths', () => {
-  it('sizes a column by the kind of value it holds', () => {
-    expect(widthSpec({ id: 'due_date' }).base).toBeLessThan(widthSpec({ id: 'objects' }).base);
-    expect(widthSpec({ id: 'cc:1', custom: { column_type: 'date' } })).toEqual(widthSpec({ id: 'due_date' }));
-    expect(widthSpec({ id: 'cc:2', custom: { column_type: 'checkbox' } }).max).toBeLessThan(widthSpec({ id: 'objects' }).max);
-    // Any column can be dragged down to a few characters, and up to its kind's most.
-    expect(clampWidth(10, widthSpec({ id: 'due_date' }))).toBe(48);
-    expect(clampWidth(10, widthSpec({ id: 'objects' }))).toBe(48);
-    expect(clampWidth(900, widthSpec({ id: 'objects' }))).toBe(widthSpec({ id: 'objects' }).max);
+  it('opens every column at one width and lets each grow to its kind’s most', () => {
+    const ids = ['due_date', 'assignee', 'objects', 'type', 'activity'];
+    expect(new Set(ids.map((id) => widthSpec({ id }).base)).size).toBe(1);
+    expect(widthSpec({ id: 'cc:1', custom: { column_type: 'checkbox' } }).base).toBe(widthSpec({ id: 'objects' }).base);
+    // The opening width is the least; the most depends on what the column holds.
+    const date = widthSpec({ id: 'due_date' });
+    const chips = widthSpec({ id: 'objects' });
+    expect(clampWidth(10, date)).toBe(date.base);
+    expect(date.max).toBeLessThan(chips.max);
+    expect(clampWidth(900, chips)).toBe(chips.max);
   });
 
   it('lets an unsized Name fill the view and a sized one leave a filler', () => {
@@ -28,11 +30,8 @@ describe('column widths', () => {
 });
 
 describe('column widths by language, density and kind', () => {
-  it('gives a date more room where it is written longer, and less in compact rows', () => {
-    const en = widthSpec({ id: 'due_date' }, { locale: 'en' });
-    const ja = widthSpec({ id: 'due_date' }, { locale: 'ja' });
-    expect(ja.base).toBeGreaterThan(en.base);
-    expect(ja.max).toBeGreaterThan(en.max);
+  it('lets a date grow further where it is written longer, and opens narrower in compact rows', () => {
+    expect(widthSpec({ id: 'due_date' }, { locale: 'ja' }).max).toBeGreaterThan(widthSpec({ id: 'due_date' }, { locale: 'en' }).max);
     const compact = widthSpec({ id: 'assignee' }, { compact: true });
     const comfortable = widthSpec({ id: 'assignee' });
     expect(compact.base).toBeLessThan(comfortable.base);
@@ -44,21 +43,5 @@ describe('column widths by language, density and kind', () => {
     expect(widthSpec({ id: 'elements' }).align).toBe('end');
     expect(widthSpec({ id: 'due_date' }).align).toBeUndefined();
     expect(widthSpec({ id: 'cc:t', custom: { column_type: 'text' } }).align).toBeUndefined();
-  });
-});
-
-describe('fitted widths', () => {
-  const spec = (id: string) => widthSpec({ id });
-  it('holds what was measured to the column’s bounds and leaves bars alone', () => {
-    expect(fittedWidths({ objects: 87, due_date: 40, assignee: 900, progress: 300 }, null, spec)).toEqual({
-      // Exactly what it holds, not rounded up to a usual width.
-      objects: 87,
-      due_date: 48,
-      assignee: widthSpec({ id: 'assignee' }).max,
-    });
-  });
-  it('keeps the widest seen while the same rows scroll through', () => {
-    expect(fittedWidths({ objects: 110 }, { objects: 129 }, spec)).toEqual({ objects: 129 });
-    expect(fittedWidths({ objects: 110 }, null, spec)).toEqual({ objects: 110 });
   });
 });
