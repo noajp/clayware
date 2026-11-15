@@ -16,7 +16,8 @@ export interface Board {
   saving: boolean;
   error: string | null;
   retry: () => void;
-  addWidget: (zone: Zone, type: string, index?: number) => void;
+  /** `params` are what the widget is to start from; it keeps only those it reads. */
+  addWidget: (zone: Zone, type: string, index?: number, params?: WidgetParams) => void;
   removeWidget: (id: string) => void;
   /** Move a widget to `toZone` at `toIndex` — the same call reorders within
    *  a zone and carries one across, so the drag handler has one code path. */
@@ -40,8 +41,8 @@ export function useBoard(surface: string, defaults: BoardLayout, subjectRef = 'm
   const stored = useWidgetBoard(surface, defaults, subjectRef);
   const { layout, update } = stored;
 
-  const addWidget = useCallback((zone: Zone, type: string, index?: number) => {
-    update({ op: 'add', type, zone, index });
+  const addWidget = useCallback((zone: Zone, type: string, index?: number, params?: WidgetParams) => {
+    update({ op: 'add', type, zone, index, params });
   }, [update]);
   const removeWidget = useCallback((id: string) => update({ op: 'remove', id }), [update]);
   const moveWidget = useCallback((id: string, toZone: Zone, toIndex: number) => {
