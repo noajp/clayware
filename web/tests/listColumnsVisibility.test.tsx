@@ -28,10 +28,13 @@ describe('view column preferences', () => {
     a.rerender();
     expect(a.result.current.isVisible('cc:field-1')).toBe(false);
   });
-  it('deduplicates built-ins and saves name width', () => {
+  it('deduplicates built-ins and keeps a column width set by hand, within its bounds', () => {
     const { result } = renderHook(() => useListColumns('width-test', empty, { extraColumns: [{ id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true }] }));
     expect(result.current.allColumns.filter((c) => c.id === 'objects')).toHaveLength(1);
-    act(() => result.current.setWidth('__name__', 280));
-    expect(result.current.widthFor('__name__')).toBe(280);
+    act(() => result.current.setWidth('objects', 200));
+    expect(result.current.widthFor('objects')).toBe(200);
+    // Never narrower than the width every column opens at.
+    act(() => result.current.setWidth('objects', 20));
+    expect(result.current.widthFor('objects')).toBe(result.current.specFor('objects').min);
   });
 });
