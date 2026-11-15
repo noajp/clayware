@@ -211,7 +211,7 @@ export function unplacedDefaults(layout: BoardLayout): DefaultPlacement[] {
 }
 
 export type BoardEdit =
-  | { op: 'add'; type: string; zone: Zone; index?: number }
+  | { op: 'add'; type: string; zone: Zone; index?: number; params?: WidgetParams }
   | { op: 'remove'; id: string }
   /** Reorders within a zone and carries across zones — one operation. */
   | { op: 'move'; id: string; zone: Zone; index: number }

@@ -193,6 +193,14 @@ const WIDGET_MESSAGES: Record<string, Row> = {
   '{error} Try the action again.': ['{error} もう一度お試しください。', '{error} 다시 시도하세요.', '{error} Réessayez.', '{error} Inténtalo de nuevo.'],
   'Choose a numeric value column in Configure.': ['「設定」で数値の列を選んでください。', '설정에서 숫자 값 열을 선택하세요.', 'Choisissez une colonne de valeurs numériques dans Configurer.', 'Elige una columna de valores numéricos en Configurar.'],
   'No numeric readings in {name} yet. Empty and invalid readings are excluded.': ['{name} にはまだ数値がありません。空の値と無効な値は除外されます。', '{name}에 아직 숫자 값이 없습니다. 빈 값과 잘못된 값은 제외됩니다.', 'Aucune valeur numérique dans {name} pour l’instant. Les valeurs vides ou invalides sont exclues.', 'Aún no hay valores numéricos en {name}. Se excluyen los valores vacíos o no válidos.'],
+  // Starting a canvas from the Object page
+  'Add an app': ['アプリを追加', '앱 추가', 'Ajouter une app', 'Añadir una app'],
+  'Add a chart': ['グラフを追加', '차트 추가', 'Ajouter un graphique', 'Añadir un gráfico'],
+  'Ask Athena…': ['Athena に頼む…', 'Athena에게 요청…', 'Demander à Athena…', 'Pedir a Athena…'],
+  'By status': ['ステータス別', '상태별', 'Par statut', 'Por estado'],
+  'By priority': ['優先度別', '우선순위별', 'Par priorité', 'Por prioridad'],
+  'By Phase': ['Phase 別', 'Phase별', 'Par Phase', 'Por Phase'],
+  'By due month': ['期限の月ごと', '기한 월별', 'Par mois d’échéance', 'Por mes de vencimiento'],
 };
 
 const column = (index: 0 | 1 | 2 | 3) => Object.fromEntries(Object.entries(WIDGET_MESSAGES).map(([key, row]) => [key, row[index]]));

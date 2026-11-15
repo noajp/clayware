@@ -12,7 +12,10 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { Button } from '@/ui/button';
-import { Plus } from '@/ui/icons';
+import { Blocks, ChartPie, Sparkles } from '@/ui/icons';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
+import { CANVAS_STARTS, type CanvasStartKind } from './generated/canvasStarts';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { WidgetPicker } from './WidgetPicker';
 import { BoardPresence } from './BoardPresence';
@@ -22,6 +25,40 @@ import { ZONES, type WidgetHost, type Zone } from './types';
 
 /** The widget a canvas is: an app AI writes, run in isolation. */
 const CANVAS_TYPE = 'generated-app';
+
+const START_MENU: Record<CanvasStartKind, { label: string; icon: React.ReactNode }> = {
+  app: { label: 'Add an app', icon: <Blocks size={16} /> },
+  chart: { label: 'Add a chart', icon: <ChartPie size={16} /> },
+};
+
+/** A canvas started from a choice rather than a blank request: the built-in
+ *  apps or charts, each in place at once with no AI, and last, asking Athena
+ *  for something else. */
+function CanvasStartMenu({ kind, disabled, onPick }: { kind: CanvasStartKind; disabled: boolean; onPick: (start: string | null) => void }) {
+  const { t } = useI18n();
+  const { label, icon } = START_MENU[kind];
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" disabled={disabled} aria-label={t(label)} className="text-muted-foreground hover:text-foreground">{icon}</Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{t(label)}</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="min-w-44">
+        {CANVAS_STARTS.filter((s) => s.kind === kind).map((s) => (
+          <DropdownMenuItem key={s.id} onSelect={() => onPick(s.id)} className="py-1.5 text-[13px]">{t(s.label)}</DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onPick(null)} className="gap-2 py-1.5 text-[13px]">
+          <Sparkles size={14} />{t('Ask Athena…')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 /** The droppable id a zone registers, so an empty zone is still a target. */
 export function zoneDroppableId(zone: Zone): string {
@@ -139,10 +176,12 @@ export function WidgetSurface({
   // calculator.
   const canvasOnly = host.subject.kind === 'object' && zones.includes('main');
   const picker = canvasOnly ? (
-    <Button variant="ghost" size="sm" disabled={board.loading || !!board.error}
-      onClick={() => board.addWidget('main', CANVAS_TYPE)}>
-      <Plus size={14} />{t('Add canvas')}
-    </Button>
+    <div className="flex items-center gap-0.5">
+      <CanvasStartMenu kind="app" disabled={board.loading || !!board.error}
+        onPick={(start) => board.addWidget('main', CANVAS_TYPE, undefined, start ? { start } : undefined)} />
+      <CanvasStartMenu kind="chart" disabled={board.loading || !!board.error}
+        onPick={(start) => board.addWidget('main', CANVAS_TYPE, undefined, start ? { start } : undefined)} />
+    </div>
   ) : (
     <WidgetPicker
       disabled={board.loading || !!board.error}
