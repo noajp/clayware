@@ -6,7 +6,7 @@
 /** Rewrites of a field that do not change where the work stands. */
 const SMALL_KINDS = new Set(['renamed', 'description', 'priority', 'due', 'estimate']);
 
-export function isSmallEdit(kind: string): boolean {
+function isSmallEdit(kind: string): boolean {
   return SMALL_KINDS.has(kind);
 }
 
