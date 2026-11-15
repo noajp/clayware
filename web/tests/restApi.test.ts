@@ -81,6 +81,14 @@ describe('paths', () => {
 });
 
 describe('planRequest', () => {
+  it('reads one Object by UUID, and answers 404 for anything else', () => {
+    expect(plan('GET', `/objects/${UUID}`, { access: 'read' })).toEqual({
+      ok: true,
+      call: { tool: 'getObject', args: { id: UUID }, successStatus: 200 },
+    });
+    expect(plan('GET', '/objects/OBJ-1')).toMatchObject({ ok: false, error: { status: 404, message: 'Object not found' } });
+  });
+
   it('types query values by the tool schema', () => {
     expect(plan('GET', '/elements', { query: 'objectId=o&status=todo&limit=20&overdueOnly=true' })).toEqual({
       ok: true,

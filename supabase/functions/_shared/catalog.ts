@@ -31,7 +31,7 @@ export interface CatalogTool extends ToolDef {
 
 const DELETES = new Set(["deleteElement", "deleteSubelement", "deleteObject", "bulkDeleteElements", "removeIntent", "deleteInitiative", "removeDependency"]);
 const READS = new Set([
-  "listMyDomains", "listObjects", "listElements", "getElement", "findByText", "getProgress", "getRecentActivity", "listWorkers", "listDependencies",
+  "listMyDomains", "listObjects", "getObject", "listElements", "getElement", "findByText", "getProgress", "getRecentActivity", "listWorkers", "listDependencies",
   "listInitiatives", "getInitiative", "getInitiativeExecution", "listFiles", "searchFiles", "readFile", "listHarnesses", "readHarness",
   "recall_memory",
 ]);
@@ -105,7 +105,7 @@ export interface EntryPolicy {
   core: string[];
 }
 
-const READ_CORE = ["listInitiatives", "getInitiative", "listObjects", "listElements", "getElement", "findByText", "listFiles", "searchFiles", "readFile", "listHarnesses"];
+const READ_CORE = ["listInitiatives", "getInitiative", "listObjects", "getObject", "listElements", "getElement", "findByText", "listFiles", "searchFiles", "readFile", "listHarnesses"];
 
 export const ENTRY_POLICIES: Record<Entry, EntryPolicy> = {
   // The AI panel: the person at the keyboard asked, and confirms deletes in the chat.

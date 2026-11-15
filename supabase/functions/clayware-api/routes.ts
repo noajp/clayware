@@ -28,6 +28,7 @@ export interface Route {
 export const ROUTES: readonly Route[] = [
   { method: "GET", path: "/domains", tool: "listMyDomains", summary: "Domains you belong to" },
   { method: "GET", path: "/objects", tool: "listObjects", summary: "Objects (archived ones excluded)" },
+  { method: "GET", path: "/objects/{id}", tool: "getObject", idArg: "id", idIsUuid: true, summary: "One Object with its description, span, Lead, linked Strategies and Element counts by status" },
   { method: "GET", path: "/elements", tool: "listElements", summary: "Elements, filtered" },
   { method: "POST", path: "/elements", tool: "createElement", creates: true, summary: "Create an Element" },
   { method: "GET", path: "/elements/{id}", tool: "getElement", idArg: "id", summary: "One Element with its Sub-elements, labels, assignees and recent comments" },
@@ -48,6 +49,8 @@ export const ROUTES: readonly Route[] = [
   { method: "GET", path: "/initiatives", tool: "listInitiatives", summary: "Initiatives you can see" },
   { method: "GET", path: "/initiatives/{id}", tool: "getInitiative", idArg: "id", idIsUuid: true, summary: "An Initiative's intent and the Objects that execute it" },
 ];
+
+const NOT_FOUND_NOUN: Record<string, string> = { getInitiative: "Initiative", getObject: "Object" };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -228,7 +231,7 @@ export function planRequest(input: {
     return err(403, "forbidden", "This token is read-only");
   }
   if (route.idIsUuid && id !== null && !UUID_RE.test(id)) {
-    return err(404, "not_found", `${route.tool === "getInitiative" ? "Initiative" : "Sub-element"} not found`);
+    return err(404, "not_found", `${NOT_FOUND_NOUN[route.tool] ?? "Sub-element"} not found`);
   }
 
   const schema = toolDef(route.tool).input_schema as Schema;
