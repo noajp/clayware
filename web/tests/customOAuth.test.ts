@@ -302,7 +302,7 @@ describe('drafting a service that signs in with OAuth', () => {
 });
 
 describe('review fixes: where a secret may follow, and whose yardstick a host is judged by', () => {
-  const migration = readFileSync(new URL('../../supabase/migrations/20270113090000_integration_custom_oauth.sql', import.meta.url), 'utf8');
+  const migration = readFileSync(new URL('../../supabase/migrations/20270113100000_integration_custom_oauth.sql', import.meta.url), 'utf8');
   const copyFn = migration.slice(migration.indexOf('create or replace function public.copy_integration_secret'), migration.indexOf("revoke all on function public.copy_integration_secret"));
 
   it('copies an OAuth client secret to a draft’s clone only for the same client sent to the same places', () => {
