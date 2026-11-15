@@ -1,5 +1,5 @@
 /* Hallmark · shape: Workbench · genre: modern-minimal · theme: brand · redesign: full · draw: d487b0 (swapped: shape Conversational FAQ to Workbench, hero Index to Stage, nav banner to a flat bar of the services, Band kept out; the user asked for a Linear-like page led by the product)
- * paper: oklch(13.2% 0.006 265) · accent: oklch(50.1% 0.132 265) · display: Geist · body: Geist · hero: Stage, stacked (head above, the capture beneath at full width; the user asked for a Linear-like page) · nav: a bar of the pages, with a Linear-like menu under Product (Multichannel, Strategy and Execution, Time management, Athena AI) · footer: colophon block with link columns · signature: the real Clayware screens on black, with yellow kept for the one place a person decides
+ * paper: oklch(13.2% 0.006 265) · accent: oklch(50.1% 0.132 265) · display: Geist · body: Geist · hero: Stage, stacked (head above, the capture beneath at full width; the user asked for a Linear-like page) · nav: Product (a Linear-like menu: multichannel integration, Athena AI, Strategy and Execution, Time management), Change management, Education, Pricing, Contact · footer: colophon block with link columns · signature: the real Clayware screens on black, with yellow kept for the one place a person decides
  * axes: dark/grotesk-sans/chromatic-blue · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V4 · weakest: S, a dark Linear-like page could be any tool; every capture is Clayware's own screen with its real work in it */
 /* Hallmark · dropped .reveal · modern-minimal keeps the page still, every section is simply there */
@@ -38,26 +38,16 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
 
 /* Product menu: opens on hover or focus, a 2x2 grid, a side column, a New bar */
 .dd { position: static; }
-.mega { position: absolute; top: calc(100% - var(--space-2xs)); left: var(--gutter); right: var(--gutter); z-index: var(--z-dropdown); display: none; flex-direction: column; gap: var(--space-xs); max-width: 980px; margin-inline: auto; }
-.mega::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-xl); }
+.mega { position: absolute; top: calc(100% - var(--space-2xs)); left: var(--gutter); right: var(--gutter); z-index: var(--z-dropdown); display: none; flex-direction: column; gap: var(--space-xs); max-width: 720px; margin-inline: auto; }
+.mega::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--space-sm); }
 .dd:hover .mega, .dd:focus-within .mega { display: flex; }
-.mega__panel { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); background: var(--color-paper-2); border: 1px solid var(--color-rule-strong); border-radius: var(--radius-card); }
-.mega__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-lg); gap: var(--space-xs); border-right: 1px solid var(--color-rule); }
+.mega__panel { display: grid; grid-template-columns: minmax(0, 1fr); background: var(--color-paper-2); border: 1px solid var(--color-rule-strong); border-radius: var(--radius-card); }
+.mega__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; padding: var(--space-lg); gap: var(--space-xs); }
 .mega__item { display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-md); border-radius: var(--radius-input); text-decoration: none; color: var(--color-ink); transition: background-color var(--dur-micro) var(--ease-out); }
 .mega__item b { font-weight: 500; font-size: var(--text-md); }
-.mega__item span { font-size: var(--text-sm); line-height: 1.5; color: var(--color-muted); }
+.mega__item span { font-size: var(--text-sm); line-height: 1.5; color: var(--color-muted); min-height: 3em; }
 .mega__item:hover { background: var(--color-paper-3); }
 .mega__item:active { background: var(--color-rule); }
-.mega__side { display: flex; flex-direction: column; gap: var(--space-2xs); padding: var(--space-lg); }
-.mega__side a { padding: var(--space-sm) var(--space-md); border-radius: var(--radius-input); color: var(--color-ink); text-decoration: none; font-size: var(--text-md); transition: background-color var(--dur-micro) var(--ease-out); }
-.mega__side a:hover { background: var(--color-paper-3); }
-.mega__side a:active { background: var(--color-rule); }
-.mega__new { display: flex; align-items: baseline; gap: var(--space-sm); padding: var(--space-md) var(--space-xl); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); color: var(--color-muted); text-decoration: none; font-size: var(--text-sm); transition: background-color var(--dur-micro) var(--ease-out); }
-.mega__new b { color: var(--color-ink); font-weight: 500; }
-.mega__new em { margin-left: auto; font-style: normal; color: var(--color-muted); }
-.mega__new:hover { background: var(--color-paper-3); }
-.mega__new:hover em { color: var(--color-ink); }
-.mega__new:active { background: var(--color-rule); }
 .mega a:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 
 .nav__end { display: flex; align-items: center; gap: var(--space-xs); }
@@ -306,5 +296,9 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
   .index td:first-child { font-size: var(--text-md); margin-bottom: var(--space-2xs); }
 }
 @media (max-width: 40rem) {
+  .nav__bar { gap: var(--space-sm); }
+  .nav__end { gap: var(--space-2xs); }
+  .nav__end .btn--small { padding-inline: var(--space-sm); }
+  .nav__end .lang { padding-inline: var(--space-xs); }
   .flow, .steps { grid-template-columns: minmax(0, 1fr); }
 }
