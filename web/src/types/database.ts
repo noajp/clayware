@@ -1506,7 +1506,7 @@ export interface Integration {
   delegation: 'approve_each' | 'full_delegation'
   enabled: boolean
   last_test: Json | null
-  /** The account an OAuth connection signed in as (the Google email). Written only by integration-oauth. */
+  /** The account an OAuth connection signed in as (an email, or GitHub's login). Written only by integration-oauth. */
   external_account: string | null
   /** The commands agents may use, enforced by run-agent (supabase/functions/_shared/connectorManifest.ts). */
   manifest: Json | null

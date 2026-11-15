@@ -443,7 +443,10 @@ function envGet(key: string): string | undefined {
  *                            rotates it) is saved with
  *                            store_integration_oauth_token, only if the stored
  *                            refresh token is still the one refreshed
- *                            (otherwise the result is null). When the
+ *                            (otherwise the result is null — or, where the
+ *                            provider rotates refresh tokens, the access
+ *                            token now stored when it is current: a
+ *                            concurrent refresh changed it). When the
  *                            provider answers an error that ends the grant
  *                            (Google's invalid_grant, say) the row's
  *                            last_test becomes oauth_expired and the result
@@ -502,7 +505,16 @@ export async function resolveCredential(
     p_integration_id: row.id, p_secret: JSON.stringify(next), p_expected_refresh_hash: await sha256Hex(tokens.refresh_token),
   });
   if (error) throw new Error("could not save the refreshed token");
-  return written === false ? null : next.access_token;
+  if (written !== false) return next.access_token;
+  // The stored set changed while refreshing. Where refresh tokens rotate,
+  // that is also what a concurrent refresh of this same connection does:
+  // use the token set now stored when it is current. A revoke leaves
+  // nothing to parse, and a reconnect's set is the connection as it now
+  // is, so neither hands back the token this refresh started from.
+  if (!provider.refresh.rotates) return null;
+  const { data: storedNow } = await admin.rpc("get_integration_secret", { p_integration_id: row.id });
+  const current = provider.parse(storedNow);
+  return current?.expires_at !== undefined && !needsRefresh({ expires_at: current.expires_at }, now) ? current.access_token : null;
 }
 
 /** Pure. True when a connection failed because its credential was refused

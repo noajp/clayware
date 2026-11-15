@@ -87,8 +87,10 @@ export interface OAuthProvider {
   grants(scope: string, profile: OAuthProfile): boolean;
   /** Present when the access token expires and is renewed with the refresh
    *  token at tokenUrl. reauthErrors: the token endpoint's errors that end
-   *  the grant, so the connection needs a new sign-in (oauth_expired). */
-  refresh?: { reauthErrors: readonly string[] };
+   *  the grant, so the connection needs a new sign-in (oauth_expired).
+   *  rotates: every refresh answers a new refresh token, so a concurrent
+   *  refresh of the same connection also changes the stored one. */
+  refresh?: { reauthErrors: readonly string[]; rotates: boolean };
   /** Ends Clayware's grant at the provider; true when it confirmed. Absent:
    *  the provider has no way to do it, and a disconnect only clears the
    *  stored tokens. */
@@ -131,7 +133,7 @@ const GOOGLE: OAuthProvider = {
   tokenSetFrom: (res, nowMs, previous) => secretFromTokenResponse(res, nowMs, previous?.provider === "google" ? previous as OAuthSecret : null),
   parse: parseOAuthSecret,
   grants: (scope, profile) => grantsRequiredScopes(scope, profile as GoogleProviderProfile),
-  refresh: { reauthErrors: ["invalid_grant"] },
+  refresh: { reauthErrors: ["invalid_grant"], rotates: false },
   // Revoking the refresh token ends the whole grant for that account.
   revoke: async ({ tokens, fetch }) => {
     if (!tokens.refresh_token) return false;
@@ -186,7 +188,7 @@ const MICROSOFT: OAuthProvider = {
   // invalid_grant: the refresh token expired or was revoked. The other two:
   // the organization now asks for something only a fresh sign-in can give
   // (multi-factor, a changed policy, consent withdrawn).
-  refresh: { reauthErrors: ["invalid_grant", "interaction_required", "consent_required"] },
+  refresh: { reauthErrors: ["invalid_grant", "interaction_required", "consent_required"], rotates: true },
   // No revoke: Microsoft offers an app no way to withdraw a delegated
   // grant. Disconnect clears the stored tokens; the person or their
   // administrator removes the app's permission on Microsoft's side.

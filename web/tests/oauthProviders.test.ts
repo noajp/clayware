@@ -263,6 +263,35 @@ describe('refreshing and revoking through the registry', () => {
     await expect(client.resolveCredential(admin, MS_ROW, JSON.stringify(MS_SECRET), { now: MS_SECRET.expires_at, client: CLIENT, fetchImpl })).rejects.toThrow(/Microsoft token refresh failed: HTTP 503/);
   });
 
+  it('when a concurrent refresh rotated the stored token first, uses the current stored token — never a revoked or stale one', async () => {
+    const now = MS_SECRET.expires_at - 60_000;
+    const fetchImpl = async () => new Response(JSON.stringify({ access_token: 'eyJ.mine', refresh_token: '0.AAA-refresh-3', expires_in: 3600 }), { status: 200 });
+    const adminWith = (stored: unknown) => {
+      const calls: string[] = [];
+      const admin = {
+        rpc: async (fn: string) => {
+          calls.push(fn);
+          // The conditional write loses: the stored refresh token is no longer the one refreshed.
+          return { data: fn === 'store_integration_oauth_token' ? false : stored, error: null };
+        },
+        from: () => ({ update: () => ({ eq: async () => ({ error: null }) }) }),
+      };
+      return { admin, calls };
+    };
+    const winner = { ...MS_SECRET, access_token: 'eyJ.theirs', refresh_token: '0.AAA-refresh-2', expires_at: now + 3_600_000 };
+    const won = adminWith(JSON.stringify(winner));
+    expect(await client.resolveCredential(won.admin, MS_ROW, JSON.stringify(MS_SECRET), { now, client: CLIENT, fetchImpl })).toBe('eyJ.theirs');
+    expect(won.calls).toEqual(['store_integration_oauth_token', 'get_integration_secret']);
+    // Revoked meanwhile (cleared), or a stored set itself due: nothing.
+    expect(await client.resolveCredential(adminWith('').admin, MS_ROW, JSON.stringify(MS_SECRET), { now, client: CLIENT, fetchImpl })).toBeNull();
+    expect(await client.resolveCredential(adminWith(JSON.stringify({ ...winner, expires_at: now })).admin, MS_ROW, JSON.stringify(MS_SECRET), { now, client: CLIENT, fetchImpl })).toBeNull();
+    // Google does not rotate: a lost write still gives nothing, without a second read.
+    const g = adminWith(JSON.stringify({ ...winner, provider: 'google' }));
+    const gRow = row('google-drive', 'http', 'https://www.googleapis.com/drive/v3');
+    expect(await client.resolveCredential(g.admin, gRow, JSON.stringify({ ...MS_SECRET, provider: 'google' }), { now, client: CLIENT, fetchImpl })).toBeNull();
+    expect(g.calls).toEqual(['store_integration_oauth_token']);
+  });
+
   it('gives a Microsoft row nothing for another provider’s token set, and nothing without a client', async () => {
     const { admin } = fakeAdmin();
     expect(await client.resolveCredential(admin, MS_ROW, JSON.stringify({ ...MS_SECRET, provider: 'google' }))).toBeNull();

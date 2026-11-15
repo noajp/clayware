@@ -98,7 +98,7 @@ export function ConnectorsSettings() {
             : oauthOutcome.status === 'admin_consent' ? 'bg-[var(--status-warning-subtle)]'
             : 'bg-[var(--surface-strong)]')}>
           {oauthOutcome.status === 'admin_consent' ? (
-            <AdminConsentNotice integrationId={isOwner ? oauthOutcome.integrationId : null} name={oauthReturnName} />
+            <AdminConsentNotice key={oauthOutcome.integrationId ?? ''} integrationId={isOwner ? oauthOutcome.integrationId : null} name={oauthReturnName} />
           ) : (
             <span>
               {oauthOutcome.status === 'pending'
