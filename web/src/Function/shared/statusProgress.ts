@@ -4,7 +4,7 @@
 // read as finished. Any other change leaves progress as it is.
 
 /** Where work taken back out of Done picks up. */
-export const REOPENED_PROGRESS = 75;
+const REOPENED_PROGRESS = 75;
 
 const REOPENED_TO = new Set(['in_progress', 'review', 'blocked']);
 
