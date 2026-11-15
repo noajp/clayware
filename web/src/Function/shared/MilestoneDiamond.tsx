@@ -86,7 +86,7 @@ export function ProgressDiamond({ progress = 0, size = 20, className }: { progre
       {p > 0 && (p >= 1
         ? <path d={shape} style={{ fill: 'var(--status-danger)' }} />
         : <path d={wedge ?? ''} clipPath={`url(#${clip})`} style={{ fill: 'var(--status-danger)' }} />)}
-      <path d={shape} strokeLinejoin="round" style={{ fill: 'none', stroke: 'var(--status-danger)', strokeWidth: 2.2 }} />
+      <path d={shape} strokeLinejoin="round" style={{ fill: 'none', stroke: 'var(--status-danger)', strokeWidth: 1.8 }} />
     </svg>
   );
 }
