@@ -27,6 +27,7 @@ import { createdOf, type CreatedEntity } from "./createdEntities.ts";
 import { createCredentialRequestsForNames, notifyCredentialRequestOwners } from "./credentialRequests.ts";
 import { recordWriteCompensation } from "./compensation.ts";
 import type { VerifyCheck } from "./verifyReads.ts";
+import type { ToolImage } from "./toolResultImages.ts";
 
 export const COPILOT_SYSTEM_PROMPT = `あなたは Clayware（組織の仕事を人と AI が一緒に進める運用基盤）の AI です。ユーザーの依頼を受けて、道具で Clayware のデータを読み書きし、仕事を最後までやり遂げます。
 
@@ -39,7 +40,7 @@ export const COPILOT_SYSTEM_PROMPT = `あなたは Clayware（組織の仕事を
 # できること
 - Strategy: 一覧・詳細、作成（最上位は spaceId、Sub Strategy は parentId を渡して createInitiative）、目的の書き換え、成功条件・前提・意思決定の追加と修正、仕事の進め方（定義）の記入、削除。
 - Execution: Domain / Object / Element / Sub-element の読み書き、担当・ラベル・コメント、一括更新。2 件以上の Element は createElements を 1 回で。
-- ファイル: Element・Object・Strategy に添付されたファイルの一覧（listFiles）、検索（searchFiles。名前だけでなく、取り出した中身の言葉や、付いているものの名前でも探せる）、読み取り（readFile）、書き込み（writeFile。同じ名前は新しい版になる）。「どこにあるか」「何が書いてあるか」でファイルを探すときは searchFiles を使う。
+- ファイル: Element・Object・Strategy に添付されたファイルの一覧（listFiles）、検索（searchFiles。名前だけでなく、取り出した中身の言葉や、付いているものの名前でも探せる）、読み取り（readFile。画像ファイルは画像のまま見られる）、書き込み（writeFile。同じ名前は新しい版になる）。「どこにあるか」「何が書いてあるか」でファイルを探すときは searchFiles を使う。
 - ハーネス: Space の仕事のやり方（listHarnesses / readHarness）。依頼に合うものがあれば読んで従う。
 - ボードのウィジェット（widgetBoard）、成功条件の実績（campaignMeasure）。
 - 連携（外部サービス）: この Space に接続された連携の、宣言された操作が道具として使えることがある（下の「この Space の連携」に、使える連携と使えない理由が書かれている）。未接続、または接続テストが失敗した連携は、propose_connection で接続（再接続）を提案できる。
@@ -137,8 +138,9 @@ export interface CopilotTurn {
    *  carries, so the driver can say on the record why the call ran
    *  unasked. Null for Clayware's own tools and ungranted commands. */
   grantOf(call: ToolCall): { lane: 1 | 2; clean: number } | null;
-  /** An integration call's verify read-back (B2) rides on its result. */
-  execute(call: ToolCall): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck }>;
+  /** An integration call's verify read-back (B2) rides on its result;
+   *  a picture a catalog tool read (readFile on an image) rides as images. */
+  execute(call: ToolCall): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck; images?: ToolImage[] }>;
 }
 
 /**
@@ -270,7 +272,7 @@ export async function buildCopilotTurn(args: {
     // stay "board" — the panel's catalog policy decides them, as before.
     kindOf: (name) => (toolset?.tools.has(name) ? "write" : "board"),
     needsApproval: (call) => verdictOf(call)?.final === "ask",
-    execute: async (call): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck }> => {
+    execute: async (call): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck; images?: ToolImage[] }> => {
       const it = toolset?.tools.get(call.name);
       if (it) {
         // A deny verdict is refused here, by the policy itself, before
@@ -382,7 +384,9 @@ export async function buildCopilotTurn(args: {
         name: call.name, ok: r.ok, rows: r.ok ? r.meta?.rows : undefined, error: r.ok ? undefined : r.error,
         ...(created ? { created } : {}),
       });
-      return r.ok ? { content: JSON.stringify(r.data).slice(0, 100_000) } : { content: JSON.stringify({ error: r.error }), is_error: true };
+      return r.ok
+        ? { content: JSON.stringify(r.data).slice(0, 100_000), ...(r.images?.length ? { images: r.images } : {}) }
+        : { content: JSON.stringify({ error: r.error }), is_error: true };
     },
   };
 }
