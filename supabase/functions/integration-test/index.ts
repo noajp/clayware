@@ -15,13 +15,16 @@
 //     http  a preset with a credential check (VERIFY) → connected or
 //           auth_failed. Any other API: GET on the base URL; a response
 //           below 500 other than 401 / 403 is only "reachable".
-//     oauth Google: the stored token (refreshed when due, through
-//           resolveCredential) answers the profile's account check (Drive's
-//           about, Gmail's profile) → connected. No token → oauth_required;
-//           a refresh token Google refuses → oauth_expired; a stored grant
-//           that no longer covers the profile's scope set (a consent from
-//           before the set widened) → oauth_scope_missing.
-//           GitHub: the signed-in token opens the MCP server as above.
+//     oauth a row a provider's profile claims (oauthProviders.ts). An API
+//           profile (Google's, Microsoft's): the stored token (refreshed
+//           when due, through resolveCredential) answers the profile's
+//           account check (Drive's about, Gmail's profile, Graph's me) →
+//           connected. No token → oauth_required; a refresh the provider
+//           refuses for good → oauth_expired; a stored grant that no longer
+//           covers the profile's scope set (a consent from before the set
+//           widened) → oauth_scope_missing.
+//           An MCP profile (GitHub's): the signed-in token opens the MCP
+//           server as above.
 //     model a one-token Messages request (Anthropic format) with the key →
 //           connected on success, auth_failed on 401 / 403. Any other answer
 //           under 500 (an unknown model name, say) is only "reachable": the
@@ -37,8 +40,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { McpSession, callHttp, isSafeEndpoint, readCapped, resolveCredential, type IntegrationRow, type RemoteTool } from "../_shared/integrationClient.ts";
-import { googleProfileOf, grantsRequiredScopes, parseOAuthSecret } from "../_shared/googleOAuth.ts";
-import { isGithubOAuthRow } from "../_shared/githubOAuth.ts";
+import { signInOf } from "../_shared/oauthProviders.ts";
 import { manifestFromTools, parseManifest } from "../_shared/connectorManifest.ts";
 import { matchPendingCapabilities } from "../_shared/pendingCapability.ts";
 import { recordIntegrationAuthFailure } from "../_shared/credentialUseAudit.ts";
@@ -149,16 +151,18 @@ async function runTest(row: IntegrationRow & { preset: string | null }, secret: 
   }
 }
 
-/** A signed-in connection. GitHub: the token opens its MCP server. Google:
- *  who the stored token belongs to, asked at the profile's account check. */
+/** A signed-in connection. An MCP profile (GitHub's): the token opens its
+ *  MCP server. An API profile (Google's, Microsoft's): who the stored token
+ *  belongs to, asked at the profile's account check. */
 async function runOAuthTest(admin: SupabaseClient, row: IntegrationRow & { preset: string | null }, raw: string | null): Promise<LastTest> {
   const at = new Date().toISOString();
-  if (isGithubOAuthRow(row)) {
+  const signIn = signInOf(row);
+  if (signIn?.profile.kind === "mcp") {
     const token = raw ? await resolveCredential(admin, row, raw) : null;
     return token ? await runTest(row, token) : { ok: false, at, code: "oauth_required", detail: "" };
   }
-  const profile = googleProfileOf(row);
-  if (!profile || !raw) return { ok: false, at, code: "oauth_required", detail: "" };
+  if (!signIn || !raw) return { ok: false, at, code: "oauth_required", detail: "" };
+  const { provider, profile } = signIn;
   let token: string | null;
   try {
     token = await resolveCredential(admin, row, raw);
@@ -166,7 +170,7 @@ async function runOAuthTest(admin: SupabaseClient, row: IntegrationRow & { prese
     return { ok: false, at, code: "error", detail: scrub(e instanceof Error ? e.message : String(e), null) };
   }
   if (!token) {
-    // resolveCredential records a refresh token Google refused as oauth_expired.
+    // resolveCredential records a refresh the provider refused for good as oauth_expired.
     const { data } = await admin.from("integrations").select("last_test").eq("id", row.id).maybeSingle();
     const expired = (data?.last_test as { code?: string } | null)?.code === "oauth_expired";
     return { ok: false, at, code: expired ? "oauth_expired" : "oauth_required", detail: "" };
@@ -180,14 +184,17 @@ async function runOAuthTest(admin: SupabaseClient, row: IntegrationRow & { prese
   // as what it is (read-only access). Re-consenting runs the ordinary
   // sign-in again, which asks for the profile's set as it now stands
   // and keeps the earlier grants (include_granted_scopes).
-  const stored = parseOAuthSecret(raw);
-  if (stored && !grantsRequiredScopes(stored.scope, profile)) {
+  const stored = provider.parse(raw);
+  if (stored && !provider.grants(stored.scope, profile)) {
     return { ok: false, at, code: "oauth_scope_missing", detail: "" };
   }
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 20_000);
-    const res = await fetch(profile.accountCheck.url, { headers: { Authorization: `Bearer ${token}`, accept: "application/json" }, signal: ctl.signal, redirect: "manual" })
+    const res = await fetch(profile.accountCheck.url, {
+      headers: { accept: "application/json", ...profile.accountCheck.headers, Authorization: `Bearer ${token}` },
+      signal: ctl.signal, redirect: "manual",
+    })
       .finally(() => clearTimeout(timer));
     await readCapped(res, 100_000);
     if (res.status === 401 || res.status === 403) return { ok: false, at, code: "auth_failed", status: res.status, detail: "" };

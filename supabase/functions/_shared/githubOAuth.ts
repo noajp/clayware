@@ -10,6 +10,8 @@
 // (Disconnect, or the person removing Clayware under GitHub › Settings ›
 // Applications).
 
+import type { OAuthProfile } from "./oauthProviders.ts";
+
 export const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
 export const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 export const GITHUB_USER_URL = "https://api.github.com/user";
@@ -26,17 +28,26 @@ export interface GithubOAuthSecret {
   scope: string;
 }
 
-export interface GithubClientConfig { clientId: string; clientSecret: string }
+/** The one row that signs in with GitHub: its MCP server, with the repo
+ *  scope, and the login as the account. */
+export const GITHUB_PROFILE: OAuthProfile = {
+  preset: "github",
+  kind: "mcp",
+  endpoint: GITHUB_MCP_ENDPOINT,
+  scopes: [GITHUB_SCOPE],
+  accountCheck: {
+    url: GITHUB_USER_URL,
+    headers: { accept: "application/vnd.github+json", "user-agent": "clayware-integration-oauth" },
+    accountOf: (body) => {
+      const login = (body as { login?: unknown } | null)?.login;
+      return typeof login === "string" && login.length <= 100 ? login : null;
+    },
+  },
+};
 
 /** The integration rows that sign in with GitHub. */
 export function isGithubOAuthRow(row: { preset?: string | null; kind?: string | null; auth_type?: string | null; endpoint?: string | null } | null | undefined): boolean {
   return !!row && row.preset === "github" && row.kind === "mcp" && row.auth_type === "oauth" && row.endpoint === GITHUB_MCP_ENDPOINT;
-}
-
-export function githubClientFromEnv(get: (key: string) => string | undefined): GithubClientConfig | null {
-  const clientId = get("GITHUB_OAUTH_CLIENT_ID")?.trim();
-  const clientSecret = get("GITHUB_OAUTH_CLIENT_SECRET")?.trim();
-  return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
 export function buildGithubAuthorizeUrl(p: { clientId: string; redirectUri: string; state: string; codeChallenge: string }): string {

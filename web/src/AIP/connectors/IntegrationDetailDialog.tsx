@@ -63,6 +63,19 @@ const OAUTH_COPY: Record<OAuthProvider, {
     disconnect: "Disconnect {name}? Clayware's access is revoked at GitHub. If the same GitHub account is connected in another Space, that connection stops working too.",
     revokeFailed: 'Clayware could not revoke its access at GitHub. Remove it on GitHub under Settings › Applications › Authorized OAuth Apps.',
   },
+  // Microsoft has no way for an app to withdraw a person's grant, so a
+  // disconnect only deletes what Clayware holds; revokeFailed says where
+  // the permission itself is removed.
+  microsoft: {
+    opening: 'Opening Microsoft…',
+    signIn: 'Sign in with Microsoft',
+    notSetUp: 'Microsoft sign-in is not set up yet. An administrator needs to register the Microsoft Entra app before this can be connected.',
+    howItConnects: 'Connect opens Microsoft sign-in with a work or school account. Clayware asks only to read your basic profile (name and email).',
+    whose: 'Access belongs to the Microsoft account. Your organization’s administrator may need to approve Clayware before you can connect; if so, Clayware gives you a link to send them.',
+    actsAs: 'Connected as {account}.',
+    disconnect: 'Disconnect {name}? Clayware deletes the access it holds for this connection.',
+    revokeFailed: 'Clayware deleted the access it held. The permission you granted stays with your Microsoft account until you or your administrator remove it there.',
+  },
 };
 
 /**

@@ -16,10 +16,8 @@
 // are checked before every request: https only, no localhost / private /
 // link-local hosts, and an http_request path can never leave its base URL.
 
-import {
-  GOOGLE_TOKEN_URL, isGoogleOAuthRow, needsRefresh, parseOAuthSecret, secretFromTokenResponse, sha256Hex,
-} from "./googleOAuth.ts";
-import { isGithubOAuthRow, parseGithubSecret } from "./githubOAuth.ts";
+import { needsRefresh, sha256Hex } from "./googleOAuth.ts";
+import { oauthClientFromEnv, signInOf, type OAuthClientConfig } from "./oauthProviders.ts";
 
 export interface IntegrationRow {
   id: string;
@@ -427,18 +425,6 @@ export interface CredentialStore {
   };
 }
 
-export interface OAuthClientConfig {
-  clientId: string;
-  clientSecret: string;
-}
-
-/** The Google OAuth client from the Edge secrets, or null until both are set. */
-export function googleClientFromEnv(get: (key: string) => string | undefined): OAuthClientConfig | null {
-  const clientId = get("GOOGLE_OAUTH_CLIENT_ID")?.trim();
-  const clientSecret = get("GOOGLE_OAUTH_CLIENT_SECRET")?.trim();
-  return clientId && clientSecret ? { clientId, clientSecret } : null;
-}
-
 function envGet(key: string): string | undefined {
   // deno-lint-ignore no-explicit-any
   return (globalThis as any).Deno?.env?.get(key);
@@ -447,18 +433,24 @@ function envGet(key: string): string | undefined {
 /**
  * The credential to send for `row`, given the raw Vault value.
  *   none / bearer / header   the raw value as stored.
- *   oauth (github)           the access token as stored (it does not expire).
- *   oauth (google)           a row a Google profile claims (googleOAuth.ts):
- *                            the access token, refreshed through Google when
- *                            it expires within two minutes; the new token set
- *                            is saved with store_integration_oauth_token,
- *                            only if the stored refresh token is still the
- *                            one refreshed (otherwise the result is null).
- *                            When Google refuses the refresh token
- *                            (invalid_grant) the row's last_test becomes
- *                            oauth_expired and the result is null.
+ *   oauth                    a row a provider's profile claims
+ *                            (oauthProviders.ts), its token set parsed as
+ *                            that provider's:
+ *     no refresh (GitHub)    the access token as stored (it does not expire).
+ *     refresh (Google,       the access token, refreshed at the provider when
+ *     Microsoft)             it expires within two minutes; the new token set
+ *                            (with the new refresh token when the provider
+ *                            rotates it) is saved with
+ *                            store_integration_oauth_token, only if the stored
+ *                            refresh token is still the one refreshed
+ *                            (otherwise the result is null). When the
+ *                            provider answers an error that ends the grant
+ *                            (Google's invalid_grant, say) the row's
+ *                            last_test becomes oauth_expired and the result
+ *                            is null.
  * Any other OAuth row, a malformed secret or a missing OAuth client gives
- * null. A refresh that fails for another reason throws.
+ * null. A refresh that fails for another reason throws. `opts.client`
+ * replaces the provider's client from the environment.
  */
 export async function resolveCredential(
   admin: CredentialStore,
@@ -467,44 +459,47 @@ export async function resolveCredential(
   opts: { client?: OAuthClientConfig | null; fetchImpl?: FetchLike; now?: number } = {},
 ): Promise<string | null> {
   if (row.auth_type !== "oauth") return raw && raw.length > 0 ? raw : null;
-  if (isGithubOAuthRow(row)) return parseGithubSecret(raw)?.access_token ?? null;
-  if (!isGoogleOAuthRow(row)) return null;
-  const secret = parseOAuthSecret(raw);
-  if (!secret) return null;
+  const signIn = signInOf(row);
+  if (!signIn) return null;
+  const { provider, profile } = signIn;
+  const tokens = provider.parse(raw);
+  if (!tokens) return null;
+  if (!provider.refresh || !tokens.refresh_token || tokens.expires_at === undefined) return tokens.access_token;
   const now = opts.now ?? Date.now();
-  if (!needsRefresh(secret, now)) return secret.access_token;
+  if (!needsRefresh({ expires_at: tokens.expires_at }, now)) return tokens.access_token;
 
-  const client = opts.client !== undefined ? opts.client : googleClientFromEnv(envGet);
+  const client = opts.client !== undefined ? opts.client : oauthClientFromEnv(provider, envGet);
   if (!client) return null;
-  const res = await fetchWithTimeout(GOOGLE_TOKEN_URL, {
+  const res = await fetchWithTimeout(provider.tokenUrl, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
     body: new URLSearchParams({
       grant_type: "refresh_token",
-      refresh_token: secret.refresh_token,
+      refresh_token: tokens.refresh_token,
       client_id: client.clientId,
       client_secret: client.clientSecret,
+      ...provider.tokenParams?.(profile),
     }).toString(),
   }, opts.fetchImpl);
   const text = await readCapped(res, 100_000);
   let body: Record<string, unknown> = {};
   try { body = JSON.parse(text); } catch { /* not JSON */ }
   if (!res.ok) {
-    if (body.error === "invalid_grant") {
+    if (typeof body.error === "string" && provider.refresh.reauthErrors.includes(body.error)) {
       await admin.from("integrations").update({
         last_test: { ok: false, at: new Date(now).toISOString(), code: "oauth_expired", detail: "" },
       }).eq("id", row.id);
       return null;
     }
-    throw new Error(`Google token refresh failed: HTTP ${res.status}${typeof body.error === "string" ? ` ${body.error.slice(0, 60)}` : ""}`);
+    throw new Error(`${provider.name} token refresh failed: HTTP ${res.status}${typeof body.error === "string" ? ` ${body.error.slice(0, 60)}` : ""}`);
   }
-  const next = secretFromTokenResponse(body, now, secret);
-  if (!next) throw new Error("Google token refresh returned no access token");
+  const next = provider.tokenSetFrom(body, now, tokens);
+  if (!next) throw new Error(`${provider.name} token refresh returned no access token`);
   // Written only over the token set this refresh started from: a reconnect
   // (perhaps with another account) or a revoke in the meantime wins, and this
   // run gets no token rather than one for a connection that has changed.
   const { data: written, error } = await admin.rpc("store_integration_oauth_token", {
-    p_integration_id: row.id, p_secret: JSON.stringify(next), p_expected_refresh_hash: await sha256Hex(secret.refresh_token),
+    p_integration_id: row.id, p_secret: JSON.stringify(next), p_expected_refresh_hash: await sha256Hex(tokens.refresh_token),
   });
   if (error) throw new Error("could not save the refreshed token");
   return written === false ? null : next.access_token;
