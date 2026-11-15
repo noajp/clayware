@@ -4,11 +4,13 @@ import { useSyncExternalStore } from 'react';
 // and how hard it thinks. The choice is the person's own, kept in this
 // browser; the server accepts only the models and efforts listed here.
 
+// Athena is the product's own; the model behind it is named by what it is
+// like to use, not by its maker's name for it.
 export const ATHENA_MODELS = [
-  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
-  { id: 'claude-fable-5-2', label: 'Fable 5.2' },
-  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
-  { id: 'claude-haiku-5-5', label: 'Haiku 5.5' },
+  { id: 'claude-opus-5-5', label: 'Most capable' },
+  { id: 'claude-fable-5-2', label: 'Advanced' },
+  { id: 'claude-sonnet-5-5', label: 'Standard' },
+  { id: 'claude-haiku-5-5', label: 'Fast' },
 ] as const;
 export const ATHENA_EFFORTS = [
   { id: 'low', label: 'Low' },

@@ -5,11 +5,11 @@ import { MENU_SEPARATOR, MenuSectionLabel, MenuShell } from '@/Function/shared/m
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ATHENA_EFFORTS, ATHENA_MODELS, setAthenaSettings, useAthenaSettings } from './athenaSettings';
 
-/** Under a request box: who answers (Athena) and how — its model and effort. */
+/** Under a request box: who answers (Athena) and how hard it thinks. Which
+ *  model runs is chosen in the menu, and is not written beside the name. */
 export function AthenaControls({ disabled }: { disabled?: boolean }) {
   const { t } = useI18n();
   const settings = useAthenaSettings();
-  const model = ATHENA_MODELS.find((m) => m.id === settings.model) ?? ATHENA_MODELS[0];
   const effort = ATHENA_EFFORTS.find((e) => e.id === settings.effort) ?? ATHENA_EFFORTS[1];
   return (
     <DropdownMenu>
@@ -17,8 +17,6 @@ export function AthenaControls({ disabled }: { disabled?: boolean }) {
         <button type="button" disabled={disabled} aria-label={t('Athena settings')}
           className="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
           <span className="font-medium text-foreground">Athena</span>
-          <span>{model.label}</span>
-          <span className="opacity-60">·</span>
           <span>{t(effort.label)}</span>
           <ChevronDown size={12} />
         </button>
@@ -27,7 +25,7 @@ export function AthenaControls({ disabled }: { disabled?: boolean }) {
         <MenuSectionLabel>{t('Model')}</MenuSectionLabel>
         {ATHENA_MODELS.map((m) => (
           <DropdownMenuItem key={m.id} onSelect={() => setAthenaSettings({ model: m.id })}>
-            <span className="flex-1">{m.label}</span>{m.id === settings.model && <MenuCheck />}
+            <span className="flex-1">{t(m.label)}</span>{m.id === settings.model && <MenuCheck />}
           </DropdownMenuItem>
         ))}
         <div className={MENU_SEPARATOR} />
