@@ -545,22 +545,12 @@ export function ListTable({
   }, []);
   // The trailing "+" (which fields show) is one 28px button.
   const TRAILING_COL_WIDTH = 40;
-  // Every column is at least as wide as the widest thing in it — its
-  // values and its heading (columnWidths), measured off the rows once they
-  // are drawn, below. That is the width it opens at, and the least it can
-  // be dragged to: the gap from one column to the next is never less than
-  // the cells' own padding. Dragged wider, it stops at its kind's most.
+  // A column not sized by hand is exactly as wide as the widest thing in
+  // it — its values and its heading (columnWidths), measured off the rows
+  // once they are drawn, below — so the columns sit as close as their
+  // cells' padding allows. One sized by hand keeps the width it was given.
   const [fitted, setFitted] = useState<Record<string, number>>(() => (colStorageKey ? FITTED.get(colStorageKey) ?? {} : {}));
-  const drawnWidth = (c: DataColumn) => {
-    const fit = fitted[c.id];
-    if (!cols.isSized(c.id)) return fit ?? cols.widthFor(c.id);
-    return fit ? Math.max(fit, cols.widthFor(c.id)) : cols.widthFor(c.id);
-  };
-  /** The bounds a drag moves a column within: from what it holds to its kind's most. */
-  const dragSpec = (id: ColumnId) => {
-    const spec = cols.specFor(id);
-    return id !== NAME_COL_KEY && fitted[id] ? { ...spec, min: Math.min(spec.max, fitted[id]) } : spec;
-  };
+  const drawnWidth = (c: DataColumn) => (cols.isSized(c.id) ? cols.widthFor(c.id) : fitted[c.id] ?? cols.widthFor(c.id));
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
   const fixedWidth = 52 + (hasTrailingCol ? TRAILING_COL_WIDTH : 0);
   // Name is pinned while the rest scrolls under it, so a set Name wider than
@@ -787,7 +777,7 @@ export function ListTable({
   // when the drag ends (ResizeHandle). Returns the width drawn.
   const drawWidth = (id: ColumnId, raw: number): number => {
     const table = tableRef.current;
-    const w = clampWidth(raw, dragSpec(id));
+    const w = clampWidth(raw, cols.specFor(id));
     if (!table) return w;
     const isName = id === NAME_COL_KEY;
     const next = tableLayout({
@@ -904,7 +894,7 @@ export function ListTable({
                   sort={cols.sort && cols.sort.id === col.id ? cols.sort.direction : null}
                   onResizeStart={freezeName}
                   onDraft={(w) => drawWidth(col.id, w)}
-                  onCommit={(w) => cols.setWidth(col.id, clampWidth(w, dragSpec(col.id)))}
+                  onCommit={(w) => cols.setWidth(col.id, w)}
                   onAutoFit={() => fitColumn(col.id)}
                   onSort={(direction) => cols.setSort(direction ? { id: col.id, direction } : null)}
                   onEdit={col.custom && onEditColumn ? () => onEditColumn(col.custom!) : undefined}

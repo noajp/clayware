@@ -5,8 +5,10 @@ describe('column widths', () => {
   it('sizes a column by the kind of value it holds', () => {
     expect(widthSpec({ id: 'due_date' }).base).toBeLessThan(widthSpec({ id: 'objects' }).base);
     expect(widthSpec({ id: 'cc:1', custom: { column_type: 'date' } })).toEqual(widthSpec({ id: 'due_date' }));
-    expect(widthSpec({ id: 'cc:2', custom: { column_type: 'checkbox' } }).max).toBeLessThan(widthSpec({ id: 'objects' }).min + 10);
-    expect(clampWidth(40, widthSpec({ id: 'due_date' }))).toBe(widthSpec({ id: 'due_date' }).min);
+    expect(widthSpec({ id: 'cc:2', custom: { column_type: 'checkbox' } }).max).toBeLessThan(widthSpec({ id: 'objects' }).max);
+    // Any column can be dragged down to a few characters, and up to its kind's most.
+    expect(clampWidth(10, widthSpec({ id: 'due_date' }))).toBe(48);
+    expect(clampWidth(10, widthSpec({ id: 'objects' }))).toBe(48);
     expect(clampWidth(900, widthSpec({ id: 'objects' }))).toBe(widthSpec({ id: 'objects' }).max);
   });
 
@@ -29,7 +31,8 @@ describe('column widths by language, density and kind', () => {
   it('gives a date more room where it is written longer, and less in compact rows', () => {
     const en = widthSpec({ id: 'due_date' }, { locale: 'en' });
     const ja = widthSpec({ id: 'due_date' }, { locale: 'ja' });
-    expect(ja.min).toBeGreaterThan(en.min);
+    expect(ja.base).toBeGreaterThan(en.base);
+    expect(ja.max).toBeGreaterThan(en.max);
     const compact = widthSpec({ id: 'assignee' }, { compact: true });
     const comfortable = widthSpec({ id: 'assignee' });
     expect(compact.base).toBeLessThan(comfortable.base);
@@ -47,9 +50,10 @@ describe('column widths by language, density and kind', () => {
 describe('fitted widths', () => {
   const spec = (id: string) => widthSpec({ id });
   it('holds what was measured to the column’s bounds and leaves bars alone', () => {
-    expect(fittedWidths({ objects: 129, due_date: 40, assignee: 900, progress: 300 }, null, spec)).toEqual({
-      objects: 129,
-      due_date: widthSpec({ id: 'due_date' }).min,
+    expect(fittedWidths({ objects: 87, due_date: 40, assignee: 900, progress: 300 }, null, spec)).toEqual({
+      // Exactly what it holds, not rounded up to a usual width.
+      objects: 87,
+      due_date: 48,
       assignee: widthSpec({ id: 'assignee' }).max,
     });
   });

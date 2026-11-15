@@ -1,14 +1,14 @@
 // How wide each column of a list is, and how the table is laid out.
 //
-// Every column holds one kind of value, and the kind decides its width: a
-// date is a few characters, a person a face and a name, a set of chips more.
-// Each kind has a least width, a usual one and a most (past it the column is
-// only air, and a value longer than it ends in "…"). A column opens as wide
-// as the widest thing in it — its values and its heading — held to those
-// bounds, so the gap from one column to the next is the same everywhere;
-// before that is measured, and for a column with nothing to measure (a
-// bar), it is its usual width. That fitted width is also the least a column
-// can be dragged to; dragged wider, it stops at its kind's most.
+// Every column holds one kind of value: a date is a few characters, a
+// person a face and a name, a set of chips more.
+// A column opens exactly as wide as the widest thing in it — its values and
+// its heading — so the gap from one column to the next is the same
+// everywhere and as small as the cells' own padding. Before that is
+// measured, and for a column with nothing to measure (a bar), it opens at
+// its kind's usual width. From there its edge can be dragged either way:
+// down to a few characters (what no longer fits ends in "…") and up to its
+// kind's most, past which the column would only be air.
 //
 // The table is laid out left to right and stays anchored at its left edge:
 // the pinned mark, Name, then each column at its own width, the "+" and, if
@@ -38,19 +38,23 @@ export interface WidthEnv {
   compact?: boolean;
 }
 
-const DATE: WidthSpec = { min: 80, base: 104, max: 160 };
+/** The least any column can be: a few characters and the "…". A column
+ *  is not held to what it holds — it can be dragged down to this. */
+const FLOOR = 48;
+
+const DATE: WidthSpec = { min: FLOOR, base: 104, max: 160 };
 /** A short date in the languages that write it with 月/日 or 월/일 marks, or
  *  with the month spelled after the day, runs wider than "Nov 24". */
-const DATE_WIDE: WidthSpec = { min: 92, base: 112, max: 168 };
-const PERSON: WidthSpec = { min: 96, base: 136, max: 240 };
-const CHIPS: WidthSpec = { min: 96, base: 160, max: 320 };
-const CHOICE: WidthSpec = { min: 80, base: 112, max: 220 };
-const TEXT: WidthSpec = { min: 96, base: 160, max: 400 };
-const NUMBER: WidthSpec = { min: 64, base: 88, max: 160, align: 'end' };
-const CHECK: WidthSpec = { min: 56, base: 72, max: 104 };
+const DATE_WIDE: WidthSpec = { min: FLOOR, base: 112, max: 168 };
+const PERSON: WidthSpec = { min: FLOOR, base: 136, max: 240 };
+const CHIPS: WidthSpec = { min: FLOOR, base: 160, max: 320 };
+const CHOICE: WidthSpec = { min: FLOOR, base: 112, max: 220 };
+const TEXT: WidthSpec = { min: FLOOR, base: 160, max: 400 };
+const NUMBER: WidthSpec = { min: FLOOR, base: 88, max: 160, align: 'end' };
+const CHECK: WidthSpec = { min: FLOOR, base: 72, max: 104 };
 const BAR: WidthSpec = { min: 96, base: 128, max: 240, fits: false };
-const SIGNAL: WidthSpec = { min: 72, base: 96, max: 160 };
-const COUNT: WidthSpec = { min: 64, base: 80, max: 120, align: 'end' };
+const SIGNAL: WidthSpec = { min: FLOOR, base: 96, max: 160 };
+const COUNT: WidthSpec = { min: FLOOR, base: 80, max: 120, align: 'end' };
 
 /** Name: the title, and the row's signals beside it. */
 export const NAME_SPEC: WidthSpec = { min: 240, base: 440, max: 1200 };
@@ -96,8 +100,8 @@ export function widthSpec(column: { id: string; custom?: { column_type?: string 
   let spec = column.custom ? BY_FIELD_TYPE[column.custom.column_type ?? ''] ?? TEXT : BUILTIN[column.id] ?? CHOICE;
   if (spec === DATE && env.locale && !env.locale.startsWith('en')) spec = DATE_WIDE;
   if (!env.compact) return spec;
-  // The most stays: it is a limit on air, not on what the text needs.
-  return { ...spec, min: Math.round(spec.min * COMPACT), base: Math.round(spec.base * COMPACT) };
+  // The least and the most stay: they are limits, not what the text needs.
+  return { ...spec, base: Math.round(spec.base * COMPACT) };
 }
 
 /** Pure. A width held to its bounds. */
