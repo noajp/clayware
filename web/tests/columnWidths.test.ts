@@ -14,26 +14,22 @@ describe('column widths', () => {
     expect(clampWidth(900, chips)).toBe(chips.max);
   });
 
-  it('gives an unsized Name whatever the columns leave, so they sit at the right edge', () => {
+  it('gives Name whatever the columns leave, so they sit at the right edge', () => {
     expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: null })).toEqual({ name: 708, filler: 0, width: 1200 });
+    // A width set by hand that is less than that room changes nothing.
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 500 })).toEqual({ name: 708, filler: 0, width: 1200 });
     // Narrower than everything: Name stays at its least and the table scrolls.
     expect(tableLayout({ view: 600, fixed: 92, columns: 400, name: null })).toEqual({ name: NAME_SPEC.min, filler: 0, width: 92 + NAME_SPEC.min + 400 });
   });
 
-  it('keeps a Name sized by hand, with the room left over after the columns', () => {
-    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 500 })).toEqual({ name: 500, filler: 208, width: 1200 });
-    // Wider than the view allows: the table scrolls.
+  it('lets Name be set wider than that room, the table then scrolling', () => {
     expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 800 })).toEqual({ name: 800, filler: 0, width: 1292 });
   });
 
-  it('holds everything left of a dragged edge still', () => {
-    // A column dragged 60px narrower while Name is held at the width drawn.
-    const before = tableLayout({ view: 1200, fixed: 92, columns: 400, name: 708 });
-    const during = tableLayout({ view: 1200, fixed: 92, columns: 340, name: 708 });
-    expect(during.name).toBe(before.name);
-    expect(during.filler).toBe(60);
-    // Released, an unsized Name takes the difference again.
-    expect(tableLayout({ view: 1200, fixed: 92, columns: 340, name: null }).name).toBe(768);
+  it('holds Name still while a column is dragged, and repacks when it is let go', () => {
+    const during = tableLayout({ view: 1200, fixed: 92, columns: 340, name: null, held: 708 });
+    expect(during).toEqual({ name: 708, filler: 60, width: 1200 });
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 340, name: null })).toEqual({ name: 768, filler: 0, width: 1200 });
   });
 });
 

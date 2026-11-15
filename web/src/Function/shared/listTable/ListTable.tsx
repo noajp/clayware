@@ -521,10 +521,9 @@ export function ListTable({
     }
   };
 
-  // The table's layout (columnWidths): from the left — the mark, Name,
-  // each column, the "+". Name takes what the columns leave until it is
-  // sized by hand; then it keeps its width and the room left over is an
-  // empty filler in the "+" track.
+  // The table's layout (columnWidths): the mark, Name, each column, the
+  // "+", packed to the right — Name takes the room the columns leave, or
+  // the width set on it by hand when that is more.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [viewWidth, setViewWidth] = useState(0);
   useEffect(() => {
@@ -550,8 +549,7 @@ export function ListTable({
     ? (viewWidth ? Math.min(cols.widthFor(NAME_COL_KEY), Math.max(NAME_SPEC.min, viewWidth - fixedWidth - Math.min(dataWidth, 240))) : cols.widthFor(NAME_COL_KEY))
     : null;
   const layout = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth, name: setName });
-  // Without a "+" track the leftover goes to Name.
-  const nameWidth = hasTrailingCol ? layout.name : layout.name + layout.filler;
+  const nameWidth = layout.name;
   const trailingWidth = TRAILING_COL_WIDTH + layout.filler;
   const titleWidth = `calc(${nameWidth}px - var(--signals-w, 0px))`;
 
@@ -731,18 +729,17 @@ export function ListTable({
     const w = clampWidth(raw, cols.specFor(id));
     if (!table) return w;
     const isName = id === NAME_COL_KEY;
-    const next = tableLayout({
-      view: viewWidth,
-      fixed: fixedWidth,
-      columns: isName ? dataWidth : dataWidth - cols.widthFor(id) + w,
-      name: isName ? w : nameWidth,
-    });
+    // Name cannot be dragged below the room the columns leave it; a column
+    // being dragged holds Name where it is drawn.
+    const next = isName
+      ? tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth, name: w })
+      : tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth - cols.widthFor(id) + w, name: null, held: nameWidth });
     const set = (col: HTMLElement | null, width: string) => { if (col) { col.style.width = width; col.style.minWidth = width; } };
-    set(table.querySelector<HTMLElement>(`col[data-col="${CSS.escape(id)}"]`), isName ? `calc(${w}px - var(--signals-w, 0px))` : `${w}px`);
+    set(table.querySelector<HTMLElement>(`col[data-col="${CSS.escape(id)}"]`), isName ? `calc(${next.name}px - var(--signals-w, 0px))` : `${w}px`);
     set(table.querySelector<HTMLElement>('col[data-col="+"]'), `${TRAILING_COL_WIDTH + next.filler}px`);
     table.style.width = `${next.width}px`;
     table.style.minWidth = `${next.width}px`;
-    return w;
+    return isName ? next.name : w;
   };
   // A drag draws on the tracks directly, so after every render they are
   // written again from what was rendered: React leaves a style alone when
@@ -762,6 +759,12 @@ export function ListTable({
     table.style.minWidth = `${layout.width}px`;
   });
 
+  // Name set no wider than the room the columns leave is not a width of
+  // its own: it goes back to taking that room, whatever the pane's width.
+  const commitName = (w: number) => {
+    if (w <= viewWidth - fixedWidth - dataWidth) cols.resetWidth(NAME_COL_KEY);
+    else cols.setWidth(NAME_COL_KEY, w);
+  };
   // A double click on Name's edge: as wide as the longest title drawn needs,
   // up to its most — or, when that is no more than the room the columns
   // leave, back to taking that room.
@@ -774,10 +777,7 @@ export function ListTable({
       if (cell) need = Math.max(need, title.getBoundingClientRect().left - cell.getBoundingClientRect().left + title.scrollWidth + 12);
     });
     const signals = parseFloat(getComputedStyle(table).getPropertyValue('--signals-w')) || 0;
-    const fit = clampWidth(need + signals, NAME_SPEC);
-    const room = viewWidth - fixedWidth - dataWidth;
-    if (fit <= room) cols.resetWidth(NAME_COL_KEY);
-    else cols.setWidth(NAME_COL_KEY, fit);
+    commitName(clampWidth(need + signals, NAME_SPEC));
   };
   // Fits a column to what it holds (a double click on its edge).
   const fitColumn = (id: ColumnId) => {
@@ -862,7 +862,7 @@ export function ListTable({
                 <ResizeHandle
                   width={nameWidth}
                   onDraft={(w) => drawWidth(NAME_COL_KEY, w)}
-                  onCommit={(w) => cols.setWidth(NAME_COL_KEY, w)}
+                  onCommit={commitName}
                   onAutoFit={fitName}
                 />
               )}
