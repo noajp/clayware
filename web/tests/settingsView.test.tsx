@@ -18,6 +18,7 @@ vi.mock('@/Function/settings/MemberSettings', () => ({ MemberSettings: () => 'Me
 vi.mock('@/Function/settings/NotificationSettings', () => ({ NotificationSettings: () => 'Notifications panel' }));
 vi.mock('@/Function/settings/LabelSettings', () => ({ LabelSettings: () => 'Labels panel' }));
 vi.mock('@/Function/settings/TypeSettings', () => ({ TypeSettings: ({ kind }: { kind: string }) => `Types panel: ${kind}` }));
+vi.mock('@/Function/settings/StatusSettings', () => ({ StatusSettings: ({ scope }: { scope: string }) => `Statuses panel: ${scope}` }));
 vi.mock('@/Function/automation/AutomationSettings', () => ({ AutomationSettings: () => 'Automation panel' }));
 vi.mock('@/Function/settings/ElementTemplateSettings', () => ({ ElementTemplateSettings: () => 'Templates panel' }));
 vi.mock('@/Function/settings/SlaSettings', () => ({ SlaSettings: () => 'SLA panel' }));

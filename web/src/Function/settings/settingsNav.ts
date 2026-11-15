@@ -3,7 +3,7 @@
 import { openInApp } from '@/Function/shared/appNavigation';
 import type React from 'react';
 import { useSyncExternalStore } from 'react';
-import { SlidersHorizontal, User, Bell, KeyRound, Plug, Globe, Users, Sparkles, Link2, Tag, FileText, Boxes } from '@/ui/icons';
+import { SlidersHorizontal, User, Bell, KeyRound, Plug, Globe, Users, Sparkles, Link2, Tag, FileText, Boxes, CircleCheck } from '@/ui/icons';
 import { DomainIcon, ObjectIcon, ElementIcon } from '@/Function/shared/conceptIcons';
 import { NavStrategyIcon, NavAutomationIcon } from '@/Frame/sidebar/NavIcons';
 
@@ -64,6 +64,7 @@ export const SETTINGS_NAV: SettingsNavSection[] = [
     title: 'Objects',
     items: [
       { id: 'objects', label: 'Types', title: 'Object types', icon: ObjectIcon },
+      { id: 'work-statuses', label: 'Statuses', title: 'Object and Strategy statuses', holds: ['Backlog', 'Planned', 'In Progress', 'Completed', 'Canceled'], icon: CircleCheck },
     ],
   },
   {

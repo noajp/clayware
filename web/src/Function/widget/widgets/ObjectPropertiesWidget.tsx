@@ -20,6 +20,9 @@ import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
 import { CustomColumnCell } from '@/Function/property/CustomColumnCell';
 import { RailRow } from '@/Function/shared/RailRow';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
+import { useWorkStatuses } from '@/hooks/workStatuses';
+import { statusOf } from '@/Function/shared/workStatus';
+import { WorkStatusMark, WorkStatusPicker, useStatusName } from '@/Function/shared/WorkStatusPicker';
 import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { outlook, withStates } from '@/Function/shared/pace';
 import { ReachHint, WorkerAvatar } from '@/Function/shared/WorkerAvatar';
@@ -86,6 +89,10 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
   const primaryDomain: Domain | null =
     domains.find((d) => d.id === object?.domain_id) ?? null;
   const objectTypes: string[] = primaryDomain?.object_types ?? [];
+  // The statuses the Object's Space defines; the Object stands in one of them.
+  const { rows: statusRows } = useWorkStatuses(primaryDomain?.activity_space_id);
+  const nameOf = useStatusName();
+  const status = statusOf('work', statusRows, object?.work_stage, object?.work_status_id);
 
   // Resolved by id: a lead from outside the picker's list still shows by name.
   const leadWorker: Worker | null = useWorkerById(object?.lead_id ?? null, allWorkers);
@@ -134,6 +141,8 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
     start_date?: string | null;
     due_date?: string | null;
     lead_id?: string | null;
+    work_stage?: string;
+    work_status_id?: string | null;
   }) => {
     if (!objectId) return;
     try {
@@ -172,6 +181,14 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
           <div aria-hidden className="h-2" />
         </>
       )}
+
+      {/* The stage it stands in, and the Space's own status within it. */}
+      <WorkStatusPicker scope="work" rows={statusRows} stage={object.work_stage} statusId={object.work_status_id}
+        onChange={(next) => handleFieldSave({ work_stage: next.stage, work_status_id: next.statusId })}>
+        <button type="button" className="w-full text-left">
+          <RailRow name={t('Status')} icon={<WorkStatusMark status={status} />} label={nameOf(status)} />
+        </button>
+      </WorkStatusPicker>
 
       <TypePickerRow
         currentType={object.type}

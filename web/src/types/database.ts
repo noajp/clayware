@@ -357,6 +357,10 @@ export interface ClaywareObject {
   color: string | null
   /** Its own icon: 'glyph:<Name>', 'lucide:<name>' or an emoji; null shows the Object icon. */
   icon?: string | null
+  /** The stage it stands in (backlog, planned, in_progress, completed, canceled). */
+  work_stage?: string
+  /** The Space's own status within that stage; null is the stage's own. */
+  work_status_id?: string | null
   prefix: string | null            // ID prefix e.g. "PH1"
   display_id: string | null        // e.g. "OBJ_PH1"
   order_index: number | null
@@ -2105,6 +2109,10 @@ export interface Strategy {
   name: string
   description: string | null
   status: StrategyStatus | null
+  /** The stage it stands in (backlog, planned, in_progress, completed, canceled). */
+  work_stage?: string
+  /** The Space's own status within that stage; null is the stage's own. */
+  work_status_id?: string | null
   scope: StrategyScope
   delegation: StrategyDelegation
   /** The definition its Elements follow (Function: definitions), or null. */
@@ -2143,6 +2151,8 @@ export interface StrategyUpdate {
   icon?: string | null
   updated_at?: string
   note_id?: string | null
+  work_stage?: string
+  work_status_id?: string | null
 }
 
 // Strategy → Objects junction — the single source of a Strategy's Object set.

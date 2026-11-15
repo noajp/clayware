@@ -7,6 +7,7 @@ import { ProfileSettings } from './ProfileSettings';
 import { AccountSettings } from './AccountSettings';
 import { CHART_PALETTES } from '@/Function/shared/chartPalette';
 import { TypeSettings } from './TypeSettings';
+import { StatusSettings } from './StatusSettings';
 import { getCachedChartPalette, setCachedChartPalette, usePreference } from './preferencesStore';
 import { OPTIONS as THEME_OPTIONS, FONT_SIZES, FONT_SIZE_KEY, DEFAULT_FONT_KEY, applyFontSize } from './appearanceOptions';
 import { TeamSettings } from './TeamSettings';
@@ -74,6 +75,7 @@ export function SettingsView() {
       case 'element-labels': return <LabelSettings />;
       case 'element-templates': return <ElementTemplateSettings />;
       case 'objects': return <TypeSettings kind="object" />;
+      case 'work-statuses': return <StatusSettings scope="work" />;
       case 'harnesses': return <HarnessesPanel />;
       case 'connectors': return <ConnectorsSettings />;
       case 'automation': return <AutomationSettings />;

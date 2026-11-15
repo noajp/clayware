@@ -8,28 +8,48 @@ import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
 import { completionOf } from '@/Function/shared/completion';
 import { formatRelative } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { useStrategies, useWorkers } from '@/hooks/useSupabase';
+import { useStrategies, useWorkers, updateStrategy } from '@/hooks/useSupabase';
+import { useWorkStatuses } from '@/hooks/workStatuses';
+import { statusOf } from '@/Function/shared/workStatus';
+import { WorkStatusMark, WorkStatusPicker, useStatusName } from '@/Function/shared/WorkStatusPicker';
 import type { WidgetHost } from '../types';
 
 // =============================================================
 // Properties — a Strategy's facts, as the island beside its Overview: who
-// owns it, how far its work has come, and when it last changed. What its AI
+// stage it stands in, who owns it, how far its work has come, and when it
+// last changed. What its AI
 // work does and the harness it follows are set on the Automation page.
 // =============================================================
 
 export function StrategyPropertiesWidget({ host }: { host: WidgetHost }) {
   const { t } = useI18n();
-  const { data: strategies } = useStrategies();
+  const { data: strategies, refetch } = useStrategies();
   const { data: workers } = useWorkers();
   const strategy = strategies.find((s) => s.id === host.subject.id) ?? null;
 
   const progress = useMemo(() => completionOf(host.elements), [host.elements]);
+  const { rows: statusRows } = useWorkStatuses(strategy?.activity_space_id);
+  const nameOf = useStatusName();
 
   if (!strategy) return null;
   const owner = workers.find((w) => w.user_id && w.user_id === strategy.created_by) ?? null;
 
+  // The stage it stands in, and the Space's own status within it.
+  const status = statusOf('work', statusRows, strategy.work_stage, strategy.work_status_id);
+  const statusRow = <RailRow name={t('Status')} icon={<WorkStatusMark status={status} />} label={nameOf(status)} />;
+
   return (
     <div className="py-1">
+      {host.readOnly ? statusRow : (
+        <WorkStatusPicker scope="work" rows={statusRows} stage={strategy.work_stage} statusId={strategy.work_status_id}
+          onChange={(next) => {
+            void updateStrategy(strategy.id, { work_stage: next.stage, work_status_id: next.statusId })
+              .then(() => refetch())
+              .catch((e) => console.error('Failed to save the Strategy status', e));
+          }}>
+          <button type="button" className="w-full text-left">{statusRow}</button>
+        </WorkStatusPicker>
+      )}
       <RailRow name={t('Owner')} placeholder={!owner}
         icon={owner ? <WorkerAvatar worker={owner} size={16} /> : undefined}
         label={owner?.name ?? t('Unknown')} />
