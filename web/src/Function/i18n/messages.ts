@@ -486,10 +486,6 @@ Object.assign(ja, {
   'Nothing is connected to this Space yet.': 'この Space にはまだ何も接続されていません。',
   'Off': 'オフ', '{count} tools': 'ツール {count} 個',
   'Not tested': '未テスト', 'Error': 'エラー',
-  "Read and update Linear issues, projects and cycles through Linear's MCP server.": 'Linear の MCP サーバー経由で、Issue・Project・Cycle を読み書きします。',
-  'Read and update Asana projects and their work through the Asana REST API.': 'Asana の REST API 経由で、プロジェクトとその作業を読み書きします。',
-  "Review and merge pull requests in Clayware, and let agents work with repositories, issues and pull requests through GitHub's MCP server.": 'Clayware で Pull Request をレビュー・マージし、エージェントは GitHub の MCP サーバー経由でリポジトリ・Issue・Pull Request を扱います。',
-  'Read channels and post messages through the Slack Web API.': 'Slack Web API 経由で、チャンネルを読み、メッセージを投稿します。',
   'Connect any remote MCP server that speaks Streamable HTTP.': 'Streamable HTTP に対応した任意のリモート MCP サーバーをつなぎます。',
   'Connect any HTTPS API by its base URL. Agents can call paths under it.': '任意の HTTPS API を base URL でつなぎます。エージェントはその配下のパスを呼び出せます。',
   'Custom MCP': 'カスタム MCP', 'Custom API': 'カスタム API', 'You': 'あなた',
@@ -555,10 +551,6 @@ Object.assign(ko, {
   'Nothing is connected to this Space yet.': '이 Space에는 아직 연결된 것이 없습니다.',
   'Off': '꺼짐', '{count} tools': '도구 {count}개',
   'Not tested': '테스트 안 함', 'Error': '오류',
-  "Read and update Linear issues, projects and cycles through Linear's MCP server.": 'Linear MCP 서버를 통해 Issue, Project, Cycle을 읽고 수정합니다.',
-  'Read and update Asana projects and their work through the Asana REST API.': 'Asana REST API를 통해 프로젝트와 그 작업을 읽고 수정합니다.',
-  "Review and merge pull requests in Clayware, and let agents work with repositories, issues and pull requests through GitHub's MCP server.": 'Clayware에서 Pull Request를 리뷰·병합하고, 에이전트는 GitHub MCP 서버를 통해 저장소, Issue, Pull Request를 다룹니다.',
-  'Read channels and post messages through the Slack Web API.': 'Slack Web API를 통해 채널을 읽고 메시지를 게시합니다.',
   'Connect any remote MCP server that speaks Streamable HTTP.': 'Streamable HTTP를 지원하는 원격 MCP 서버를 연결합니다.',
   'Connect any HTTPS API by its base URL. Agents can call paths under it.': '임의의 HTTPS API를 base URL로 연결합니다. 에이전트는 그 아래 경로를 호출할 수 있습니다.',
   'Custom MCP': '사용자 지정 MCP', 'Custom API': '사용자 지정 API', 'You': '나',
@@ -624,10 +616,6 @@ Object.assign(fr, {
   'Nothing is connected to this Space yet.': 'Rien n’est encore connecté à ce Space.',
   'Off': 'Désactivé', '{count} tools': '{count} outils',
   'Not tested': 'Non testé', 'Error': 'Erreur',
-  "Read and update Linear issues, projects and cycles through Linear's MCP server.": 'Lire et modifier les issues, projets et cycles Linear via le serveur MCP de Linear.',
-  'Read and update Asana projects and their work through the Asana REST API.': 'Lire et modifier les projets Asana et leur travail via l’API REST d’Asana.',
-  "Review and merge pull requests in Clayware, and let agents work with repositories, issues and pull requests through GitHub's MCP server.": 'Relire et fusionner les pull requests dans Clayware, et laisser les agents travailler sur les dépôts, issues et pull requests via le serveur MCP de GitHub.',
-  'Read channels and post messages through the Slack Web API.': 'Lire les canaux et publier des messages via l’API Web de Slack.',
   'Connect any remote MCP server that speaks Streamable HTTP.': 'Connecter n’importe quel serveur MCP distant compatible Streamable HTTP.',
   'Connect any HTTPS API by its base URL. Agents can call paths under it.': 'Connecter n’importe quelle API HTTPS par son URL de base. Les agents peuvent appeler les chemins situés en dessous.',
   'Custom MCP': 'MCP personnalisé', 'Custom API': 'API personnalisée', 'You': 'Vous',
@@ -693,10 +681,6 @@ Object.assign(es, {
   'Nothing is connected to this Space yet.': 'Todavía no hay nada conectado a este Space.',
   'Off': 'Desactivado', '{count} tools': '{count} herramientas',
   'Not tested': 'Sin probar', 'Error': 'Error',
-  "Read and update Linear issues, projects and cycles through Linear's MCP server.": 'Lee y actualiza issues, proyectos y ciclos de Linear mediante el servidor MCP de Linear.',
-  'Read and update Asana projects and their work through the Asana REST API.': 'Lee y actualiza proyectos de Asana y su trabajo mediante la API REST de Asana.',
-  "Review and merge pull requests in Clayware, and let agents work with repositories, issues and pull requests through GitHub's MCP server.": 'Revisa y fusiona pull requests en Clayware, y deja que los agentes trabajen con repositorios, issues y pull requests mediante el servidor MCP de GitHub.',
-  'Read channels and post messages through the Slack Web API.': 'Lee canales y publica mensajes mediante la API web de Slack.',
   'Connect any remote MCP server that speaks Streamable HTTP.': 'Conecta cualquier servidor MCP remoto compatible con Streamable HTTP.',
   'Connect any HTTPS API by its base URL. Agents can call paths under it.': 'Conecta cualquier API HTTPS por su URL base. Los agentes pueden llamar a las rutas que cuelgan de ella.',
   'Custom MCP': 'MCP personalizado', 'Custom API': 'API personalizada', 'You': 'Tú',
@@ -1243,7 +1227,6 @@ Object.assign(es, AUDIT_TRANSLATIONS.es);
 
 // Settings › AI: Google sign-in (OAuth) for Google Drive.
 Object.assign(ja, {
-  'Search, read, create and update Google Drive files. Agents see only files Clayware created or that you chose.': 'Google Drive のファイルを検索・読み取り・作成・更新します。エージェントが扱えるのは、Clayware が作ったファイルとあなたが選んだファイルだけです。',
   'Not connected — sign in with Google': '未接続 — Google でサインインしてください',
   'Google sign-in expired — reconnect': 'Google のサインインが失効しました — 再接続してください',
   'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.': 'Google サインインはまだ設定されていません。接続するには、管理者が Google の OAuth クライアントを登録する必要があります。',
@@ -1268,7 +1251,6 @@ Object.assign(ja, {
 });
 
 Object.assign(ko, {
-  'Search, read, create and update Google Drive files. Agents see only files Clayware created or that you chose.': 'Google Drive 파일을 검색하고 읽고 만들고 수정합니다. 에이전트는 Clayware이 만든 파일과 사용자가 선택한 파일만 볼 수 있습니다.',
   'Not connected — sign in with Google': '연결되지 않음 — Google로 로그인하세요',
   'Google sign-in expired — reconnect': 'Google 로그인이 만료되었습니다 — 다시 연결하세요',
   'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.': 'Google 로그인이 아직 설정되지 않았습니다. 연결하려면 관리자가 Google OAuth 클라이언트를 등록해야 합니다.',
@@ -1293,7 +1275,6 @@ Object.assign(ko, {
 });
 
 Object.assign(fr, {
-  'Search, read, create and update Google Drive files. Agents see only files Clayware created or that you chose.': 'Rechercher, lire, créer et mettre à jour des fichiers Google Drive. Les agents ne voient que les fichiers créés par Clayware ou que vous avez choisis.',
   'Not connected — sign in with Google': 'Non connecté — connectez-vous avec Google',
   'Google sign-in expired — reconnect': 'La connexion Google a expiré — reconnectez-vous',
   'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.': 'La connexion Google n’est pas encore configurée. Un administrateur doit enregistrer le client OAuth de Google avant de pouvoir connecter ce service.',
@@ -1318,7 +1299,6 @@ Object.assign(fr, {
 });
 
 Object.assign(es, {
-  'Search, read, create and update Google Drive files. Agents see only files Clayware created or that you chose.': 'Busca, lee, crea y actualiza archivos de Google Drive. Los agentes solo ven los archivos que creó Clayware o que tú elegiste.',
   'Not connected — sign in with Google': 'Sin conectar — inicia sesión con Google',
   'Google sign-in expired — reconnect': 'El inicio de sesión de Google caducó — vuelve a conectar',
   'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.': 'El inicio de sesión con Google aún no está configurado. Un administrador debe registrar el cliente OAuth de Google antes de poder conectarlo.',

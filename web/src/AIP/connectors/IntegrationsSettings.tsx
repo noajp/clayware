@@ -1,31 +1,34 @@
 'use client';
 
 import { formatError } from '@/Function/shared/formatError';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ExternalLink } from '@/ui/icons';
+import { ChevronRight, ExternalLink, Search } from '@/ui/icons';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { CARD_FLAT, CARD_HOVER, FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { useCurrentUserId } from '@/providers/authContext';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import type { Integration } from '@/types/database';
 import {
-  CONNECTION_METHOD_ORDER, INTEGRATION_PRESETS,
-  catalogGroups, installedPresetIds,
-  type ConnectionMethod, type IntegrationPreset, type OAuthProvider,
+  CATEGORY_LABELS, INTEGRATION_PRESETS, INTEGRATION_STATUS_LABELS,
+  catalogByCategory, installedPresetIds, integrationStatus, matchesQuery, presetById, presetMatchesQuery, readLastTest,
+  type CatalogCardState, type IntegrationPreset, type IntegrationStatus, type OAuthProvider,
 } from './catalog';
 import { useIntegrationOAuthStatus, useIntegrations, useIsSpaceOwner } from './data';
 import { useSpaceApprovalMode } from './approvalModeData';
 import { APPROVAL_MODE_LABELS } from './approvalModeModel';
-import { PresetCard } from './PresetCard';
-import { ConnectedRow } from './ConnectedRow';
+import { ServiceCard, type ServiceCardTone } from './ServiceCard';
 import { setActiveSettingsSection } from '@/Function/settings/settingsNav';
 import { createDraft, useIntegrationDrafts } from './draftData';
 import { DRAFT_STATUS_LABELS, reconcileDraftWeb } from './draftModel';
 import { IntegrationDraftDialog } from './IntegrationDraftDialog';
 import { SiteCredentialsSection } from './SiteCredentialsSection';
+import { SiteCredentialDialog } from './SiteCredentialDialog';
+import { useSiteCredentials, type SiteCredentialRow } from './siteCredentialData';
+import { attentionItems, type AttentionItem } from './connectorsAttention';
 import { Textarea } from '@/ui/textarea';
 import type { IntegrationDraft } from '@/types/database';
 import { IntegrationIcon } from './IntegrationDetailDialog';
@@ -36,13 +39,29 @@ import { RegistrySection } from '@/AIP/harness/RegistrySection';
 import type { DirectoryEntry } from '@/hooks/customizeData';
 
 // Settings › AI › Connectors: the outside services the Space's AI can use.
-// One page, top to bottom — what the Space has (Connected, site logins,
-// drafts), then what it can add, grouped by how a connection is made, the
-// public MCP Registry (RegistrySection) and a draft the AI writes for a
-// service neither has. Members see everything read-only; only owners can
-// connect or change.
+// The first screen answers "what do we have, what needs me, what can we
+// add": a search box, what needs attention (connectorsAttention.ts: a
+// draft whose AI is asking or waiting for review, a connection or site
+// login that stopped working), the Space's connections and site logins,
+// and the catalog by purpose. Ways to add something new — custom
+// connections, a website login, the public directory, drafting by AI — sit
+// under "Other ways to connect", which a search with no built-in match
+// leads to. Members see everything read-only; only owners can connect or
+// change.
 
 const DOCS_URL = 'https://github.com/noajp/clayware/blob/main/docs/mcp.md';
+
+const STATUS_TONES: Record<IntegrationStatus, ServiceCardTone> = {
+  connected: 'success',
+  reachable: 'muted',
+  'not-tested': 'muted',
+  off: 'muted',
+  'action-needed': 'danger',
+};
+
+function hostOf(url: string | null | undefined): string | null {
+  try { return url ? new URL(url).host : null; } catch { return null; }
+}
 
 export function ConnectorsSettings() {
 
@@ -55,10 +74,17 @@ export function ConnectorsSettings() {
   const openedDraft = openedDraftId ? drafts.find((d) => d.id === openedDraftId) ?? null : null;
   const ownerRole = useIsSpaceOwner(spaceId);
   const isOwner = ownerRole === true;
+  const userId = useCurrentUserId();
   const [opened, setOpened] = useState<OpenedConnection | null>(null);
-  const [siteLoginAddOpen, setSiteLoginAddOpen] = useState(false);
+  // The site login dialog: an existing login (from its row or the strip) or a new one.
+  const siteLoginsQuery = useSiteCredentials(spaceId);
+  const siteLogins = siteLoginsQuery.data;
+  const [siteLoginOpened, setSiteLoginOpened] = useState<SiteCredentialRow | 'new' | null>(null);
+  const siteLoginOpenedRow = siteLoginOpened && siteLoginOpened !== 'new'
+    ? siteLogins.find((c) => c.id === siteLoginOpened.id) ?? siteLoginOpened
+    : null;
   // Sign-in readiness is the server's fact, shared with the detail
-  // dialog: both provider reads sit on the one status fetch.
+  // dialog: every provider read sits on the one status fetch.
   const googleConfigured = useIntegrationOAuthStatus(true, 'google');
   const githubConfigured = useIntegrationOAuthStatus(true, 'github');
   const microsoftConfigured = useIntegrationOAuthStatus(true, 'microsoft');
@@ -71,23 +97,83 @@ export function ConnectorsSettings() {
     if (oauthStatus === 'ok' || oauthStatus === 'error' || oauthStatus === 'admin_consent') void queryClient.invalidateQueries({ queryKey: ['integrations'] });
   }, [oauthStatus, queryClient]);
 
+  // The search box, and the public directory's copy of it (debounced: the
+  // directory is a network search).
+  const [query, setQuery] = useState('');
+  const q = query.trim();
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  useEffect(() => { const id = setTimeout(() => setDirectoryQuery(q), 400); return () => clearTimeout(id); }, [q]);
+
+  // "Other ways to connect", and a draft the search asked for.
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [draftPrefill, setDraftPrefill] = useState<{ name: string; at: number } | null>(null);
+  const draftRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (draftPrefill) draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [draftPrefill]);
+  const askAiFor = (name: string) => {
+    setOtherOpen(true);
+    setDraftPrefill({ name, at: Date.now() });
+  };
+
   const installed = useMemo(() => installedPresetIds(integrations), [integrations]);
   // Model connections live in Team settings, under Models — this page's
-  // Connected list is the Space's business connections.
+  // connections are the Space's business connections.
   const connectedRows = useMemo(() => integrations.filter((i) => i.kind !== 'model'), [integrations]);
   const oauthConfigured = useMemo<Record<OAuthProvider, boolean | null>>(
     () => ({ google: googleConfigured, github: githubConfigured, microsoft: microsoftConfigured }),
     [googleConfigured, githubConfigured, microsoftConfigured],
   );
-  const groups = useMemo(
-    () => catalogGroups(INTEGRATION_PRESETS.filter((p) => p.kind !== 'model'), installed, oauthConfigured),
-    [installed, oauthConfigured],
+  const categories = useMemo(() => catalogByCategory(INTEGRATION_PRESETS, installed, oauthConfigured), [installed, oauthConfigured]);
+  const customPresets = useMemo(() => INTEGRATION_PRESETS.filter((p) => p.custom && p.kind !== 'model'), []);
+
+  const attention = useMemo(
+    () => attentionItems({ drafts, integrations, siteLogins, isOwner, userId }),
+    [drafts, integrations, siteLogins, isOwner, userId],
   );
+  const openAttention = (item: AttentionItem) => {
+    if (item.kind === 'draft-question' || item.kind === 'draft-review') { setOpenedDraftId(item.id); return; }
+    if (item.kind === 'site-login') {
+      const cred = siteLogins.find((c) => c.id === item.id);
+      if (cred) setSiteLoginOpened(cred);
+      return;
+    }
+    const row = integrations.find((i) => i.id === item.id);
+    if (row) openIntegration(row);
+  };
+
+  const matchedConnections = useMemo(() => (q ? connectedRows.filter((i) => {
+    const preset = presetById(i.preset);
+    return matchesQuery([i.name, i.endpoint, preset?.name, preset ? t(preset.description) : null], q);
+  }) : []), [q, connectedRows, t]);
+  const matchedPresets = useMemo(() => (q ? [
+    ...categories.flatMap((g) => g.cards),
+    ...customPresets.map((preset) => ({ preset, state: 'ready' as CatalogCardState })),
+  ].filter((c) => presetMatchesQuery(c.preset, q, t)) : []), [q, categories, customPresets, t]);
+  const nothingMatched = !!q && matchedConnections.length === 0 && matchedPresets.length === 0;
 
   const openPreset = (preset: IntegrationPreset) => setOpened(openedForPreset(preset, integrations));
   const openIntegration = (integration: Integration) => setOpened(openedForIntegration(integration));
   const connectedEndpoints = useMemo(() => new Set(integrations.map((i) => i.endpoint)), [integrations]);
   const addFromRegistry = (e: DirectoryEntry) => setOpened(openedForRegistryEntry(e));
+
+  const connectionCard = (i: Integration) => {
+    const preset = presetById(i.preset);
+    const status = integrationStatus(i);
+    const last = readLastTest(i.last_test);
+    return (
+      <ServiceCard key={i.id} name={i.name} icon={i.icon ?? preset?.icon ?? null}
+        description={preset && !preset.custom ? t(preset.description) : hostOf(i.endpoint)}
+        badge={{ label: t(INTEGRATION_STATUS_LABELS[status]), tone: STATUS_TONES[status] }}
+        footnote={last?.toolCount != null ? t('{count} tools', { count: last.toolCount }) : null}
+        onOpen={() => openIntegration(i)} />
+    );
+  };
+  const presetCard = ({ preset, state }: { preset: IntegrationPreset; state: CatalogCardState }) => (
+    <ServiceCard key={preset.id} name={t(preset.name)} icon={preset.icon} description={t(preset.description)}
+      badge={state === 'setup-needed' ? { label: t('Needs setup'), tone: 'warning' } : null}
+      onOpen={() => openPreset(preset)} />
+  );
 
   return (
     <div className="space-y-8">
@@ -120,95 +206,168 @@ export function ConnectorsSettings() {
         <p className="text-[12px] text-muted-foreground">{t('Only Space owners can connect or change integrations. You can see what is connected.')}</p>
       )}
 
-      <section className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 className={`${FONT.lg} text-foreground`}>{t('Connected')}</h2>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">{t('Services this Space is connected to. Open one to see what AI may do with it.')}</p>
-          </div>
-          <Button asChild variant="ghost" size="sm">
-            <a href={DOCS_URL} target="_blank" rel="noreferrer">
-              <ExternalLink size={14} aria-hidden="true" />
-              <span>{t('Docs')}</span>
-            </a>
-          </Button>
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('Find a service, e.g. Slack or Google Drive')} aria-label={t('Search services')}
+            className="h-8 pl-8 text-[13px] md:text-[13px]" />
         </div>
-        <div className={`${SETTINGS_ISLAND} px-5 py-1.5`}>
-          {error ? (
-            <p className="py-2.5 text-[13px] text-[var(--status-danger)]">{t("Couldn't load integrations: {error}", { error: error.message })}</p>
-          ) : loading ? (
-            <p className="py-2.5 text-[13px] text-muted-foreground">{t('Loading…')}</p>
-          ) : connectedRows.length === 0 ? (
-            <p className="py-2.5 text-[13px] text-muted-foreground">{t('Nothing is connected to this Space yet.')}</p>
+        <Button asChild variant="ghost" size="sm">
+          <a href={DOCS_URL} target="_blank" rel="noreferrer">
+            <ExternalLink size={14} aria-hidden="true" />
+            <span>{t('Docs')}</span>
+          </a>
+        </Button>
+      </div>
+
+      {q ? (
+        <section className="space-y-5" aria-live="polite">
+          {nothingMatched ? (
+            <p className="text-[13px] text-muted-foreground">{t('Nothing built in matches “{query}”.', { query: q })}</p>
           ) : (
-            <div>
-              {connectedRows.map((i) => <ConnectedRow key={i.id} integration={i} onOpen={() => openIntegration(i)} />)}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {matchedConnections.map(connectionCard)}
+              {matchedPresets.map(presetCard)}
             </div>
           )}
-        </div>
+          {isOwner && (
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+              {!nothingMatched && <span>{t('Not what you need?')}</span>}
+              <Button variant="secondary" size="sm" onClick={() => askAiFor(q)}>{t('Have the AI connect it')}</Button>
+            </div>
+          )}
+          {nothingMatched && directoryQuery && (
+            <RegistrySection key={directoryQuery} initialQuery={directoryQuery} connectedEndpoints={connectedEndpoints}
+              canAdd={isOwner} onAdd={addFromRegistry} searchable={false}
+              title="In the public directory"
+              note="Other services that offer a connection for AI. Anyone can list one there, so add only ones you trust." />
+          )}
+        </section>
+      ) : (
+        <>
+          {attention.length > 0 && (
+            <section className="space-y-3">
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Needs your attention')}</h2>
+              <div className={`${SETTINGS_ISLAND} px-5 py-1.5`}>
+                {attention.map((item) => (
+                  <AttentionRow key={`${item.kind}:${item.id}`} name={item.name} icon={item.icon} reason={t(item.reason)} tone={item.tone}
+                    onOpen={() => openAttention(item)} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="space-y-3">
+            <div>
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Connected')}</h2>
+              <p className="mt-0.5 text-[12px] text-muted-foreground">{t('Services this Space is connected to. Open one to see what AI may do with it.')}</p>
+            </div>
+            {error ? (
+              <p className="text-[13px] text-[var(--status-danger)]">{t("Couldn't load integrations: {error}", { error: error.message })}</p>
+            ) : loading ? (
+              <p className="text-[13px] text-muted-foreground">{t('Loading…')}</p>
+            ) : connectedRows.length === 0 ? (
+              <p className="text-[13px] text-muted-foreground">{t('Nothing is connected to this Space yet.')}</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {connectedRows.map(connectionCard)}
+              </div>
+            )}
+          </section>
+
+          <SiteCredentialsSection credentials={siteLogins} loading={siteLoginsQuery.loading} error={siteLoginsQuery.error}
+            isOwner={isOwner} ownerKnown={ownerRole !== null} onOpen={setSiteLoginOpened} />
+
+          {categories.length > 0 && (
+            <section className="space-y-5">
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Add a service')}</h2>
+              {categories.map((group) => (
+                <div key={group.category} className="space-y-3">
+                  <h3 className={FONT.label}>{t(CATEGORY_LABELS[group.category])}</h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.cards.map(presetCard)}
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
+      )}
+
+      <section className="space-y-6 border-t border-[var(--border-default)] pt-6">
+        <button type="button" onClick={() => setOtherOpen((v) => !v)} aria-expanded={otherOpen}
+          className="-mx-2 flex w-[calc(100%+16px)] items-start gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
+          <ChevronRight size={14} aria-hidden="true" className={cn('mt-1 shrink-0 text-muted-foreground transition-transform', otherOpen && 'rotate-90')} />
+          <span className="min-w-0">
+            <span className={`block ${FONT.lg} text-foreground`}>{t('Other ways to connect')}</span>
+            <span className="mt-0.5 block text-[12px] text-muted-foreground">
+              {t('Your own API or MCP server, a website login, the public directory, and connections the AI drafts for you.')}
+            </span>
+          </span>
+        </button>
+
+        {otherOpen && (
+          <div className="space-y-8">
+            {(customPresets.length > 0 || isOwner) && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {customPresets.map((preset) => presetCard({ preset, state: 'ready' }))}
+                {isOwner && <WebsiteSignInCard onOpen={() => setSiteLoginOpened('new')} />}
+              </div>
+            )}
+
+            {drafts.length > 0 && (
+              <section className="space-y-3">
+                <h2 className={`${FONT.lg} text-foreground`}>{t('Drafted connections')}</h2>
+                <div>
+                  {drafts.map((d) => (
+                    <button key={d.id} type="button" onClick={() => setOpenedDraftId(d.id)}
+                      className="-mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] font-medium text-foreground">{d.name}</div>
+                        <div className="truncate text-[12px] text-muted-foreground">{d.endpoint ?? t('No definition yet')}</div>
+                      </div>
+                      <span className={cn('inline-flex shrink-0 items-center text-[11px]',
+                        d.status === 'awaiting_review' ? 'text-[var(--status-warning)]' : d.status === 'active' ? 'text-[var(--status-success)]' : 'text-muted-foreground')}>
+                        {t(DRAFT_STATUS_LABELS[d.status])}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <RegistrySection connectedEndpoints={connectedEndpoints} canAdd={isOwner} onAdd={addFromRegistry} />
+
+            {spaceId && (
+              <div ref={draftRef} className="scroll-mt-6">
+                <DraftCreateSection
+                  key={draftPrefill?.at ?? 0}
+                  initialName={draftPrefill?.name ?? ''}
+                  spaceId={spaceId}
+                  integrations={integrations}
+                  drafts={drafts}
+                  onCreated={(draft) => { void draftsQuery.refetch(); setOpenedDraftId(draft.id); }}
+                  onOpenDraft={(draft) => setOpenedDraftId(draft.id)}
+                />
+              </div>
+            )}
+
+            {spaceId && <ApprovalModePointerRow spaceId={spaceId} />}
+          </div>
+        )}
       </section>
 
-      {spaceId && (
-        <SiteCredentialsSection spaceId={spaceId} integrations={integrations} isOwner={isOwner} ownerKnown={ownerRole !== null}
-          addOpen={siteLoginAddOpen} onAddOpenChange={setSiteLoginAddOpen} />
-      )}
-
-      {drafts.length > 0 && (
-        <section className="space-y-3">
-          <h2 className={`${FONT.lg} text-foreground`}>{t('Drafted connections')}</h2>
-          <div>
-            {drafts.map((d) => (
-              <button key={d.id} type="button" onClick={() => setOpenedDraftId(d.id)}
-                className="-mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-medium text-foreground">{d.name}</div>
-                  <div className="truncate text-[12px] text-muted-foreground">{d.endpoint ?? t('No definition yet')}</div>
-                </div>
-                <span className={cn('inline-flex shrink-0 items-center text-[11px]',
-                  d.status === 'awaiting_review' ? 'text-[var(--status-warning)]' : d.status === 'active' ? 'text-[var(--status-success)]' : 'text-muted-foreground')}>
-                  {t(DRAFT_STATUS_LABELS[d.status])}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {(groups.length > 0 || isOwner) && <section className="space-y-3">
-        <h2 className={`${FONT.lg} text-foreground`}>{t('Add a connection')}</h2>
-        <div className="space-y-6">
-          {CONNECTION_METHOD_ORDER.map((method) => {
-            const group = groups.find((g) => g.method === method);
-            const showSiteCard = method === 'sign-in' && isOwner;
-            if (!group && !showSiteCard) return null;
-            return (
-              <div key={method} className="space-y-3">
-                <h3 className={FONT.label}>{t(CONNECTION_METHOD_HEADINGS[method])}</h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {group?.cards.map(({ preset, state }) => (
-                    <PresetCard key={preset.id} preset={preset} state={state} onOpen={() => openPreset(preset)} />
-                  ))}
-                  {showSiteCard && <WebsiteSignInCard onOpen={() => setSiteLoginAddOpen(true)} />}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>}
-
-      <RegistrySection connectedEndpoints={connectedEndpoints} canAdd={isOwner} onAdd={addFromRegistry} />
-
-      {spaceId && (
-        <DraftCreateSection
+      {siteLoginOpened && spaceId && (
+        <SiteCredentialDialog
           spaceId={spaceId}
+          credential={siteLoginOpenedRow}
           integrations={integrations}
-          drafts={drafts}
-          onCreated={(draft) => { void draftsQuery.refetch(); setOpenedDraftId(draft.id); }}
-          onOpenDraft={(draft) => setOpenedDraftId(draft.id)}
+          canEdit={isOwner}
+          onClose={() => setSiteLoginOpened(null)}
+          onChanged={() => { void siteLoginsQuery.refetch(); }}
         />
       )}
-
-      {spaceId && <ApprovalModePointerRow spaceId={spaceId} />}
 
       {openedDraft && spaceId && (
         <IntegrationDraftDialog
@@ -235,6 +394,23 @@ export function ConnectorsSettings() {
   );
 }
 
+/** One thing that needs a person, as a row: what it is, why, and the way in. */
+function AttentionRow({ name, icon, reason, tone, onOpen }: {
+  name: string; icon: string | null; reason: string; tone: 'warning' | 'danger'; onOpen: () => void;
+}) {
+  return (
+    <button type="button" onClick={onOpen}
+      className="-mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
+      <IntegrationIcon name={name} icon={icon} size={24} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium text-foreground">{name}</div>
+        <div className={cn('truncate text-[12px]', tone === 'danger' ? 'text-[var(--status-danger)]' : 'text-[var(--status-warning)]')}>{reason}</div>
+      </div>
+      <ChevronRight size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
 /** The approval mode itself lives in the Space settings page, with the
  *  Space's other AI behaviours; this quiet row keeps the move
  *  discoverable from here — the current mode, read-only, and the way
@@ -254,13 +430,6 @@ function ApprovalModePointerRow({ spaceId }: { spaceId: string }) {
   );
 }
 
-/** The method groups' headings: how the connection is made, in plain words. */
-const CONNECTION_METHOD_HEADINGS: Record<ConnectionMethod, string> = {
-  'sign-in': 'Connect by signing in',
-  'token': 'Connect with a token',
-  'custom': 'Set up a custom connection',
-};
-
 /** The website sign-in entry (secure login's browser route): not a
  *  preset — it opens the Site logins section's add dialog, the one
  *  route to a site credential. Shown to owners, like that section's
@@ -269,13 +438,12 @@ function WebsiteSignInCard({ onOpen }: { onOpen: () => void }) {
   const { t } = useI18n();
   return (
     <button type="button" onClick={onOpen}
-      className={cn(CARD_FLAT, CARD_HOVER, 'flex min-h-[156px] flex-col gap-3 p-4 text-left outline-none focus-visible:bg-[var(--surface-strong)]')}>
+      className={cn(CARD_FLAT, CARD_HOVER, 'flex min-h-[132px] flex-col gap-3 p-4 text-left outline-none focus-visible:bg-[var(--surface-strong)]')}>
       <IntegrationIcon name={t('Website sign-in')} icon={null} size={32} />
       <div className="min-w-0">
         <div className="text-[13px] font-semibold text-foreground">{t('Website sign-in')}</div>
         <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{t('For a website with no API: Athena signs in with a login you save.')}</p>
       </div>
-      <div className="mt-auto text-[12px] font-medium text-foreground">{t('Add site login')}</div>
     </button>
   );
 }
@@ -283,16 +451,18 @@ function WebsiteSignInCard({ onOpen }: { onOpen: () => void }) {
 /** Entry C (G4): ask the AI to draft a connection for a service the
  *  catalog and the Registry do not have. The reconcile runs in the open
  *  as the person types — a name that already has a route is never
- *  drafted around, here or on the server (which reconciles again). */
-function DraftCreateSection({ spaceId, integrations, drafts, onCreated, onOpenDraft }: {
+ *  drafted around, here or on the server (which reconciles again). The
+ *  search box hands over the name it was looking for (`initialName`). */
+function DraftCreateSection({ spaceId, integrations, drafts, initialName, onCreated, onOpenDraft }: {
   spaceId: string;
   integrations: Integration[];
   drafts: IntegrationDraft[];
+  initialName: string;
   onCreated: (draft: IntegrationDraft) => void;
   onOpenDraft: (draft: IntegrationDraft) => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [docsUrl, setDocsUrl] = useState('');
   const [purpose, setPurpose] = useState('');
   const [starting, setStarting] = useState(false);

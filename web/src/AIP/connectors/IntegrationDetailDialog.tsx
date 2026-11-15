@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronDown } from '@/ui/icons';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ExternalLink } from '@/ui/icons';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -98,7 +98,7 @@ const GMAIL_OAUTH_COPY: typeof OAUTH_COPY.google = {
   opening: 'Opening Google…',
   signIn: 'Sign in with Google',
   notSetUp: 'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.',
-  howItConnects: 'Connect opens Google sign-in. Clayware asks to read your mail, send mail and change labels — sending asks a person first, every time, and agents cannot delete any mail.',
+  howItConnects: 'Connect opens Google sign-in. Clayware asks to read your mail, send mail and change labels. Whether sending waits for a person follows this Space’s approval mode, and agents cannot delete any mail.',
   whose: 'Access belongs to the Google account: if it is connected in another Space too, agents there use the same mailbox, and disconnecting either one disconnects both.',
   actsAs: 'Mail is read and sent as {account}.',
   disconnect: "Disconnect {name}? Clayware's access is revoked at Google. If the same Google account is connected in another Space, that connection stops working too.",
@@ -179,6 +179,7 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
   const [editingClientSecret, setEditingClientSecret] = useState(false);
   const [secretInput, setSecretInput] = useState('');
   const [editingSecret, setEditingSecret] = useState(false);
+  const secretRef = useRef<HTMLInputElement>(null);
   const [newEnabled, setNewEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -241,7 +242,11 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
     setError(null);
     const built = buildIntegrationRow(preset, spaceId, draft());
     if (!built.ok) { setError(t(built.error)); return; }
-    if (needsSecret && !secretInput.trim()) { setError(t('Enter the {label}.', { label: t(preset.credentialLabel) })); return; }
+    if (needsSecret && !secretInput.trim()) {
+      setError(t('Enter the {label}.', { label: t(preset.credentialLabel) }));
+      secretRef.current?.focus();
+      return;
+    }
     if (ownOAuth && clientSecretNeeded && !clientSecretInput.trim()) { setError(t('Enter the client secret.')); return; }
     let created: Integration;
     try {
@@ -369,20 +374,48 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="max-h-[calc(100dvh-48px)] overflow-y-auto sm:max-w-lg">
+        {/* The first screen answers what this is and how it connects: who
+            made it, where its docs are, and — for a service that connects
+            by signing in — the one button that does it all. A connection
+            that takes a pasted credential, or a custom one, is a form, so
+            its Connect stays under the form. */}
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <IntegrationIcon name={integration?.name ?? preset.name} icon={integration?.icon ?? preset.icon} size={36} />
-            <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <IntegrationIcon name={integration?.name ?? preset.name} icon={integration?.icon ?? preset.icon} size={40} />
+            <div className="min-w-0 flex-1">
               <DialogTitle className="truncate">{integration?.name ?? t(preset.name)}</DialogTitle>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <DialogDescription className="mt-1 text-[12px]">{t(preset.description)}</DialogDescription>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                 <SourceChip source={preset.source} />
-                <span>{KIND_LABELS[preset.kind]}</span>
-                <span aria-hidden="true">·</span>
-                <span>{t('Built by {name}', { name: t(preset.builtBy) })}</span>
+                {!preset.custom && <span>{t('Built by {name}', { name: t(preset.builtBy) })}</span>}
+                {!preset.custom && <span aria-hidden="true">·</span>}
+                <span>{t(KIND_LABELS[preset.kind])}</span>
+                {preset.docsUrl && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <a href={preset.docsUrl} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1 underline-offset-2 transition-colors hover:text-foreground hover:underline">
+                      {t('Docs')}
+                      <ExternalLink size={11} aria-hidden="true" />
+                    </a>
+                  </>
+                )}
               </div>
             </div>
           </div>
-          <DialogDescription className="pt-2 text-[12px]">{t(preset.description)}</DialogDescription>
+          {canEdit && isNew && !preset.custom && (oauth || unavailable) && (
+            <div className="pt-3">
+              {unavailable ? (
+                <Button variant="primary" size="sm" disabled>{t('Connect')}</Button>
+              ) : oauthStatus === false ? (
+                <Button variant="primary" size="sm" disabled>{t('Needs setup')}</Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={connect} disabled={busy || !oauthReady}>
+                  {actions.create.isPending || actions.signIn.isPending ? t(copy.opening) : t(copy.signIn)}
+                </Button>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         {unavailable && (
@@ -504,7 +537,7 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
                 </div>
               ) : canEdit && !unavailable ? (
                 <div className="flex items-center gap-2">
-                  <Input type="password" autoComplete="off" value={secretInput} onChange={(e) => setSecretInput(e.target.value)}
+                  <Input ref={secretRef} type="password" autoComplete="off" value={secretInput} onChange={(e) => setSecretInput(e.target.value)}
                     placeholder={integration && !hasSecret ? t('Not set') : ''} aria-label={t(preset.credentialLabel)} className="h-8 text-[13px] md:text-[13px]" />
                   {integration && (
                     <>
@@ -525,12 +558,16 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
             </p>
           )}
 
-          <div className="-my-1">
+          {/* On/off and delegation are a connection's settings: a new one
+              starts on, asking before every write, and both appear once it
+              exists — so a first look reads what it is → the one button →
+              what will be asked. */}
+          {integration && <div className="-my-1">
             <ToggleRow flush label={t('Enabled')} desc={isModel ? t('When off, AI agents on this connection do not run.') : t('When off, agents do not see this connection.')} value={enabled}
               disabled={readOnly} onChange={(v) => setLive({ enabled: v })} />
-          </div>
+          </div>}
 
-          {!isModel && (
+          {integration && !isModel && (
             <Field label={t('Delegation')}>
               <div className="space-y-1.5">
                 <DropdownMenu>
@@ -610,7 +647,7 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
             ) : <span />}
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>{isNew ? t('Cancel') : t('Close')}</Button>
-              {isNew ? (
+              {isNew && (preset.custom || !oauth) ? (
                 <Button variant="primary" size="sm" onClick={connect} disabled={busy || (oauth && !oauthReady)}>
                   {actions.create.isPending || actions.signIn.isPending ? t('Connecting…') : t('Connect')}
                 </Button>
@@ -618,11 +655,6 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
                 <Button variant="primary" size="sm" onClick={saveCustom} disabled={busy}>{t('Save')}</Button>
               ) : null}
             </div>
-          </DialogFooter>
-        )}
-        {unavailable && isNew && (
-          <DialogFooter>
-            <Button variant="primary" size="sm" disabled>{t('Connect')}</Button>
           </DialogFooter>
         )}
       </DialogContent>

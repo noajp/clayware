@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  INTEGRATION_PRESETS, buildIntegrationRow, catalogGroups, connectionMethodOf, customPresetFor, darkIconFor, installedPresetIds,
-  integrationStatus, isSafeEndpoint, oauthProviderOf, presetById, readLastTest, signsInWithOAuth, testOutcomeLabel,
+  CATALOG_CATEGORY_ORDER, CATEGORY_LABELS, INTEGRATION_PRESETS, buildIntegrationRow, catalogByCategory, catalogCardState, catalogGroups,
+  connectionMethodOf, customPresetFor, darkIconFor, installedPresetIds,
+  integrationStatus, isSafeEndpoint, matchesQuery, oauthProviderOf, presetById, presetMatchesQuery, readLastTest, signInUnfinished, signsInWithOAuth, testOutcomeLabel,
   type ConnectionMethod, type IntegrationDraft, type OAuthProvider,
 } from '@/AIP/connectors/catalog';
 import { GMAIL_MANIFEST } from '@/AIP/connectors/gmailManifest';
@@ -303,5 +304,117 @@ describe('integrationStatus', () => {
   it('any other failure is action-needed', () => {
     expect(integrationStatus({ enabled: true, last_test: tested('http_error', false) })).toBe('action-needed');
     expect(integrationStatus({ enabled: true, last_test: tested('unreachable', false) })).toBe('action-needed');
+  });
+
+  it('a sign-in connection holding no token needs action, whatever its last test says', () => {
+    // An abandoned sign-in, or one waiting for an administrator's approval, writes no test.
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth', secret_id: null })).toBe('action-needed');
+    expect(integrationStatus({ enabled: true, last_test: tested('connected', true), auth_type: 'oauth', secret_id: null })).toBe('action-needed');
+    // Off still wins.
+    expect(integrationStatus({ enabled: false, last_test: null, auth_type: 'oauth', secret_id: null })).toBe('off');
+  });
+
+  it('a signed-in connection, a key-based one without its key, or a row read without the token column keep their old meaning', () => {
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth', secret_id: 'tok' })).toBe('not-tested');
+    expect(integrationStatus({ enabled: true, last_test: tested('connected', true), auth_type: 'oauth', secret_id: 'tok' })).toBe('connected');
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'bearer', secret_id: null })).toBe('not-tested');
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth' })).toBe('not-tested');
+  });
+});
+
+describe('signInUnfinished', () => {
+  it('is a sign-in connection that says it holds no token', () => {
+    expect(signInUnfinished({ auth_type: 'oauth', secret_id: null })).toBe(true);
+    expect(signInUnfinished({ auth_type: 'oauth', secret_id: 'tok' })).toBe(false);
+    expect(signInUnfinished({ auth_type: 'oauth' })).toBe(false);
+    expect(signInUnfinished({ auth_type: 'header', secret_id: null })).toBe(false);
+  });
+});
+
+describe('catalogByCategory', () => {
+  const CONFIGURED: Record<OAuthProvider, boolean | null> = { google: true, github: true, microsoft: true };
+  const shape = (groups: ReturnType<typeof catalogByCategory>) =>
+    groups.map((g) => ({ category: g.category, ids: g.cards.map((c) => c.preset.id) }));
+
+  it('groups the built-in services by purpose, in order, leaving out models and custom connections', () => {
+    expect(shape(catalogByCategory(INTEGRATION_PRESETS, new Set(), CONFIGURED))).toEqual([
+      { category: 'communication', ids: ['gmail', 'microsoft-365', 'slack'] },
+      { category: 'files', ids: ['google-drive'] },
+      { category: 'project', ids: ['linear', 'asana'] },
+      { category: 'development', ids: ['github'] },
+    ]);
+  });
+
+  it('leaves out what the Space already has and drops a section that empties', () => {
+    expect(shape(catalogByCategory(INTEGRATION_PRESETS, new Set(['google-drive', 'slack', 'custom-mcp']), CONFIGURED))).toEqual([
+      { category: 'communication', ids: ['gmail', 'microsoft-365'] },
+      { category: 'project', ids: ['linear', 'asana'] },
+      { category: 'development', ids: ['github'] },
+    ]);
+  });
+
+  it('marks a sign-in service whose provider is not set up on the server, and only that', () => {
+    const groups = catalogByCategory(INTEGRATION_PRESETS, new Set(), { google: true, github: true, microsoft: false });
+    const states = Object.fromEntries(groups.flatMap((g) => g.cards.map((c) => [c.preset.id, c.state])));
+    expect(states['microsoft-365']).toBe('setup-needed');
+    expect(states.gmail).toBe('ready');
+    expect(states.slack).toBe('ready');
+  });
+
+  it('every purpose in the order has a heading, and every built-in business service lands in a section', () => {
+    for (const c of CATALOG_CATEGORY_ORDER) expect(CATEGORY_LABELS[c]).toBeTruthy();
+    const shown = new Set(catalogByCategory(INTEGRATION_PRESETS, new Set(), CONFIGURED).flatMap((g) => g.cards.map((c) => c.preset.id)));
+    for (const p of INTEGRATION_PRESETS) {
+      if (!p.custom && p.kind !== 'model') expect(shown.has(p.id), p.id).toBe(true);
+    }
+  });
+});
+
+describe('catalogCardState', () => {
+  it('reads a provider still loading as ready (the dialog re-checks)', () => {
+    expect(catalogCardState(presetById('gmail')!, { google: null, github: null, microsoft: null })).toBe('ready');
+    expect(catalogCardState(presetById('gmail')!, { google: false, github: true, microsoft: true })).toBe('setup-needed');
+    // A credential preset has no provider to set up.
+    expect(catalogCardState(presetById('linear')!, { google: false, github: false, microsoft: false })).toBe('ready');
+  });
+});
+
+describe('matchesQuery', () => {
+  it('matches every word anywhere, ignoring case and full-width letters', () => {
+    expect(matchesQuery(['Google Drive', 'Search files'], 'drive')).toBe(true);
+    expect(matchesQuery(['Google Drive', 'Search files'], 'ＤＲＩＶＥ')).toBe(true);
+    expect(matchesQuery(['Google Drive', 'Search files'], 'google files')).toBe(true);
+    expect(matchesQuery(['Google Drive', 'Search files'], 'google slack')).toBe(false);
+  });
+
+  it('matches everything for an empty query and skips missing texts', () => {
+    expect(matchesQuery(['Slack'], '   ')).toBe(true);
+    expect(matchesQuery([null, undefined, 'Slack'], 'slack')).toBe(true);
+  });
+});
+
+describe('presetMatchesQuery', () => {
+  it('finds a service by name, maker, description or purpose, in English', () => {
+    expect(presetMatchesQuery(presetById('google-drive')!, 'drive')).toBe(true);
+    expect(presetMatchesQuery(presetById('gmail')!, 'google')).toBe(true);
+    expect(presetMatchesQuery(presetById('slack')!, 'channels')).toBe(true);
+    expect(presetMatchesQuery(presetById('linear')!, 'project management')).toBe(true);
+    expect(presetMatchesQuery(presetById('linear')!, 'slack')).toBe(false);
+  });
+
+  it('also finds it in the reader’s language through the translation', () => {
+    const ja: Record<string, string> = { 'Project management': 'プロジェクト管理' };
+    const translate = (s: string) => ja[s] ?? s;
+    expect(presetMatchesQuery(presetById('asana')!, 'プロジェクト', translate)).toBe(true);
+    expect(presetMatchesQuery(presetById('slack')!, 'プロジェクト', translate)).toBe(false);
+  });
+});
+
+describe('preset docs links', () => {
+  it('point at https pages, and every built-in business service has one', () => {
+    for (const p of INTEGRATION_PRESETS) {
+      if (p.docsUrl) expect(new URL(p.docsUrl).protocol, p.id).toBe('https:');
+      if (!p.custom && p.kind !== 'model') expect(p.docsUrl, p.id).toBeTruthy();
+    }
   });
 });
