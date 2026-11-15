@@ -111,12 +111,13 @@ export function ColumnHeader({
   );
 }
 
-/** The column's right edge. Dragging it changes this column's width and
- *  nothing else. While the pointer is down the width is only drawn
+/** The column's left edge. The columns are packed to the right, so that is
+ *  the edge that can move: dragging it left widens the column, right narrows
+ *  it, and nothing to its right shifts. While the pointer is down the width is only drawn
  *  (`onDraft`, which the table applies straight to its tracks without
  *  rendering its rows again); it is saved once, on release (`onCommit`).
  *  A double click fits the column to what it holds. */
-export function ResizeHandle({
+function ResizeHandle({
   width, onDraft, onCommit, onResizeStart, onAutoFit,
 }: {
   /** The column's width as drawn, where a drag starts from. */
@@ -151,14 +152,14 @@ export function ResizeHandle({
       aria-valuemax={1200}
       onKeyDown={(e) => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-          e.preventDefault(); e.stopPropagation(); onResizeStart?.(); onCommit(width + (e.key === 'ArrowRight' ? 16 : -16));
+          e.preventDefault(); e.stopPropagation(); onResizeStart?.(); onCommit(width + (e.key === 'ArrowLeft' ? 16 : -16));
         }
       }}
       onPointerCancel={() => end(false)}
       onLostPointerCapture={() => end(false)}
       // A wide transparent grab area centred on the edge; the visible
       // feedback is the hairline in the middle, accent while dragging.
-      className="group/resize absolute top-0 -right-1.5 z-30 h-full w-3 touch-none cursor-col-resize"
+      className="group/resize absolute top-0 -left-1.5 z-30 h-full w-3 touch-none cursor-col-resize"
       onPointerDown={(e) => {
         // The second press of a double click fits the column instead.
         if (e.detail >= 2) return;
@@ -172,7 +173,7 @@ export function ResizeHandle({
       onPointerMove={(e) => {
         const drag = startRef.current;
         if (!drag) return;
-        drag.last = onDraft(drag.w + (e.clientX - drag.x));
+        drag.last = onDraft(drag.w - (e.clientX - drag.x));
       }}
       onPointerUp={(e) => {
         if (!startRef.current) return;

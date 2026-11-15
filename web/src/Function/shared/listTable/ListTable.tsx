@@ -20,7 +20,7 @@ import { refreshAwaitingAnswers, useAwaitingAnswerElementIds } from '@/hooks/awa
 import { useQuestionNotificationCount, useUnreadCommentElementIds } from '@/hooks/notificationData';
 import { EMPTY_CUSTOM_COLUMNS, EMPTY_ELEMENT_TYPES, EMPTY_WORKERS, EMPTY_ELEMENT_IDS, type ElementUpdate, type ListSection, HEADER_DRAG_PREFIX, OBJECT_DRAG_PREFIX, ROW_ROUND_BASE, STICKY_TINT_HOVER, LEAD_CELL, LEAD_CELL_HOVER, signalsTrackWidth } from './shared';
 import { FIRST_ROWS, WINDOW_FROM, splitRange, widenRange, windowRange, type RowRange } from './rowWindow';
-import { clampWidth, NAME_SPEC, tableLayout } from './columnWidths';
+import { clampWidth, tableLayout } from './columnWidths';
 
 /** Runs `then` with what `find` returns as soon as it returns something: a
  *  row scrolled to is drawn a moment after the scroll, not with it. Gives up
@@ -46,7 +46,7 @@ function naturalWidth(content: HTMLElement): number {
 import { ElementRow } from './ElementRow';
 import { reorderWithinSections } from './rowReorder';
 import { ObjectRow } from './ObjectRow';
-import { ColumnHeader, ResizeHandle, FieldsMenu } from './ColumnHeaderMenu';
+import { ColumnHeader, FieldsMenu } from './ColumnHeaderMenu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldDisplayLabel } from '@/Function/property/fieldModel';
 import { useOptionalExplorerData } from '@/Function/shared/ExplorerDataContext';
@@ -521,13 +521,10 @@ export function ListTable({
     }
   };
 
-  // The table's layout (columnWidths): anchored at its left edge — the mark,
-  // Name, each column at its own width, then the "+" track, which also takes
-  // whatever the view has left over. Resizing a column moves nothing to its
-  // left. Until Name is sized it fills what the columns leave of the view;
-  // the first resize of anything fixes it at the width it is drawn at, so
-  // from then on the slack goes to the end, not into Name.
-  const nameFluid = !cols.isSized(NAME_COL_KEY);
+  // The table's layout (columnWidths): packed to the right — the mark,
+  // Name with whatever room the columns leave, each column at its own
+  // width, then the "+". A column is resized from its left edge, which
+  // follows the pointer while the columns to its right stay put.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [viewWidth, setViewWidth] = useState(0);
   useEffect(() => {
@@ -545,18 +542,8 @@ export function ListTable({
   const drawnWidth = (c: DataColumn) => cols.widthFor(c.id);
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
   const fixedWidth = 52 + (hasTrailingCol ? TRAILING_COL_WIDTH : 0);
-  // Name is pinned while the rest scrolls under it, so a set Name wider than
-  // the pane would hide every column for good: it is drawn no wider than
-  // leaves the first stretch of columns (up to 240px) in view, and its set
-  // width comes back when the pane is wide enough again.
-  const setName = nameFluid ? null : (viewWidth
-    ? Math.min(cols.widthFor(NAME_COL_KEY), Math.max(NAME_SPEC.min, viewWidth - fixedWidth - Math.min(dataWidth, 240)))
-    : cols.widthFor(NAME_COL_KEY));
-  const layout = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth, name: setName });
-  // Without a "+" track the leftover goes to Name.
-  const nameWidth = hasTrailingCol ? layout.name : layout.name + layout.filler;
-  const trailingWidth = TRAILING_COL_WIDTH + layout.filler;
-  const freezeName = () => { if (nameFluid) cols.setWidth(NAME_COL_KEY, nameWidth); };
+  const layout = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth });
+  const nameWidth = layout.name;
   const titleWidth = `calc(${nameWidth}px - var(--signals-w, 0px))`;
 
   // ─── Row window (rowWindow) ───────────────────────────────────────────────
@@ -725,23 +712,17 @@ export function ListTable({
   };
 
   // A width being dragged is drawn straight onto the table's tracks — the
-  // column's, the "+" track's (which gives up or takes the difference) and
-  // the table's own — without rendering the rows again; it is saved once,
+  // column's, Name's (which gives up or takes the difference) and the
+  // table's own — without rendering the rows again; it is saved once,
   // when the drag ends (ResizeHandle). Returns the width drawn.
   const drawWidth = (id: ColumnId, raw: number): number => {
     const table = tableRef.current;
     const w = clampWidth(raw, cols.specFor(id));
     if (!table) return w;
-    const isName = id === NAME_COL_KEY;
-    const next = tableLayout({
-      view: viewWidth,
-      fixed: fixedWidth,
-      columns: isName ? dataWidth : dataWidth - (visibleColumns.some((c) => c.id === id) ? drawnWidth(visibleColumns.find((c) => c.id === id)!) : 0) + w,
-      name: isName ? w : layout.name,
-    });
+    const next = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth - cols.widthFor(id) + w });
     const set = (col: HTMLElement | null, width: string) => { if (col) { col.style.width = width; col.style.minWidth = width; } };
-    set(table.querySelector<HTMLElement>(`col[data-col="${CSS.escape(id)}"]`), isName ? `calc(${w}px - var(--signals-w, 0px))` : `${w}px`);
-    set(table.querySelector<HTMLElement>('col[data-col="+"]'), `${TRAILING_COL_WIDTH + next.filler}px`);
+    set(table.querySelector<HTMLElement>(`col[data-col="${CSS.escape(id)}"]`), `${w}px`);
+    set(table.querySelector<HTMLElement>(`col[data-col="${NAME_COL_KEY}"]`), `calc(${next.name}px - var(--signals-w, 0px))`);
     table.style.width = `${next.width}px`;
     table.style.minWidth = `${next.width}px`;
     return w;
@@ -750,17 +731,6 @@ export function ListTable({
   const fitColumn = (id: ColumnId) => {
     const table = tableRef.current;
     if (!table) return;
-    freezeName();
-    if (id === NAME_COL_KEY) {
-      let need = 0;
-      table.querySelectorAll<HTMLElement>('tbody .list-row-title').forEach((title) => {
-        const cell = title.closest('td');
-        if (cell) need = Math.max(need, title.getBoundingClientRect().left - cell.getBoundingClientRect().left + title.scrollWidth + 12);
-      });
-      const signals = parseFloat(getComputedStyle(table).getPropertyValue('--signals-w')) || 0;
-      if (need > 0) cols.setWidth(NAME_COL_KEY, need + signals);
-      return;
-    }
     // As wide as the widest value drawn in it, within its bounds.
     const index = visibleColumns.findIndex((c) => c.id === id);
     if (index < 0) return;
@@ -806,7 +776,7 @@ export function ListTable({
         // all, since only some of them are on the page.
         aria-rowcount={windowed ? 1 + totalRows + (hideSectionHeaders ? 0 : sortedSections.length) + (onAddObject ? sortedSections.length : 0) : undefined}
       >
-        {/* Every track at its own width; the "+" track takes the slack. */}
+        {/* Every track at its own width; Name takes the slack. */}
         <colgroup>
           <col style={{ width: 52, minWidth: 52 }} />
           <col data-col={NAME_COL_KEY} style={{ width: titleWidth, minWidth: titleWidth }} />
@@ -818,7 +788,7 @@ export function ListTable({
             // an empty gap and force horizontal scroll in narrow panels.
             return <col key={c.id} data-col={c.id} className="table-column" style={{ width: w, minWidth: w }} />;
           })}
-          {hasTrailingCol && <col data-col="+" className="table-column" style={{ width: trailingWidth, minWidth: trailingWidth }} />}
+          {hasTrailingCol && <col data-col="+" className="table-column" style={{ width: TRAILING_COL_WIDTH, minWidth: TRAILING_COL_WIDTH }} />}
         </colgroup>
         <thead className="sticky top-0 z-20 bg-card">
           <tr>
@@ -828,24 +798,12 @@ export function ListTable({
                 place: it is the intersection corner, so z-30 keeps it above
                 the row's sticky-left cells and any data column header
                 scrolling under. The signals track's header after it is
-                blank and scrolls; Name's resize edge is at its end. */}
+                blank and scrolls. */}
             <th colSpan={2} className="sticky top-0 left-0 z-30 relative pl-7.5 pr-3 py-2.5 text-left text-[13px] font-normal text-muted-foreground bg-card">
               {t('Name')}
             </th>
-            <th className="relative p-0 bg-card" aria-label={t('More')}>
-              {/* Name is resizable too — same handle as the data columns,
-                  persisted under NAME_COL_KEY. Fixed on the Object list
-                  instead (see the colgroup above), so no handle there. */}
-              {entity !== 'object' && (
-                <ResizeHandle
-                  width={nameWidth}
-                  onResizeStart={freezeName}
-                  onDraft={(w) => drawWidth(NAME_COL_KEY, w)}
-                  onCommit={(w) => cols.setWidth(NAME_COL_KEY, w)}
-                  onAutoFit={() => fitColumn(NAME_COL_KEY)}
-                />
-              )}
-            </th>
+            {/* The signals track's heading is blank. */}
+            <th className="p-0 bg-card" aria-label={t('More')} />
             <SortableContext items={visibleColumnIds.map((id) => HEADER_DRAG_PREFIX + id)} strategy={horizontalListSortingStrategy}>
               {visibleColumns.map((col) => (
                 <ColumnHeader
@@ -855,7 +813,6 @@ export function ListTable({
                   isDragging={draggingColId === col.id}
                   dropEdge={colDrop?.id === col.id ? colDrop.edge : null}
                   sort={cols.sort && cols.sort.id === col.id ? cols.sort.direction : null}
-                  onResizeStart={freezeName}
                   onDraft={(w) => drawWidth(col.id, w)}
                   onCommit={(w) => cols.setWidth(col.id, w)}
                   onAutoFit={() => fitColumn(col.id)}

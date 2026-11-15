@@ -14,18 +14,18 @@ describe('column widths', () => {
     expect(clampWidth(900, chips)).toBe(chips.max);
   });
 
-  it('lets an unsized Name fill the view and a sized one leave a filler', () => {
-    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: null })).toEqual({ name: 708, filler: 0, width: 1200 });
-    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 500 })).toEqual({ name: 500, filler: 208, width: 1200 });
-    // Narrower than everything: no filler, the table scrolls.
-    expect(tableLayout({ view: 600, fixed: 92, columns: 400, name: null })).toEqual({ name: NAME_SPEC.min, filler: 0, width: 92 + NAME_SPEC.min + 400 });
+  it('gives Name whatever the columns leave of the view', () => {
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 400 })).toEqual({ name: 708, width: 1200 });
+    // Narrower than everything: Name stays at its least and the table scrolls.
+    expect(tableLayout({ view: 600, fixed: 92, columns: 400 })).toEqual({ name: NAME_SPEC.min, width: 92 + NAME_SPEC.min + 400 });
   });
 
-  it('keeps everything left of a resized column where it was', () => {
-    const before = tableLayout({ view: 1200, fixed: 92, columns: 400, name: 500 });
-    const after = tableLayout({ view: 1200, fixed: 92, columns: 340, name: 500 });
-    expect(after.name).toBe(before.name);
-    expect(after.filler).toBe(before.filler + 60);
+  it('keeps the columns packed to the right when one is resized', () => {
+    const before = tableLayout({ view: 1200, fixed: 92, columns: 400 });
+    const after = tableLayout({ view: 1200, fixed: 92, columns: 340 });
+    // Name takes the difference; the table still ends at the view's edge.
+    expect(after.name).toBe(before.name + 60);
+    expect(after.width).toBe(before.width);
   });
 });
 

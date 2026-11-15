@@ -9,13 +9,14 @@
 // up to its kind's most — past which it would only be air — and back; a
 // width set by hand is kept.
 //
-// The table is laid out left to right and stays anchored at its left edge:
-// the pinned mark, Name, then each column at its own width, the "+" and, if
-// the view is wider than all of that, an empty filler that takes the rest.
-// Nothing to the left of a column moves when it is resized; the columns to
-// its right shift, and the filler (or the horizontal scroll) takes up the
-// change. Until Name has been sized it fills what the columns leave of the
-// view, within its own bounds.
+// The table is packed to the right: the pinned mark, then Name, which takes
+// whatever room the columns leave, then each column at its own width, with
+// the "+" at the far edge. The columns' right sides are held there, so a
+// column is resized from its left edge: the edge follows the pointer, the
+// columns to its right do not move, and Name gives up or takes the
+// difference. When the columns need more than the view has, Name stays at
+// its least and the table scrolls sideways: the title stays pinned and the
+// columns slide under its edge, the leftmost first.
 
 export interface WidthSpec {
   min: number;
@@ -55,8 +56,15 @@ const BAR: WidthSpec = { min: PITCH, base: PITCH, max: 240, fits: false };
 const SIGNAL: WidthSpec = { min: PITCH, base: PITCH, max: 160 };
 const COUNT: WidthSpec = { min: PITCH, base: PITCH, max: 120, align: 'end' };
 
-/** Name: the title, and the row's signals beside it. */
-export const NAME_SPEC: WidthSpec = { min: 240, base: 440, max: 1200 };
+/** The least of the title that always shows. The title is pinned: when the
+ *  columns need more room than the view has, they scroll and slide under
+ *  it at this edge, the leftmost first, and the title itself never gets
+ *  narrower than this. */
+export const TITLE_MIN = 320;
+
+/** Name: the title, and the row's signals (comments, labels) beside it. Its
+ *  least leaves the title its own least and a little for the signals. */
+export const NAME_SPEC: WidthSpec = { min: TITLE_MIN + 80, base: 440, max: Number.POSITIVE_INFINITY };
 
 const BUILTIN: Record<string, WidthSpec> = {
   due_date: DATE,
@@ -108,13 +116,11 @@ export function clampWidth(width: number, spec: WidthSpec): number {
   return Math.max(spec.min, Math.min(spec.max, Math.round(width)));
 }
 
-/** Pure. The table's tracks for a view `view` px wide: Name's width (its set
- *  one, or until set, what the columns leave of the view, within its
- *  bounds), the filler after the last column, and the table's whole width.
- *  `fixed` is the pinned mark plus the "+"; `columns` the data columns' sum. */
-export function tableLayout({ view, fixed, columns, name }: { view: number; fixed: number; columns: number; name: number | null }): { name: number; filler: number; width: number } {
-  const n = name ?? clampWidth(view > 0 ? view - fixed - columns : NAME_SPEC.base, NAME_SPEC);
-  const packed = fixed + n + columns;
-  const filler = Math.max(0, view - packed);
-  return { name: n, filler, width: packed + filler };
+/** Pure. The table's tracks for a view `view` px wide: Name takes whatever
+ *  the columns leave of it, and never less than its least — past that the
+ *  table is wider than the view and scrolls. `fixed` is the pinned mark
+ *  plus the "+"; `columns` the data columns' sum. */
+export function tableLayout({ view, fixed, columns }: { view: number; fixed: number; columns: number }): { name: number; width: number } {
+  const name = Math.max(NAME_SPEC.min, view - fixed - columns);
+  return { name, width: fixed + name + columns };
 }
