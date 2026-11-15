@@ -296,5 +296,9 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
   .index td:first-child { font-size: var(--text-md); margin-bottom: var(--space-2xs); }
 }
 @media (max-width: 40rem) {
+  .nav__bar { gap: var(--space-sm); }
+  .nav__end { gap: var(--space-2xs); }
+  .nav__end .btn--small { padding-inline: var(--space-sm); }
+  .nav__end .lang { padding-inline: var(--space-xs); }
   .flow, .steps { grid-template-columns: minmax(0, 1fr); }
 }
