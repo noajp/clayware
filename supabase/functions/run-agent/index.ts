@@ -167,6 +167,7 @@ import {
 } from "../_shared/failurePolicy.ts";
 import { isFailureClass, type FailureClass } from "../_shared/definition.ts";
 import { applyDecision, makeRememberApproval, restorePendingApproval, type SavedPending } from "./decision.ts";
+import { stripPendingImages, stripToolResultImages, toolResultText, type ToolImage } from "../_shared/toolResultImages.ts";
 import { buildCopilotTurn, foldCopilotContext, type CopilotContextLike, type CopilotTurn } from "../_shared/copilotTurn.ts";
 import { COPILOT_AGENT_NAME, persistCopilotApproval, updateCopilotSessionMessages } from "../_shared/copilotAnchor.ts";
 import {
@@ -2175,7 +2176,7 @@ async function execute(a: ExecArgs): Promise<void> {
     return { content: signInResultText(settled.result), ...(outcome.ok ? {} : { is_error: true }) };
   };
 
-  const executeCall = async (call: ToolCall, approved = false): Promise<{ content: string; is_error?: boolean; finish?: FinishPayload; verify?: VerifyCheck; question?: { ticketId: string } }> => {
+  const executeCall = async (call: ToolCall, approved = false): Promise<{ content: string; is_error?: boolean; finish?: FinishPayload; verify?: VerifyCheck; question?: { ticketId: string }; images?: ToolImage[] }> => {
     const input = call.input;
     switch (call.name) {
       case "record_plan": {
@@ -2323,7 +2324,9 @@ async function execute(a: ExecArgs): Promise<void> {
       }
       // A recall's bodies count as uses of those memories (PR3).
       if (call.name === "recall_memory" && r.ok) await noteMemoryUse(admin, run.id, usedIdsOf(r.data));
-      return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000) } : { content: r.error, is_error: true };
+      // A picture the tool read (readFile on an image) rides beside the
+      // text; the loop passes it on when the model takes pictures.
+      return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000), ...(r.images?.length ? { images: r.images } : {}) } : { content: r.error, is_error: true };
     }
     const it = integrationTools.get(call.name);
     if (it) {
@@ -2951,8 +2954,8 @@ async function execute(a: ExecArgs): Promise<void> {
 
   const saveTranscript = async (p?: SavedPending) => {
     const transcript: Transcript = {
-      messages: state.messages, turns: state.turns, nudges: state.nudges, revisions: state.revisions ?? 0, turnBudget, tools,
-      ...(p ? { pending: p } : {}),
+      messages: stripToolResultImages(state.messages), turns: state.turns, nudges: state.nudges, revisions: state.revisions ?? 0, turnBudget, tools,
+      ...(p ? { pending: stripPendingImages(p) } : {}),
       ...(question ? { question } : {}),
       ...(corrections.length ? { corrections } : {}),
       ...(failureRetriesTotal ? { failureRetries: failureRetriesTotal } : {}),
@@ -3178,7 +3181,7 @@ async function execute(a: ExecArgs): Promise<void> {
       const res = decided.results.find((r) => r.tool_use_id === e.callId);
       outcomes.set(e.rowId, {
         ok: !!res && !res.is_error,
-        ...(res?.is_error ? { reason: COMPENSATION_REASONS.executionError(res.content) } : {}),
+        ...(res?.is_error ? { reason: COMPENSATION_REASONS.executionError(toolResultText(res.content)) } : {}),
       });
     }
     for (const e of standingCompensation.entries) {
@@ -3262,7 +3265,7 @@ async function execute(a: ExecArgs): Promise<void> {
           }
         }
       } else if (prResult && !prResult.is_error) {
-        await notePublishLanded(prResult.content);
+        await notePublishLanded(toolResultText(prResult.content));
       } else {
         await addStep(admin, run.id, "error", "公開が完了しませんでした",
           `承認された公開のうち ${failed} 件の呼び出しが失敗し、PR は開かれていません。パッチは成果物として残っています。`);
@@ -4350,6 +4353,8 @@ async function execute(a: ExecArgs): Promise<void> {
     mechanicalCheck: run.mode === "reply" || external || planRun ? undefined : mechanicalCheck,
     revisionMessage: run.mode === "reply" || external || planRun ? undefined : revisionMessage,
     afterTurn: async () => { await flushLifted(); await saveTranscript(); },
+    // A Worker's own model endpoint may not take image blocks.
+    acceptsImages: !external,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= runCap,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
@@ -4753,7 +4758,7 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
   if (said) await addStep(admin, run.id, "message", said.split("\n")[0].slice(0, 200), said);
 
   const saveTranscript = async () => {
-    const transcript: Transcript = { messages: state.messages, turns: state.turns, nudges: 0, revisions: 0, turnBudget, tools };
+    const transcript: Transcript = { messages: stripToolResultImages(state.messages), turns: state.turns, nudges: 0, revisions: 0, turnBudget, tools };
     const clean = JSON.parse(JSON.stringify(transcript).replace(/\\u0000/g, ""));
     const { error } = await admin.from("agent_runs").update({ transcript: clean }).eq("id", run.id);
     if (error) throw new Error(`経過を保存できませんでした: ${error.message}`);
@@ -4763,7 +4768,7 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
   // This turn's substantive tool work — the landing capture's
   // threshold (memoryCapture.landingWorthDistilling) counts it.
   let toolCallsThisTurn = 0;
-  const executeCall = async (call: ToolCall): Promise<{ content: string; is_error?: boolean }> => {
+  const executeCall = async (call: ToolCall): Promise<{ content: string; is_error?: boolean; images?: ToolImage[] }> => {
     if (call.name === PLANNER_TOOL.name) {
       const guidance = String(call.input.guidance ?? "").trim().slice(0, 4000);
       await addStep(admin, run.id, "plan_request", "計画を Planner に渡す準備をしました", guidance || null);
@@ -4856,7 +4861,7 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
     if (call.name === "recall_memory" && r.ok) await noteMemoryUse(admin, run.id, usedIdsOf(r.data));
     // A promotion the person just asked for starts drafting now (PR5).
     if (call.name === "start_promotion" && r.ok) startPromotionRunFromTool(a, r.data);
-    return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000) } : { content: r.error, is_error: true };
+    return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000), ...(r.images?.length ? { images: r.images } : {}) } : { content: r.error, is_error: true };
   };
 
   const recordUsage = async (u: ModelUsage) => {
@@ -4905,6 +4910,8 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
     execute: (call) => executeCall(call),
     onUsage: recordUsage,
     afterTurn: () => saveTranscript(),
+    // The conversation calls Anthropic, which takes pictures.
+    acceptsImages: true,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= MAX_RUN_COST_USD,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
@@ -6689,9 +6696,9 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
 
   const saveTranscript = async (p: SavedPending | undefined = pending) => {
     const transcript: Transcript = {
-      messages: state.messages, turns: state.turns, nudges: state.nudges, revisions: 0,
+      messages: stripToolResultImages(state.messages), turns: state.turns, nudges: state.nudges, revisions: 0,
       context,
-      ...(p ? { pending: p } : {}),
+      ...(p ? { pending: stripPendingImages(p) } : {}),
     };
     const clean = JSON.parse(JSON.stringify(transcript).replace(/\\u0000/g, ""));
     const { error } = await admin.from("agent_runs").update({ transcript: clean }).eq("id", run.id);
@@ -6777,7 +6784,7 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
   if (decided && pendingActionId) {
     const results = decided.results.map((r) => {
       const call = decidedCalls.find((c) => c.id === r.tool_use_id);
-      return { name: call?.name ?? "tool", ok: !r.is_error, content: r.content.slice(0, 300) };
+      return { name: call?.name ?? "tool", ok: !r.is_error, content: toolResultText(r.content).slice(0, 300) };
     });
     const status = !decided.approved ? "denied"
       : decided.results.length > 0 && decided.results.every((r) => r.is_error) ? "failed" : "executed";
@@ -6975,6 +6982,8 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
     execute: loopExecute,
     onUsage: recordUsage,
     afterTurn: async () => { await flushLifted(); await saveTranscript(); },
+    // The panel calls Anthropic, which takes pictures.
+    acceptsImages: true,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= MAX_RUN_COST_USD,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
