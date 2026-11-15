@@ -26,10 +26,6 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
 .nav { position: sticky; top: 0; z-index: var(--z-sticky-nav); background: var(--color-paper); border-bottom: 1px solid var(--color-rule); }
 .nav__bar { position: relative; display: flex; align-items: center; gap: var(--space-lg); min-height: var(--nav-h); }
 .wordmark { display: inline-flex; align-items: center; gap: var(--space-xs); font: 600 var(--text-lg)/1 var(--font-display); letter-spacing: -0.01em; text-decoration: none; margin-right: auto; }
-.wordmark svg { width: 26px; height: 26px; flex-shrink: 0; }
-.bowl__body { fill: var(--color-ink); }
-.bowl__band { stroke: var(--color-accent-fill); stroke-width: 4; fill: none; }
-.bowl__seam { stroke: var(--color-seal); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 .menu { display: flex; align-items: center; gap: var(--space-2xs); }
 .menu__link, .dd__btn { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-sm); border: 0; border-radius: var(--radius-input); background: transparent; color: var(--color-ink-2); font: 400 var(--text-sm)/1 var(--font-body); text-decoration: none; cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out); }
@@ -85,7 +81,6 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
 .hero h1 { grid-column: 1 / span 10; max-width: 14ch; font-size: clamp(2.75rem, 5.2vw + 0.5rem, 5.5rem); line-height: 1.02; }
 .hero__row { grid-column: 1 / span 8; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-lg); }
 .hero__row .lead { color: var(--color-muted); max-width: 40ch; }
-.news { font-size: var(--text-md); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
 .hero__shot { margin: var(--space-2xl) 0 0; border: 1px solid var(--color-rule-strong); border-bottom: 0; border-radius: var(--radius-card) var(--radius-card) 0 0; overflow: hidden; background: var(--color-capture); color: var(--color-on-capture); aspect-ratio: 16 / 5.8; }
 .hero__shot img { width: 100%; height: 100%; object-fit: cover; object-position: left top; }
@@ -206,8 +201,7 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
 .footer__close .actions { gap: var(--space-lg); font-size: var(--text-md); }
 .footer__grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap-columns); row-gap: var(--space-xl); }
 .footer__grid .wordmark { grid-column: 1 / span 4; align-self: start; font-size: var(--text-md); }
-.footer__grid .wordmark svg { width: 20px; height: 20px; }
-.footer__grid nav { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-sm); }
+.footer__grid .footer__grid nav { grid-column: span 2; display: flex; flex-direction: column; gap: var(--space-sm); }
 .footer__grid h2 { font: 500 var(--text-sm)/1.4 var(--font-body); letter-spacing: 0; color: var(--color-ink); max-width: none; margin-bottom: var(--space-2xs); }
 .footer a { color: var(--color-muted); text-decoration: none; transition: color var(--dur-micro) var(--ease-out); }
 .footer nav a:hover { color: var(--color-ink); }
@@ -223,10 +217,9 @@ h1, h2, h3, .lead { word-break: auto-phrase; }
   .menu.show .mega { display: none; }
   .burger { display: inline-grid; }
   .nav__end .navlink, .nav__end .btn--quiet { display: none; }
-  .hero h1, .hero__row, .news, .footer__grid .wordmark, .head h2, .head .lead, .row h3, .row p, .row .textlink, .shot--7, .shot--5, .switch__label, .seg, .panels, .statement h2, .statement dl, .statement .actions, .lists > div { grid-column: 1 / -1; }
+  .hero h1, .hero__row, .footer__grid .wordmark, .head h2, .head .lead, .row h3, .row p, .row .textlink, .shot--7, .shot--5, .switch__label, .seg, .panels, .statement h2, .statement dl, .statement .actions, .lists > div { grid-column: 1 / -1; }
   .footer__grid nav { grid-column: span 6; }
-  .news { justify-self: start; }
-  .hero__shot { aspect-ratio: 4 / 3; }
+    .hero__shot { aspect-ratio: 4 / 3; }
   .row .textlink, .statement .actions { justify-self: start; }
   .flow, .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--space-xl); }
   .facts, .statement dl { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-md); }
