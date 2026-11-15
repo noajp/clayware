@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 
@@ -61,5 +61,32 @@ export function MilestoneDiamond({ left, top, label, date, onClick, className }:
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A milestone's mark: a diamond outlined in the key red, filled clockwise
+ * from the top as its work is done (`progress` 0..1) — an empty outline
+ * before anything is done, solid when all of it is.
+ */
+export function ProgressDiamond({ progress = 0, size = 20, className }: { progress?: number; size?: number; className?: string }) {
+  const clip = useId();
+  const p = Math.max(0, Math.min(1, progress));
+  // A rhombus taller than it is wide, inside a 16-unit box.
+  const shape = 'M8 0.9 L12.6 8 L8 15.1 L3.4 8 Z';
+  // The wedge swept so far, from 12 o'clock clockwise around the center.
+  const angle = p * 2 * Math.PI;
+  const r = 12;
+  const x = 8 + r * Math.sin(angle);
+  const y = 8 - r * Math.cos(angle);
+  const wedge = p >= 1 ? null : `M8 8 L8 ${8 - r} A${r} ${r} 0 ${p > 0.5 ? 1 : 0} 1 ${x.toFixed(3)} ${y.toFixed(3)} Z`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" className={cn('shrink-0', className)} aria-hidden>
+      <defs><clipPath id={clip}><path d={shape} /></clipPath></defs>
+      {p > 0 && (p >= 1
+        ? <path d={shape} style={{ fill: 'var(--status-danger)' }} />
+        : <path d={wedge ?? ''} clipPath={`url(#${clip})`} style={{ fill: 'var(--status-danger)' }} />)}
+      <path d={shape} strokeLinejoin="round" style={{ fill: 'none', stroke: 'var(--status-danger)', strokeWidth: 2.2 }} />
+    </svg>
   );
 }
