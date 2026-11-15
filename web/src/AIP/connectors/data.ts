@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Integration, IntegrationUpdate, Json } from '@/types/database';
-import type { IntegrationInsertRow, OAuthProvider } from './catalog';
+import { OAUTH_PROVIDERS, type IntegrationInsertRow, type OAuthProvider } from './catalog';
 import { useSpaceRoleQuery } from '@/Function/space/data';
 
 // A Space's integrations (ADR 0027): list, create, update, delete, set the
@@ -108,6 +108,16 @@ async function revokeIntegrationOAuth(integrationId: string): Promise<{ revoked:
   return { revoked: (data as { revoked?: unknown } | null)?.revoked === true };
 }
 
+/** The link an organization's administrator opens to approve Clayware for
+ *  everyone, for a connection whose sign-in came back needing it. */
+export async function fetchAdminConsentUrl(integrationId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('integration-oauth/admin-consent', { body: { integrationId } });
+  if (error) throw await functionError(error);
+  const url = (data as { url?: unknown } | null)?.url;
+  if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('The approval link could not be made.');
+  return url;
+}
+
 /** Whether sign-in with `provider` is configured on the server: true / false,
  *  null while loading. An unreachable function reads as not configured. */
 export function useIntegrationOAuthStatus(enabled: boolean, provider: OAuthProvider = 'google'): boolean | null {
@@ -115,8 +125,8 @@ export function useIntegrationOAuthStatus(enabled: boolean, provider: OAuthProvi
     queryKey: ['integration-oauth-status'],
     queryFn: async (): Promise<Record<OAuthProvider, boolean>> => {
       const { data, error } = await supabase.functions.invoke('integration-oauth/status', { method: 'GET' });
-      const body = (error ? null : data) as { google?: unknown; github?: unknown } | null;
-      return { google: body?.google === true, github: body?.github === true };
+      const body = (error ? null : data) as Partial<Record<OAuthProvider, unknown>> | null;
+      return Object.fromEntries(OAUTH_PROVIDERS.map((p) => [p, body?.[p] === true])) as Record<OAuthProvider, boolean>;
     },
     enabled,
     staleTime: 5 * 60_000,

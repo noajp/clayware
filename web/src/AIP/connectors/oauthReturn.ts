@@ -2,22 +2,26 @@
 
 import { useSyncExternalStore } from 'react';
 
-// Coming back from an integration sign-in — Google or GitHub (ADR 0035).
-// integration-oauth redirects to
+// Coming back from an integration sign-in — Google, GitHub or Microsoft
+// (ADR 0035). integration-oauth redirects to
 //   /?integration_oauth=finish&handle=<one-time handle>&integration=<id>
+//   /?integration_oauth=admin_consent&integration=<id>
 //   /?integration_oauth=error&integration=<id>
 // The page reads that once, removes it from the address, opens the screen the
 // sign-in started from (Settings › AI, or Reviews when it began
 // there) and, for `finish`, confirms the sign-in with POST /finish under the
 // signed-in person's JWT — nothing is stored until then, and only for the
-// person who started it. The outcome is left here for that screen to show.
+// person who started it. `admin_consent` means the organization's
+// administrator must approve Clayware first; the screen offers the approval
+// link (POST /admin-consent). The outcome is left here for that screen to show.
 
 export type OAuthReturn =
   | { kind: 'finish'; handle: string; integrationId: string | null }
+  | { kind: 'admin_consent'; integrationId: string | null }
   | { kind: 'error'; integrationId: string | null };
 
 export interface OAuthOutcome {
-  status: 'pending' | 'ok' | 'error';
+  status: 'pending' | 'ok' | 'admin_consent' | 'error';
   integrationId: string | null;
   /** The server's reason when finishing failed (an English source string for t()). */
   message: string | null;
@@ -33,6 +37,7 @@ export function readOAuthReturn(search: string): OAuthReturn | null {
   const id = params.get('integration');
   const integrationId = id && UUID.test(id) ? id : null;
   if (result === 'error') return { kind: 'error', integrationId };
+  if (result === 'admin_consent') return { kind: 'admin_consent', integrationId };
   if (result !== 'finish') return null;
   const handle = params.get('handle') ?? '';
   return HANDLE.test(handle) ? { kind: 'finish', handle, integrationId } : { kind: 'error', integrationId };
@@ -78,8 +83,8 @@ export function setOAuthOutcome(next: OAuthOutcome | null) {
  * (a handle is used at most once even if this is called again).
  */
 export async function completeOAuthReturn(ret: OAuthReturn, finish: (handle: string) => Promise<string | null>): Promise<void> {
-  if (ret.kind === 'error') {
-    setOAuthOutcome({ status: 'error', integrationId: ret.integrationId, message: null });
+  if (ret.kind === 'error' || ret.kind === 'admin_consent') {
+    setOAuthOutcome({ status: ret.kind, integrationId: ret.integrationId, message: null });
     return;
   }
   if (finishing.has(ret.handle)) return;

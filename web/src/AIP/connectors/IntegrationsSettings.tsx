@@ -31,6 +31,7 @@ import type { IntegrationDraft } from '@/types/database';
 import { IntegrationIcon } from './IntegrationDetailDialog';
 import { ConnectDialogHost, openedForIntegration, openedForPreset, openedForRegistryEntry, type OpenedConnection } from './ConnectDialogHost';
 import { setOAuthOutcome, useOAuthOutcome } from './oauthReturn';
+import { AdminConsentNotice } from './AdminConsentNotice';
 import { RegistrySection } from '@/AIP/harness/RegistrySection';
 import type { DirectoryEntry } from '@/hooks/customizeData';
 
@@ -60,13 +61,14 @@ export function ConnectorsSettings() {
   // dialog: both provider reads sit on the one status fetch.
   const googleConfigured = useIntegrationOAuthStatus(true, 'google');
   const githubConfigured = useIntegrationOAuthStatus(true, 'github');
+  const microsoftConfigured = useIntegrationOAuthStatus(true, 'microsoft');
   const oauthOutcome = useOAuthOutcome();
   const oauthReturnName = oauthOutcome?.integrationId ? integrations.find((i) => i.id === oauthOutcome.integrationId)?.name ?? null : null;
   // A confirmed sign-in changed the row (account, last test): read it again.
   const queryClient = useQueryClient();
   const oauthStatus = oauthOutcome?.status ?? null;
   useEffect(() => {
-    if (oauthStatus === 'ok' || oauthStatus === 'error') void queryClient.invalidateQueries({ queryKey: ['integrations'] });
+    if (oauthStatus === 'ok' || oauthStatus === 'error' || oauthStatus === 'admin_consent') void queryClient.invalidateQueries({ queryKey: ['integrations'] });
   }, [oauthStatus, queryClient]);
 
   const installed = useMemo(() => installedPresetIds(integrations), [integrations]);
@@ -74,8 +76,8 @@ export function ConnectorsSettings() {
   // Connected list is the Space's business connections.
   const connectedRows = useMemo(() => integrations.filter((i) => i.kind !== 'model'), [integrations]);
   const oauthConfigured = useMemo<Record<OAuthProvider, boolean | null>>(
-    () => ({ google: googleConfigured, github: githubConfigured }),
-    [googleConfigured, githubConfigured],
+    () => ({ google: googleConfigured, github: githubConfigured, microsoft: microsoftConfigured }),
+    [googleConfigured, githubConfigured, microsoftConfigured],
   );
   const groups = useMemo(
     () => catalogGroups(INTEGRATION_PRESETS.filter((p) => p.kind !== 'model'), installed, oauthConfigured),
@@ -91,16 +93,23 @@ export function ConnectorsSettings() {
     <div className="space-y-8">
       {oauthOutcome && (
         <div role="status" className={cn('flex items-start justify-between gap-3 rounded-md px-3 py-2 text-[12px] text-foreground',
-          oauthOutcome.status === 'ok' ? 'bg-[var(--status-success-subtle)]' : oauthOutcome.status === 'error' ? 'bg-[var(--status-danger-subtle)]' : 'bg-[var(--surface-strong)]')}>
-          <span>
-            {oauthOutcome.status === 'pending'
-              ? t('Finishing sign-in…')
-              : oauthOutcome.status === 'ok'
-                ? oauthReturnName ? t('{name} is connected.', { name: oauthReturnName }) : t('Connected')
-                : oauthOutcome.message
-                  ? t(oauthOutcome.message)
-                  : t('Sign-in did not finish, so nothing was connected. Try again.')}
-          </span>
+          oauthOutcome.status === 'ok' ? 'bg-[var(--status-success-subtle)]'
+            : oauthOutcome.status === 'error' ? 'bg-[var(--status-danger-subtle)]'
+            : oauthOutcome.status === 'admin_consent' ? 'bg-[var(--status-warning-subtle)]'
+            : 'bg-[var(--surface-strong)]')}>
+          {oauthOutcome.status === 'admin_consent' ? (
+            <AdminConsentNotice key={oauthOutcome.integrationId ?? ''} integrationId={isOwner ? oauthOutcome.integrationId : null} name={oauthReturnName} />
+          ) : (
+            <span>
+              {oauthOutcome.status === 'pending'
+                ? t('Finishing sign-in…')
+                : oauthOutcome.status === 'ok'
+                  ? oauthReturnName ? t('{name} is connected.', { name: oauthReturnName }) : t('Connected')
+                  : oauthOutcome.message
+                    ? t(oauthOutcome.message)
+                    : t('Sign-in did not finish, so nothing was connected. Try again.')}
+            </span>
+          )}
           {oauthOutcome.status !== 'pending' && (
             <Button variant="ghost" size="xs" onClick={() => setOAuthOutcome(null)}>{t('Dismiss')}</Button>
           )}

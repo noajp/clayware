@@ -37,9 +37,10 @@ import {
   type IntegrationRow, type RemoteTool,
 } from "./integrationClient.ts";
 import type { ReplayTransport } from "./definitionTests.ts";
-import { isGoogleDriveRow, isGoogleOAuthRow } from "./googleOAuth.ts";
+import { isGoogleDriveRow } from "./googleOAuth.ts";
 import { CONNECTOR_PRESET_NAMES, foldConnectorName } from "./connectorNeeds.ts";
 import { isGithubOAuthRow } from "./githubOAuth.ts";
+import { signInOf } from "./oauthProviders.ts";
 import { runVerifyRead, verifyDiffText, type VerifyCheck } from "./verifyReads.ts";
 import { applyBodyBuilder, applyResponseTransform } from "./manifestTransforms.ts";
 import { loadToolPlans, planCacheState, planFingerprint, saveToolPlan } from "./integrationPlans.ts";
@@ -598,16 +599,17 @@ const MAX_INTEGRATION_TOOLS = 120;
 /**
  * Pure. Whether an assembly may open this row at all: an OAuth row is
  * openable only when a sign-in this engine can complete stands behind
- * it — Google's (a profile's rows: the token resolveCredential refreshes
- * serves every profile, Drive's typed surface aside) or GitHub's. Any
- * other OAuth row has no way to authenticate, so both assemblies (a
- * run's, in run-agent, and the chat's, below) close it rather than
- * offer tools that could only fail. Non-OAuth rows pass.
+ * it — a row a provider's profile claims in the registry
+ * (oauthProviders.ts: Google's, GitHub's, Microsoft's; the token
+ * resolveCredential refreshes serves every profile, Drive's typed surface
+ * aside). Any other OAuth row has no way to authenticate, so both
+ * assemblies (a run's, in run-agent, and the chat's, below) close it
+ * rather than offer tools that could only fail. Non-OAuth rows pass.
  */
 export function oauthRowOpens(
   row: { auth_type?: string | null; preset?: string | null; endpoint?: string | null; kind?: string | null },
 ): boolean {
-  return row.auth_type !== "oauth" || isGoogleOAuthRow(row) || isGithubOAuthRow(row);
+  return row.auth_type !== "oauth" || signInOf(row) !== null;
 }
 
 /**

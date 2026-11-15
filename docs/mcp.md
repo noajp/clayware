@@ -123,9 +123,17 @@ Google Drive は資格情報を貼り付けず、owner が Google にサイン�
 
 GitHub も資格情報を貼り付けず、owner が GitHub にサインインしてつなぐ（Settings › Connectors から）。スコープは `repo` で、サインインした人が触れるリポジトリを読み書きできる。この接続を、Element のコード変更（差分の取得、判定・行コメントの投稿、マージ）とエージェント（GitHub の MCP サーバー）の両方が使い、投稿・マージ・push はサインインした GitHub アカウントの名義になる。トークンは期限切れにならず、切断（GitHub の grant の取り消し）か、本人が GitHub の Settings › Applications で Clayware を外すまで使える。アクセスが GitHub アカウントに付き、一方の Space で切断すると同じアカウントの他の Space も切れるのは Google と同じ。
 
+### Microsoft 365（OAuth）
+
+Microsoft 365 も資格情報を貼り付けず、owner が職場または学校の Microsoft アカウントでサインインしてつなぐ（Settings › Connectors の「Microsoft 365」から）。サインインは `organizations` のエンドポイントを使うので、個人の Microsoft アカウントは使えない。いま求めるのは `openid` `profile` `offline_access` `User.Read` だけで、接続はサインインした人のプロフィールを読めるところまで。アクセストークンは短く、Microsoft はリフレッシュのたびに新しいリフレッシュトークンを返すので、そのたびに保存し直す。同じ接続を二つの実行が同時にリフレッシュしたときは、遅れた側が先に保存されたトークンを読み直して使う。
+
+組織の多くは、社員が自分でアプリに同意することを止めている。その場合サインインは Microsoft に断られ、アプリに `integration_oauth=admin_consent` で戻って「組織の管理者の承認が必要」と示す。owner は `POST /integration-oauth/admin-consent { integrationId }` で得た承認のリンクを管理者に送り、管理者が承認したあとでもう一度サインインする。管理者の承認はサインインと同じコールバックに戻り、承認されたかを文で返すだけで、何も保存しない。
+
+Microsoft にはこの接続の許可を取り消す口がないので、切断は Clayware に保存したトークンを消すだけで、`/revoke` は `revoked: false` を返す。許可そのものは、組織の管理者が Entra 管理センターのエンタープライズ アプリケーションで外す。
+
 ### サインインの流れ（共通）
 
-サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` なら Google、`github` なら GitHub）で相手を決める。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
+サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` と `gmail` なら Google、`github` なら GitHub、`microsoft-365` なら Microsoft）で相手を決める。相手ごとの URL・スコープ・トークンの扱い・本人確認・取り消しは `supabase/functions/_shared/oauthProviders.ts` の表にある。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke`・`/admin-consent` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
 
 配置は順番を守る。アプリは `integrations.external_account` を読むので、先に migration `20261006090000_integration_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
 
@@ -136,7 +144,7 @@ env -u SUPABASE_ACCESS_TOKEN supabase functions deploy run-agent --project-ref r
 env -u SUPABASE_ACCESS_TOKEN supabase functions deploy code-changes --project-ref rkugtcqztkkacvoylupw --use-api
 ```
 
-Edge Function のシークレットに次を入れる。相手ごとのクライアントか `APP_ORIGIN` がない間、`GET /integration-oauth/status` はその相手を `false`（`{ "google": false, "github": false }`）で返し、画面は「… サインインはまだ設定されていません」と示して接続を押せなくする。
+Edge Function のシークレットに次を入れる。相手ごとのクライアントか `APP_ORIGIN` がない間、`GET /integration-oauth/status` はその相手を `false`（`{ "google": false, "github": false, "microsoft": false }`）で返し、画面は「… サインインはまだ設定されていません」と示して接続を押せなくする。
 
 | シークレット | 内容 |
 | --- | --- |
@@ -144,6 +152,8 @@ Edge Function のシークレットに次を入れる。相手ごとのクライ
 | `GOOGLE_OAUTH_CLIENT_SECRET` | 同じクライアントのシークレット |
 | `GITHUB_OAUTH_CLIENT_ID` | GitHub の OAuth App の Client ID |
 | `GITHUB_OAUTH_CLIENT_SECRET` | 同じ OAuth App の Client secret |
+| `MICROSOFT_OAUTH_CLIENT_ID` | Entra ID のアプリの登録の「アプリケーション (クライアント) ID」 |
+| `MICROSOFT_OAUTH_CLIENT_SECRET` | 同じアプリの登録のクライアント シークレットの値。期限（最長 24 か月）が来る前に作り直して入れ替える |
 | `APP_ORIGIN` | サインイン後に戻るアプリの origin（例 `https://clayware.example.com`）。パスは付けない。保存を確定する `/finish` はこのアプリから呼ばれるので、ない間はサインインを完了できない（コールバックは何も保存せず「APP_ORIGIN を設定してください」と返す） |
 
-Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に `https://www.googleapis.com/auth/drive.file` を加える。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。
+Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に `https://www.googleapis.com/auth/drive.file` を加える。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。Microsoft は Entra 管理センターの「アプリの登録」で新規に登録し、サポートされるアカウントの種類を「任意の組織ディレクトリ内のアカウント（マルチテナント）」にして、プラットフォーム「Web」のリダイレクト URI に同じ URL を入れる（管理者の承認もここに戻る）。API のアクセス許可には Microsoft Graph の委任されたアクセス許可 `openid` `profile` `offline_access` `User.Read` を加える。他の組織の人が自分で同意できるようにするには、発行元の確認（Microsoft AI Cloud Partner Program の ID とドメインの確認）を済ませておく。確認のないアプリは、管理者の承認がなければ多くの組織で使えない。
