@@ -1,13 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The homepage (../website, copied by scripts/homepage.mjs), in English at
-  // /homepage and in Japanese at /homepage/ja. A signed-out
+  // The homepage (../website, copied by scripts/homepage.mjs): English pages at
+  // /homepage and /homepage/<page>, Japanese at /homepage/ja/... A signed-out
   // visitor to / is sent here; the app itself stays at /.
   async rewrites() {
     return [
       { source: '/homepage', destination: '/homepage/index.html' },
-      { source: '/homepage/ja', destination: '/homepage/ja.html' },
+      { source: '/homepage/ja', destination: '/homepage/ja/index.html' },
+      { source: '/homepage/ja/:page', destination: '/homepage/ja/:page.html' },
+      { source: '/homepage/:page', destination: '/homepage/:page.html' },
     ];
   },
   async headers() {
