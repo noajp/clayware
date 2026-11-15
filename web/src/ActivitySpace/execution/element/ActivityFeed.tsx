@@ -22,6 +22,8 @@ const BRANCH = 'var(--element-status-review)';
 // The two lanes' centres, in px from the list's left edge.
 const MAIN_X = 10;
 const BRANCH_X = 26;
+/** Points shown before the older history folds into one "earlier" row. */
+const RECENT_POINTS = 8;
 
 function MarkDot({ mark, count, color }: { mark: Mark; count?: number; color: string }) {
   if (mark === 'fold') {
@@ -75,6 +77,7 @@ function Point({ spec, older, last, indent }: { spec: PointSpec; older?: PointSp
 export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; compact?: boolean }) {
   const { t } = useI18n();
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const [showAll, setShowAll] = useState(false);
   if (entries.length === 0) {
     return (
       <p className={`text-muted-foreground ${compact ? 'text-center text-[12px] py-3' : 'text-[13px]'}`}>
@@ -147,10 +150,26 @@ export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; c
       }
     }
   });
-  const indent = specs.some((s) => s.lane === 'branch');
+  // A long history shows its recent points; the rest is one row at the
+  // bottom, on the lane the hidden history continues on, that opens it all.
+  const hidden = showAll ? 0 : Math.max(0, specs.length - RECENT_POINTS);
+  const shown: PointSpec[] = hidden === 0 ? specs : [
+    ...specs.slice(0, RECENT_POINTS),
+    {
+      key: 'earlier', lane: specs[RECENT_POINTS].lane, mark: 'small',
+      body: (
+        <button type="button" onClick={() => setShowAll(true)}
+          className={`-ml-1 flex items-center gap-1 rounded-md px-1 text-left text-muted-foreground hover:bg-muted/40 hover:text-foreground ${textCls}`}>
+          <ChevronRight size={12} className="shrink-0 rotate-90" />
+          {t('Earlier · {n}', { n: hidden })}
+        </button>
+      ),
+    },
+  ];
+  const indent = shown.some((s) => s.lane === 'branch');
   return (
     <ol className="list-none">
-      {specs.map((spec, i) => <Point key={spec.key} spec={spec} older={specs[i + 1]} last={i === specs.length - 1} indent={indent} />)}
+      {shown.map((spec, i) => <Point key={spec.key} spec={spec} older={shown[i + 1]} last={i === shown.length - 1} indent={indent} />)}
     </ol>
   );
 }

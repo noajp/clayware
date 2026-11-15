@@ -175,6 +175,7 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   'Asked for approval': ['承認依頼', '승인 요청', 'Approbation demandée', 'Aprobación solicitada'],
   'Sent back': ['差し戻し', '반려', 'Renvoyé', 'Devuelto'],
   'Closed without approval': ['承認せずに閉じた', '승인 없이 종료', 'Fermé sans approbation', 'Cerrado sin aprobación'],
+  'Earlier · {n}': ['それ以前の {n} 件', '이전 {n}건', '{n} plus anciens', '{n} anteriores'],
   'Small changes · {n}': ['細かい変更 {n} 件', '작은 변경 {n}건', '{n} petits changements', '{n} cambios pequeños'],
   'No activity yet': ['アクティビティはまだありません', '아직 활동이 없습니다', 'Aucune activité pour l’instant', 'Aún no hay actividad'],
   'Activity · {n}': ['アクティビティ · {n}', '활동 · {n}', 'Activité · {n}', 'Actividad · {n}'],
