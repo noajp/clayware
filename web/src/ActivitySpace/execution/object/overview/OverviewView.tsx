@@ -277,7 +277,7 @@ export function OverviewView({
                 </Button>
               }>
                 <MilestoneList ids={milestoneIds} names={milestoneNames} objectId={object.id} editable
-                  adding={addingMilestone} onAddingChange={setAddingMilestone} />
+                  adding={addingMilestone} onAddingChange={setAddingMilestone} elements={elements} />
               </PageSection>
 
               <PageSection title={t('Updates')}>
