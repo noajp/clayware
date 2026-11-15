@@ -8,7 +8,7 @@ import { historyLine, readStatusChange, readableDetail } from '@/Function/shared
 import { statusLabel } from '@/shared/designTokens';
 
 // An Element's Activity as one line in the key blue, drawn as a git graph is:
-// each change a point on it, the newest a ring (how the Element is now), and
+// what moves the work (status, a hand-over…) a point on it, the newest a ring (how the Element is now), and
 // the details between (dates, people, wording) folded into one numbered
 // point that opens.
 
@@ -64,9 +64,12 @@ export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; c
     const lastItem = i === line.length - 1;
     if (item.type === 'change') {
       const e = item.entry;
+      const h = item.handover;
       points.push(
         <Point key={e.id} mark={i === 0 ? 'head' : item.small ? 'small' : 'change'} last={lastItem}>
-          <p className={`${textCls} ${item.small ? 'text-muted-foreground' : 'text-foreground/90'}`}>{say(e)}</p>
+          <p className={`${textCls} ${item.small ? 'text-muted-foreground' : 'text-foreground/90'}`}>
+            {h ? (h.from ? t('Handed over: {from} → {to}', { from: h.from, to: h.to }) : t('Handed to {to}', { to: h.to })) : say(e)}
+          </p>
           <p className={metaCls}>{e.author} · {formatAge(e.createdAt, true)}</p>
         </Point>,
       );

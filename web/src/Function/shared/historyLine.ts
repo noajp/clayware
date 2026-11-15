@@ -1,7 +1,8 @@
 // The history drawn as one line, the way a git graph is drawn: only what
-// moves the work stands on the line (made, its status, moved, deleted,
-// restored, its direction), the newest as the ring that stands for how the
-// thing is now. Everything between — dates, people, the title, a word of the
+// moves the work stands on the line (made, its status, a hand-over to someone
+// else, moved, deleted, restored, its direction), the newest as the ring that
+// stands for how the thing is now. The line is the thing's, not a person's:
+// who did each change is the name on its point. Everything between — dates, people, the title, a word of the
 // description — folds into one numbered point that opens to show it, and a
 // field set several times in a row shows only where it ended.
 
@@ -29,13 +30,65 @@ function settled<E extends { kind: string; detail?: string }>(run: E[]): E[] {
   });
 }
 
+/** A hand-over: the work went to `to`, from `from` when someone gave it up
+ *  for them. */
+export interface Handover { from?: string; to: string }
+
+/** Two records this close by the same person are one hand-over: taken off
+ *  one, put on another. */
+const HANDOVER_PAIR_MS = 5 * 60_000;
+
+type Dated = { id: string; kind: string; detail?: string; author?: string; createdAt?: Date };
+
+/** The assignee a person record names, or null for a reviewer or a
+ *  collaborator (helping is not taking the work over). */
+function assigneeName(e: Dated): string | null {
+  const m = /^(?:Assigned|Unassigned) (.+)$/.exec(e.detail ?? '');
+  if (!m || / as (?:reviewer|collaborator)$/.test(m[1])) return null;
+  return m[1];
+}
+
+/** Pure. Which assignments hand the work over, read from the records oldest
+ *  first: the first assignee when nobody had it, or someone put on just
+ *  after someone else was taken off by the same person (that removal is the
+ *  same hand-over, so it is absorbed). Returns the hand-overs by entry id and
+ *  the ids absorbed. Read only over the records loaded, so a history longer
+ *  than that starts counting from its oldest loaded record. */
+export function readHandovers(entries: readonly Dated[]): { handovers: Map<string, Handover>; absorbed: Set<string> } {
+  const handovers = new Map<string, Handover>();
+  const absorbed = new Set<string>();
+  const holders = new Set<string>();
+  let lastOff: { entry: Dated; name: string } | null = null;
+  for (const e of [...entries].reverse()) {
+    const name = (e.kind === 'assigned' || e.kind === 'unassigned') ? assigneeName(e) : null;
+    if (!name) continue;
+    if (e.kind === 'unassigned') {
+      holders.delete(name);
+      lastOff = { entry: e, name };
+      continue;
+    }
+    const paired = lastOff && lastOff.entry.author === e.author
+      && Math.abs((e.createdAt?.getTime() ?? 0) - (lastOff.entry.createdAt?.getTime() ?? 0)) <= HANDOVER_PAIR_MS;
+    if (paired && lastOff) {
+      handovers.set(e.id, { from: lastOff.name, to: name });
+      absorbed.add(lastOff.entry.id);
+    } else if (holders.size === 0) {
+      handovers.set(e.id, { to: name });
+    }
+    lastOff = null;
+    holders.add(name);
+  }
+  return { handovers, absorbed };
+}
+
 export type HistoryItem<E> =
-  | { type: 'change'; entry: E; small: boolean }
+  | { type: 'change'; entry: E; small: boolean; handover?: Handover }
   | { type: 'edits'; id: string; entries: E[] };
 
 /** Pure. Entries newest first, with each run of two or more details in a
  *  row folded into one item. */
-export function historyLine<E extends { id: string; kind: string; detail?: string }>(entries: readonly E[]): HistoryItem<E>[] {
+export function historyLine<E extends Dated>(entries: readonly E[]): HistoryItem<E>[] {
+  const { handovers, absorbed } = readHandovers(entries);
   const out: HistoryItem<E>[] = [];
   let run: E[] = [];
   const flush = () => {
@@ -45,9 +98,11 @@ export function historyLine<E extends { id: string; kind: string; detail?: strin
     run = [];
   };
   for (const e of entries) {
-    if (isSmallEdit(e.kind)) { run.push(e); continue; }
+    if (absorbed.has(e.id)) continue;
+    const handover = handovers.get(e.id);
+    if (!handover && isSmallEdit(e.kind)) { run.push(e); continue; }
     flush();
-    out.push({ type: 'change', entry: e, small: false });
+    out.push(handover ? { type: 'change', entry: e, small: false, handover } : { type: 'change', entry: e, small: false });
   }
   flush();
   return out;
