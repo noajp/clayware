@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { beltGradient, elapsedShare, outlook, warmthGradient, warnsAboutTime } from '@/Function/shared/pace';
+import { beltGradient, elapsedShare, outlook, warmthGradient, warnsAboutTime, withStates } from '@/Function/shared/pace';
 
 const alphas = (g: string) => [...g.matchAll(/ ([\d.]+)%, transparent\)/g)].map((m) => Number(m[1]));
 
@@ -69,12 +69,17 @@ describe('Pace colour', () => {
   });
 
   it('draws a progress belt clear at its start and deepest at its edge, blue or red by outlook', () => {
-    const blue = beltGradient(0.4);
+    const blue = beltGradient(0.6);
     expect(blue.startsWith('linear-gradient(in oklab to right, color-mix(in oklab, oklch(from var(--accent-default)')).toBe(true);
     expect(blue).toContain('100.0%');
     expect(blue).not.toContain('var(--status-danger)');
     expect(beltGradient(-0.4)).toContain('var(--status-danger)');
     expect(beltGradient(0)).toContain('var(--accent-default)');
+    expect(beltGradient(0)).not.toContain('var(--status-danger)');
+    // On time with little to spare: blue, its tip leaning red.
+    const thin = beltGradient(0.28);
+    expect(thin).toContain('var(--status-danger)');
+    expect(thin.split('%, transparent) 0.0%')[0]).not.toContain('var(--status-danger)');
     const a = alphas(blue);
     expect(a.every((v, i) => i === 0 || v >= a[i - 1])).toBe(true);
   });
@@ -85,5 +90,20 @@ describe('Pace colour', () => {
     expect(elapsedShare('2026-11-10', '2026-11-19', '2026-12-01')).toBe(1);
     expect(elapsedShare(null, '2026-11-19', '2026-11-14')).toBeNull();
     expect(elapsedShare('2026-11-20', '2026-11-19', '2026-11-14')).toBeNull();
+  });
+
+  it('lets blocked and overdue open Elements pull the outlook down', () => {
+    const today = '2026-11-15';
+    const ok = { status: 'in_progress', due_date: '2026-11-20' };
+    const late = { status: 'todo', due_date: '2026-11-14' };
+    expect(withStates(0.9, [ok, ok, { status: 'done', due_date: '2026-11-01' }], today)).toBe(0.9);
+    // One of four open in trouble: still on time, with little to spare.
+    const one = withStates(0.9, [ok, ok, ok, late], today);
+    expect(one).toBeGreaterThan(0);
+    expect(one).toBeLessThan(0.5);
+    // Half: behind.
+    expect(withStates(0.9, [ok, { status: 'blocked' }], today)).toBeLessThan(0);
+    // No schedule still shows trouble.
+    expect(withStates(0, [ok, ok, ok, late], today)).toBeGreaterThan(0);
   });
 });

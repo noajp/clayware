@@ -45,19 +45,55 @@ export function elapsedShare(start: string | null | undefined, due: string | nul
 
 
 /**
+ * Pure. The outlook told also by the state its open Elements are in: one that
+ * is blocked or past its due date pulls it down — a little trouble leaves the
+ * work on time with its tip turning red, much of it reads as behind — however
+ * well the dates alone look. With no open Element in trouble it is unchanged.
+ * `today` is 'YYYY-MM-DD'.
+ */
+export function withStates(
+  outlookValue: number,
+  elements: readonly { status?: string | null; due_date?: string | null }[],
+  today: string,
+): number {
+  const open = elements.filter((e) => warnsAboutTime(e.status));
+  if (open.length === 0) return outlookValue;
+  const trouble = open.filter((e) => e.status === 'blocked' || (!!e.due_date && e.due_date.slice(0, 10) < today)).length / open.length;
+  if (trouble === 0) return outlookValue;
+  // No schedule to judge by (0) is taken as on time, so the trouble still shows.
+  const base = outlookValue === 0 ? 1 : outlookValue;
+  return Math.max(-1, Math.min(base, 0.4 - 1.4 * trouble));
+}
+
+/**
+ * How far ahead the work must stand to read as safely on time. Short of it the
+ * belt's tip turns towards red — on time for now, with little to spare.
+ */
+const COMFORT = 0.5;
+/** The most red the tip of a belt still on time takes. */
+const TIP_RED = 0.8;
+
+/**
  * Pure. A progress belt's fill as a CSS gradient across its own width: clear at
  * its start, deepening smoothly to its edge in the key blue when the work is
- * likely to make its date and in red when not, the deeper the surer. With no
- * schedule to judge by (`outlookValue` 0) it is blue.
+ * likely to make its date and in red when not, the deeper the surer. Ahead but
+ * with little margin (0 < outlook < COMFORT), its tip leans towards red, the
+ * more so the thinner the margin. With no schedule to judge by (`outlookValue`
+ * 0) it is blue.
  */
 export function beltGradient(outlookValue: number): string {
-  const tone = outlookValue >= 0 ? BLUE : RED;
-  const k = Math.abs(Math.max(-1, Math.min(1, outlookValue)));
+  const o = Math.max(-1, Math.min(1, outlookValue));
+  const tone = o >= 0 ? BLUE : RED;
+  const k = Math.abs(o);
   const strongest = 50 + 35 * k;
+  // How red the tip turns while still on time.
+  const tipRed = o > 0 && o < COMFORT ? TIP_RED * (COMFORT - o) / COMFORT : 0;
   const STEPS = 8;
   const stops = Array.from({ length: STEPS + 1 }, (_, i) => {
     const f = i / STEPS;
-    return `color-mix(in oklab, ${tone} ${(4 + (strongest - 4) * Math.pow(f, 1.6)).toFixed(1)}%, transparent) ${(f * 100).toFixed(1)}%`;
+    const red = tipRed * Math.pow(f, 2);
+    const color = red > 0 ? `color-mix(in oklab, ${RED} ${(red * 100).toFixed(1)}%, ${tone})` : tone;
+    return `color-mix(in oklab, ${color} ${(4 + (strongest - 4) * Math.pow(f, 1.6)).toFixed(1)}%, transparent) ${(f * 100).toFixed(1)}%`;
   });
   return `linear-gradient(in oklab to right, ${stops.join(', ')})`;
 }
