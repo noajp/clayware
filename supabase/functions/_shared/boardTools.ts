@@ -133,12 +133,22 @@ export const BOARD_TOOLS: ToolDef[] = [
   },
   {
     name: "listObjects",
-    description: "Domain 内の Object 一覧。domainId を省略すると、ユーザーが参加する全 Domain のものを返す。アーカイブした Object は含まない。",
+    description: "Domain 内の Object 一覧（description を含む）。domainId を省略すると、ユーザーが参加する全 Domain のものを返す。アーカイブした Object は含まない。",
     input_schema: {
       type: "object",
       properties: {
         domainId: { type: "string", description: "Domain UUID (省略可)" },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "getObject",
+    description: "Object 単体の詳細（description / 期間 / アイコンと色 / type / Lead / 結び付いた Strategy / 配下の Element のステータス別件数）。Element の一覧は listElements に objectId を渡して読む。",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Object UUID" } },
+      required: ["id"],
       additionalProperties: false,
     },
   },
@@ -730,13 +740,41 @@ export async function runBoardTool(
       case "listObjects": {
         let q = supabase
           .from("objects")
-          .select("id, name, prefix, domain_id, order_index, created_at")
+          .select("id, name, prefix, description, domain_id, order_index, created_at")
           .is("archived_at", null)
           .order("order_index", { ascending: true, nullsFirst: false });
         if (input.domainId) q = q.eq("domain_id", input.domainId as string);
         const { data, error } = await q;
         if (error) throw error;
         return { ok: true, data, meta: { rows: data?.length ?? 0 } };
+      }
+
+      case "getObject": {
+        const id = String(input.id ?? "").trim();
+        if (!UUID_RE.test(id)) return { ok: false, error: "Object not found" };
+        const { data: obj, error } = await supabase
+          .from("objects")
+          .select("id, name, prefix, description, domain_id, type, icon, color, start_date, due_date, lead_id, archived_at, created_at, updated_at, lead:workers!objects_lead_id_fkey(id, name)")
+          .eq("id", id).maybeSingle();
+        if (error) throw error;
+        if (!obj) return { ok: false, error: "Object not found" };
+        const [links, els] = await Promise.all([
+          supabase.from("strategy_objects").select("strategy:strategies(id, name)").eq("object_id", id),
+          supabase.from("elements").select("status").eq("object_id", id).is("parent_id", null),
+        ]);
+        const elementCounts: Record<string, number> = {};
+        for (const e of (els.data ?? []) as { status: string | null }[]) {
+          const k = e.status ?? "backlog";
+          elementCounts[k] = (elementCounts[k] ?? 0) + 1;
+        }
+        return {
+          ok: true,
+          data: {
+            ...obj,
+            strategies: ((links.data ?? []) as { strategy: unknown }[]).map((l) => l.strategy).filter(Boolean),
+            elementCounts,
+          },
+        };
       }
 
       case "listElements": {

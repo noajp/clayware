@@ -19,6 +19,7 @@ import { GUIDE_TOOL, runGuideTool, steeredDescription, steerRefusal } from "./cl
 export const EXTERNAL_READ_TOOLS = [
   "listMyDomains",
   "listObjects",
+  "getObject",
   "listElements",
   "getElement",
   "findByText",
