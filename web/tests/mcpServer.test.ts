@@ -75,7 +75,11 @@ describe('MCP protocol', () => {
     expect(res.status).toBe(200);
     const result = (res.body as { result: Record<string, unknown> }).result;
     expect(result.protocolVersion).toBe('2025-03-26');
-    expect(result.capabilities).toEqual({ tools: { listChanged: false } });
+    expect(result.capabilities).toEqual({
+      tools: { listChanged: false },
+      resources: { listChanged: false, subscribe: false },
+      prompts: { listChanged: false },
+    });
     expect(negotiateVersion('1999-01-01')).toBe(SUPPORTED_PROTOCOL_VERSIONS[0]);
   });
 
@@ -87,7 +91,7 @@ describe('MCP protocol', () => {
     const parse = await handleBody('{nope', host());
     expect(parse.status).toBe(400);
     expect((parse.body as { error: { code: number } }).error.code).toBe(RPC.PARSE_ERROR);
-    const unknown = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 'x', method: 'resources/list' }), host());
+    const unknown = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 'x', method: 'sampling/createMessage' }), host());
     expect((unknown.body as { error: { code: number } }).error.code).toBe(RPC.METHOD_NOT_FOUND);
   });
 

@@ -8,6 +8,7 @@ import { DEPENDENCY_TOOLS, DEPENDENCY_TOOL_NAMES, runDependencyTool } from "./de
 import { FILE_TOOLS, runFileTool } from "./fileTools.ts";
 import { HARNESS_TOOLS, HARNESS_WRITE_TOOLS, runHarnessTool } from "./harnessTools.ts";
 import { MEMORY_TOOLS, runMemoryTool } from "./memoryTools.ts";
+import { CONTEXT_TOOLS, CONTEXT_TOOL_NAMES, runContextTool } from "./contextTools.ts";
 import type { RunToolDef } from "./toolLoading.ts";
 
 // Every operation Clayware's AI can perform inside Clayware, in one list, with one
@@ -34,6 +35,7 @@ const READS = new Set([
   "listMyDomains", "listObjects", "getObject", "listElements", "getElement", "findByText", "getProgress", "getRecentActivity", "listWorkers", "listDependencies",
   "listInitiatives", "getInitiative", "getInitiativeExecution", "listFiles", "searchFiles", "readFile", "listHarnesses", "readHarness",
   "recall_memory",
+  ...CONTEXT_TOOLS.map((t) => t.name),
 ]);
 
 function entries(defs: ToolDef[], area: ToolArea): CatalogTool[] {
@@ -45,6 +47,7 @@ export const CATALOG: CatalogTool[] = [
   ...entries(STRATEGY_WRITE_TOOLS, "strategy"),
   ...entries(MEASURE_TOOLS as ToolDef[], "strategy"),
   ...entries(BOARD_TOOLS, "execution"),
+  ...entries(CONTEXT_TOOLS, "execution"),
   ...entries(BATCH_TOOLS, "execution"),
   ...entries(DEPENDENCY_TOOLS, "execution"),
   ...entries(FILE_TOOLS, "files"),
@@ -240,6 +243,7 @@ export async function runCatalogTool(
     if (name === "campaignMeasure") return await runMeasureTool(db, input);
     if (name === "createElements") return await runBatchTool(db, input, actor);
     if (DEPENDENCY_TOOL_NAMES.has(name)) return await runDependencyTool(db, name, input);
+    if (CONTEXT_TOOL_NAMES.has(name)) return await runContextTool(db, name, input, actor);
     if (tool.area === "memory") return await runMemoryTool(db, name, input, actor, under.spaceId ?? null);
     if (name === "tableData" || name === "widgetBoard") return await runWidgetTool(db, name, input);
     switch (tool.area) {

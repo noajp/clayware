@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { basisErrorText, bindBasis } from "./elementBasis.ts";
+import { linkOf, placedFilesOf } from "./recordLinks.ts";
 
 // Board tools — Domain / Object / Element / Sub-element reads and writes that
 // run with the caller's JWT, so RLS decides what each call can see and touch.
@@ -15,7 +16,13 @@ export type ToolDef = {
 };
 
 export type ToolResult =
-  | { ok: true; data: unknown; meta?: { rows?: number; nextOffset?: number | null; total?: number | null } }
+  | {
+    ok: true;
+    data: unknown;
+    meta?: { rows?: number; nextOffset?: number | null; total?: number | null };
+    /** Pictures the result carries (readFile on an image), base64. An entry that can show them passes them on. */
+    images?: { mimeType: string; data: string }[];
+  }
   | { ok: false; error: string };
 
 /**
@@ -128,7 +135,7 @@ async function leadRefusal(supabase: SupabaseClient, domainId: string | null, wo
 export const BOARD_TOOLS: ToolDef[] = [
   {
     name: "listMyDomains",
-    description: "ログイン中のユーザーが参加している Domain の一覧を返す。引数なし。",
+    description: "ログイン中のユーザーが参加している Domain の一覧（description を含む）を返す。引数なし。",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -144,17 +151,17 @@ export const BOARD_TOOLS: ToolDef[] = [
   },
   {
     name: "getObject",
-    description: "Object 単体の詳細（description / 期間 / アイコンと色 / type / Lead / 結び付いた Strategy / 配下の Element のステータス別件数）。Element の一覧は listElements に objectId を渡して読む。",
+    description: "Object 単体の詳細（description / 期間 / アイコンと色 / type / Lead / 結び付いた Strategy / 配下の Element のステータス別件数 / アプリで開く url）。description に置かれたファイル（画像など）は placedFiles に並び、readFile で読める。Element の一覧は listElements に objectId を渡して読む。",
     input_schema: {
       type: "object",
-      properties: { id: { type: "string", description: "Object UUID" } },
+      properties: { id: { type: "string", description: "Object UUID または display_id" } },
       required: ["id"],
       additionalProperties: false,
     },
   },
   {
     name: "listElements",
-    description: "Element を任意条件で一覧。デフォルトで最新 50 件、order_index asc。",
+    description: "Element を任意条件で一覧。既定 50 件、order_index asc。続きは答えの nextOffset を offset に渡す（meta.nextOffset が null なら終わり）。自分の担当は assigneeWorkerId に \"me\"。",
     input_schema: {
       type: "object",
       properties: {
@@ -167,14 +174,19 @@ export const BOARD_TOOLS: ToolDef[] = [
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         dueWithinDays: { type: "number", description: "今日から N 日以内に due のものに絞る" },
         overdueOnly: { type: "boolean", description: "true なら未完で due 過ぎたものだけ" },
+        assigneeWorkerId: { type: "string", description: "この Worker が担当の Element だけ。\"me\" で接続している本人" },
+        label: { type: "string", description: "このラベルが付いた Element だけ" },
+        parentId: { type: "string", description: "この Element の Sub-element だけ（UUID または display_id）。\"none\" で親を持たない Element だけ" },
+        updatedSince: { type: "string", description: "この日時（ISO 8601）以降に更新されたものだけ" },
         limit: { type: "number", description: "最大件数（既定 50、最大 200）" },
+        offset: { type: "number", description: "前の答えの meta.nextOffset" },
       },
       additionalProperties: false,
     },
   },
   {
     name: "getElement",
-    description: "Element 単体のフル詳細（Sub-element（この Element を親に持つ Element）/ labels / assignees / 所属 Object / 直近のコメント10件を含む）",
+    description: "Element 単体のフル詳細（Sub-element（この Element を親に持つ Element）/ labels / assignees / 所属 Object / 直近のコメント10件とコメントの総数 / アプリで開く url を含む）。description に置かれたファイル（画像など）は placedFiles に並び、readFile で読める。コメントをすべて読むときは listElementComments、変更履歴は getElementHistory。",
     input_schema: {
       type: "object",
       properties: { id: { type: "string", description: "Element UUID または ELE-NNN 形式の display_id" } },
@@ -558,6 +570,16 @@ export function displayIdCandidates(raw: string): string[] {
 // Returns null when nothing visible to this user (RLS scope) matches.
 // display_id is matched on its own column: an `id.eq.<display_id>` filter
 // makes Postgres reject the whole query as an invalid uuid.
+/** The Worker ids an assignee filter names: "me" is the caller's own Workers (one per Space). */
+export async function assigneeWorkerIds(supabase: SupabaseClient, ref: string, actor: BoardActor): Promise<string[]> {
+  if (ref.trim().toLowerCase() !== "me") return [ref.trim()];
+  let userId = actor.userId;
+  if (!userId) userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  if (!userId) return [];
+  const { data } = await supabase.from("workers").select("id").eq("user_id", userId);
+  return ((data ?? []) as { id: string }[]).map((w) => w.id);
+}
+
 export async function resolveElementId(supabase: SupabaseClient, idArg: string): Promise<string | null> {
   return (await resolveElementIdTraced(supabase, idArg)).id;
 }
@@ -731,7 +753,7 @@ export async function runBoardTool(
       case "listMyDomains": {
         const { data, error } = await supabase
           .from("domains")
-          .select("id, name, identifier, activity_space_id, created_at")
+          .select("id, name, identifier, description, activity_space_id, created_at")
           .order("name");
         if (error) throw error;
         return { ok: true, data, meta: { rows: data?.length ?? 0 } };
@@ -750,14 +772,15 @@ export async function runBoardTool(
       }
 
       case "getObject": {
-        const id = String(input.id ?? "").trim();
-        if (!UUID_RE.test(id)) return { ok: false, error: "Object not found" };
+        const ref = String(input.id ?? "").trim();
+        if (!ref) return { ok: false, error: "Object not found" };
         const { data: obj, error } = await supabase
           .from("objects")
-          .select("id, name, prefix, description, domain_id, type, icon, color, start_date, due_date, lead_id, archived_at, created_at, updated_at, lead:workers!objects_lead_id_fkey(id, name)")
-          .eq("id", id).maybeSingle();
+          .select("id, display_id, name, prefix, description, domain_id, type, icon, color, start_date, due_date, lead_id, archived_at, created_at, updated_at, lead:workers!objects_lead_id_fkey(id, name)")
+          .eq(UUID_RE.test(ref) ? "id" : "display_id", ref).maybeSingle();
         if (error) throw error;
         if (!obj) return { ok: false, error: "Object not found" };
+        const id = (obj as { id: string }).id;
         const [links, els] = await Promise.all([
           supabase.from("strategy_objects").select("strategy:strategies(id, name)").eq("object_id", id),
           supabase.from("elements").select("status").eq("object_id", id).is("parent_id", null),
@@ -773,17 +796,41 @@ export async function runBoardTool(
             ...obj,
             strategies: ((links.data ?? []) as { strategy: unknown }[]).map((l) => l.strategy).filter(Boolean),
             elementCounts,
+            placedFiles: await placedFilesOf(supabase, (obj as { description: string | null }).description),
+            url: linkOf("object", id),
           },
         };
       }
 
       case "listElements": {
         const limit = Math.min(Math.max(Number(input.limit ?? 50), 1), 200);
+        const offset = Number.isFinite(Number(input.offset)) && Number(input.offset) > 0 ? Math.floor(Number(input.offset)) : 0;
         let q = supabase
           .from("elements")
-          .select("id, display_id, seq_number, title, status, priority, type, due_date, object_id, order_index, updated_at")
+          .select("id, display_id, seq_number, title, status, priority, type, labels, due_date, object_id, parent_id, order_index, updated_at", { count: "exact" })
           .order("order_index", { ascending: true, nullsFirst: false })
-          .limit(limit);
+          .order("seq_number", { ascending: true })
+          .range(offset, offset + limit - 1);
+        if (input.assigneeWorkerId) {
+          const workerIds = await assigneeWorkerIds(supabase, String(input.assigneeWorkerId), actor);
+          if (!workerIds.length) return { ok: true, data: [], meta: { rows: 0, nextOffset: null, total: 0 } };
+          const { data: rows } = await supabase.from("element_assignees").select("element_id").in("worker_id", workerIds);
+          const ids = [...new Set(((rows ?? []) as { element_id: string }[]).map((r) => r.element_id))];
+          if (!ids.length) return { ok: true, data: [], meta: { rows: 0, nextOffset: null, total: 0 } };
+          q = q.in("id", ids);
+        }
+        if (input.label) q = q.contains("labels", JSON.stringify([String(input.label)]));
+        if (input.parentId === "none") q = q.is("parent_id", null);
+        else if (input.parentId) {
+          const parent = await resolveElementId(supabase, String(input.parentId));
+          if (!parent) return { ok: false, error: "Element not found" };
+          q = q.eq("parent_id", parent);
+        }
+        if (input.updatedSince) {
+          const since = new Date(String(input.updatedSince));
+          if (Number.isNaN(since.getTime())) return { ok: false, error: "updatedSince must be an ISO 8601 date-time" };
+          q = q.gte("updated_at", since.toISOString());
+        }
         if (input.domainId) {
           const { data: objs } = await supabase
             .from("objects").select("id").eq("domain_id", input.domainId as string).is("archived_at", null);
@@ -804,9 +851,11 @@ export async function runBoardTool(
           const today = new Date().toISOString().slice(0,10);
           q = q.lt("due_date", today).not("status", "in", "(done,cancelled)");
         }
-        const { data, error } = await q;
+        const { data, error, count } = await q;
         if (error) throw error;
-        return { ok: true, data, meta: { rows: data?.length ?? 0 } };
+        const rows = data?.length ?? 0;
+        const total = count ?? null;
+        return { ok: true, data, meta: { rows, nextOffset: total !== null && offset + rows < total ? offset + rows : null, total } };
       }
 
       case "getElement": {
@@ -830,7 +879,7 @@ export async function runBoardTool(
             .select("object_id, is_primary")
             .eq("element_id", elementId),
           supabase.from("element_comments")
-            .select("id, author_name, author_kind, content, created_at")
+            .select("id, parent_id, author_name, author_kind, content, created_at", { count: "exact" })
             .eq("element_id", elementId).order("created_at", { ascending: false }).limit(10),
         ]);
         return {
@@ -841,6 +890,9 @@ export async function runBoardTool(
             assignees: assignees.data ?? [],
             objects: homes.data ?? [],
             recentComments: comments.data ?? [],
+            commentCount: comments.count ?? null,
+            placedFiles: await placedFilesOf(supabase, (el as { description: string | null }).description),
+            url: linkOf("element", elementId),
           },
         };
       }

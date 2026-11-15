@@ -1,16 +1,18 @@
 import type { ToolResult } from "../_shared/boardTools.ts";
 import { sanitizeName } from "../_shared/callerName.ts";
 import { GUIDE_SUMMARY } from "../_shared/claywareGuide.ts";
+import { listResources, readResource, RESOURCE_TEMPLATES } from "./resources.ts";
+import { getPrompt, listPrompts } from "./prompts.ts";
 
 export { sanitizeName };
 
 // The MCP wire protocol, stateless: every POST carries one JSON-RPC message
 // (or a batch from an older client) and gets its answer in the response
-// body. No session, no server-initiated stream — the server only answers
-// initialize / ping / tools/list / tools/call, which is all a tool server
-// needs. Pure: the HTTP entry (index.ts) supplies the tools and the caller.
+// body. No session, no server-initiated stream — the server answers
+// initialize / ping, tools, resources (clayware:// records, resources.ts)
+// and prompts (ways of working, prompts.ts). Pure: the HTTP entry (index.ts) supplies the tools and the caller.
 
-export const SERVER_INFO = { name: "clayware", version: "0.3.2" } as const;
+export const SERVER_INFO = { name: "clayware", version: "0.4.0" } as const;
 
 /** Newest first. An unknown requested version is answered with the newest. */
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
@@ -19,7 +21,9 @@ export const INSTRUCTIONS = [
   GUIDE_SUMMARY,
   "",
   "操作の決まり：",
-  "書き込む前に listElements / findByText / getElement で対象の UUID を確かめる。ELE_PLT-003 のような display_id も受け付けるが、曖昧なら候補をユーザーに示す。",
+  "探すときは search（Element・Object・Strategy・Note を横断）、一覧は listElements（担当 \"me\"・ラベル・親・更新日時で絞り、nextOffset で続きを読む）。自分が誰かは getMe。",
+  "読むときは getElement / getObject / getInitiative / readNote。本文に置かれたファイル（画像を含む）は placedFiles に並び、readFile で中身や画像そのものを読める。コメント全件は listElementComments、経緯は getElementHistory。答えの url はアプリでその記録を開く。",
+  "書き込む前に対象の UUID を確かめる。ELE_PLT-003 のような display_id も受け付けるが、曖昧なら候補をユーザーに示す。",
   "ステータス: backlog / todo / in_progress / review / done / blocked / cancelled。優先度: urgent / high / medium / low。日付は YYYY-MM-DD。",
   "Element を進めるときは claimElement で着手を宣言し（断られたらその Element は進めない）、節目ごとに logProgress、最後に reportOutcome（completed / partial / blocked）で締める。session には作業ごとの名前を渡し、同じ値を使い続ける。",
   "書き込みは接続元の AI 名で記録される。削除・一括変更・上書きは、何が変わるかをユーザーに示して了解を得てから行う。断られたときは理由を読み、示された置き場所ややり方に直す。",
@@ -96,7 +100,11 @@ export async function handleMessage(msg: unknown, host: ToolHost): Promise<JsonR
         id,
         result: {
           protocolVersion: negotiateVersion(params.protocolVersion),
-          capabilities: { tools: { listChanged: false } },
+          capabilities: {
+            tools: { listChanged: false },
+            resources: { listChanged: false, subscribe: false },
+            prompts: { listChanged: false },
+          },
           serverInfo: SERVER_INFO,
           instructions: INSTRUCTIONS,
         },
@@ -122,15 +130,40 @@ export async function handleMessage(msg: unknown, host: ToolHost): Promise<JsonR
       return { jsonrpc: "2.0", id, result: toCallResult(result) };
     }
 
+    case "resources/list":
+      return { jsonrpc: "2.0", id, result: { resources: await listResources(host) } };
+
+    case "resources/templates/list":
+      return { jsonrpc: "2.0", id, result: { resourceTemplates: RESOURCE_TEMPLATES } };
+
+    case "resources/read": {
+      const uri = typeof params.uri === "string" ? params.uri : "";
+      const r = await readResource(uri, host);
+      return r.ok ? { jsonrpc: "2.0", id, result: { contents: r.contents } } : fail(id, RPC.INVALID_PARAMS, r.error);
+    }
+
+    case "prompts/list":
+      return { jsonrpc: "2.0", id, result: { prompts: listPrompts(host.tools) } };
+
+    case "prompts/get": {
+      const name = typeof params.name === "string" ? params.name : "";
+      const r = getPrompt(host.tools, name, isObject(params.arguments) ? params.arguments : {});
+      return r.ok ? { jsonrpc: "2.0", id, result: r.result } : fail(id, RPC.INVALID_PARAMS, r.error);
+    }
+
     default:
       return fail(id, RPC.METHOD_NOT_FOUND, `Method not found: ${msg.method}`);
   }
 }
 
 /** A tool's outcome as MCP content. A refused write is a tool error the model reads, not a protocol error. */
-export function toCallResult(result: ToolResult): { content: { type: "text"; text: string }[]; isError: boolean } {
+export type CallContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
+
+export function toCallResult(result: ToolResult): { content: CallContent[]; isError: boolean } {
   if (!result.ok) return { content: [{ type: "text", text: `Error: ${result.error}` }], isError: true };
-  return { content: [{ type: "text", text: JSON.stringify(result.data, null, 2) }], isError: false };
+  const text: CallContent = { type: "text", text: JSON.stringify(result.data, null, 2) };
+  const images: CallContent[] = (result.images ?? []).map((i) => ({ type: "image", data: i.data, mimeType: i.mimeType }));
+  return { content: [text, ...images], isError: false };
 }
 
 /**
