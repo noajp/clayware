@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
-import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldValueText } from '@/Function/property/fieldModel';
+import { clampWidth, NAME_SPEC, widthSpec, type WidthSpec } from './columnWidths';
 import type { CustomColumnWithValues } from '@/hooks/useSupabase';
 import { ELEMENT_DEFAULT_VISIBLE, OBJECT_DEFAULT_VISIBLE } from '@/Function/shared/listConfig';
 import { priorityWeight } from '@/Function/shared/listControls/types';
@@ -34,53 +34,33 @@ export interface DataColumn {
   kind: ColumnKind;
   /** Built-in `type` is non-toggleable (always on); others can be hidden. */
   toggleable: boolean;
-  defaultWidth: number;
-  /** Floor for resizing, when the column's content is narrower than the shared one. */
-  minWidth?: number;
-  /** 'end' sets the header and the cells flush right (the due date). */
-  align?: 'end';
   /** For kind === 'custom': the backing Property (custom_columns) definition. */
   custom?: CustomColumnWithValues;
 }
 
-// A column is as wide as what it usually holds, not a roomy even grid: the
-// width goes to the title, and there is room to add many more columns. A
-// value longer than its column ends in "…" (the whole of it is in the cell's
-// menu or the Element), and the column can be dragged wider.
-const DEFAULT_COLUMN_WIDTH = 104;
-// A due date is one short date ("Nov 13", "11月13日"), so its column hugs
-// it and sits flush right: the assignee or lead after it is the same 20px
-// away as the label before it, not across an empty half column. The width
-// is what the header's word needs in each language.
-function dateColumnWidth(locale: string): number {
-  return locale === 'es' ? 88 : locale === 'ja' || locale === 'ko' ? 84 : locale === 'fr' ? 76 : 72;
-}
+// How wide a column is comes from the kind of value it holds (columnWidths).
 
 // Special width key for the Name column (not a real DataColumn — it isn't
 // toggleable or reorderable). Stored alongside data-column widths so resize
 // + persistence reuse the same code path.
 export const NAME_COL_KEY = '__name__';
-// Name can shrink on compact layouts while retaining a readable title.
-const NAME_DEFAULT_WIDTH = 400;
-export const NAME_MIN_WIDTH = 240;
-const NAME_MAX_WIDTH = 1200;
 
 // Built-in (code-defined) columns per entity. 'type' is always-on (leftmost,
 // non-toggleable) on both. Elements carry an Assignee; Objects carry a Lead
 // (objects.lead_id), a computed Progress bar, and an Elements count instead.
 const ELEMENT_BUILTIN_COLUMNS: DataColumn[] = [
-  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true, defaultWidth: 128 },
-  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: true, defaultWidth: 88 },
-  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'assignee', label: 'Assignee', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'activity', label: 'Updates', kind: 'builtin', toggleable: true,  defaultWidth: 96 },
+  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true },
+  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: true },
+  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true },
+  { id: 'assignee', label: 'Assignee', kind: 'builtin', toggleable: true },
+  { id: 'activity', label: 'Updates', kind: 'builtin', toggleable: true },
 ];
 const OBJECT_BUILTIN_COLUMNS: DataColumn[] = [
-  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: false, defaultWidth: 88 },
-  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'lead',     label: 'Lead',     kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'progress', label: 'Progress', kind: 'builtin', toggleable: true,  defaultWidth: 96 },
-  { id: 'elements', label: 'Elements', kind: 'builtin', toggleable: true,  defaultWidth: 80 },
+  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: false },
+  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true },
+  { id: 'lead',     label: 'Lead',     kind: 'builtin', toggleable: true },
+  { id: 'progress', label: 'Progress', kind: 'builtin', toggleable: true },
+  { id: 'elements', label: 'Elements', kind: 'builtin', toggleable: true },
 ];
 
 function builtinsFor(entity: ColumnEntity): DataColumn[] {
@@ -93,10 +73,6 @@ function defaultVisibleFor(entity: ColumnEntity): ColumnId[] {
 // Element default — the SSR/empty snapshot fallback (the hook reconciles to the
 // per-entity set once it knows the entity).
 const DEFAULT_VISIBLE: ColumnId[] = ELEMENT_DEFAULT_VISIBLE;
-// A column can be dragged down to a few characters; what no longer fits
-// ends in "…".
-const COLUMN_MIN_WIDTH = 48;
-const COLUMN_MAX_WIDTH = 600;
 
 /** Active sort applied to every section's elements. `null` means natural
  *  order (whatever the data layer returned — usually elements.order_index). */
@@ -161,9 +137,9 @@ function keysFor(storageKey: string) {
   return {
     order:   `obj-list-cols:${storageKey}:order`,
     visible: `obj-list-cols:${storageKey}:visible`,
-    // v2: widths saved before the floor dropped from 110px are that floor,
-    // not a choice; they start again from the fitted defaults.
-    widths:  `obj-list-cols:${storageKey}:widths:v2`,
+    // v3: widths are bounded by what each column holds; ones saved under
+    // the old even grid start again from those.
+    widths:  `obj-list-cols:${storageKey}:widths:v3`,
     sort:    `obj-list-cols:${storageKey}:sort`,
     hidden: `obj-list-cols:${storageKey}:hidden`,
     legacy:  `obj-list-cols:${storageKey}`,
@@ -220,7 +196,7 @@ export interface ListColumnsState {
   visibleColumns: DataColumn[];
   /** Every column the toggle menu should expose, in display order. */
   allColumns: DataColumn[];
-  /** Resolved width for any column id (falls back to defaultWidth). */
+  /** Resolved width for any column id, within its kind's bounds. */
   widthFor: (id: ColumnId) => number;
   /** True once the person has sized this column themselves. */
   isSized: (id: ColumnId) => boolean;
@@ -309,7 +285,6 @@ export function useListColumns(
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const { order, visibleIds, hiddenIds, widths, sort } = snapshot;
 
-  const { locale } = useI18n();
   // The full catalogue of columns this view knows about right now.
   const catalogue = useMemo<DataColumn[]>(() => {
     const customDefs: DataColumn[] = customColumns.map((c) => ({
@@ -317,13 +292,10 @@ export function useListColumns(
       label: c.name,
       kind: 'custom',
       toggleable: true,
-      defaultWidth: DEFAULT_COLUMN_WIDTH,
       custom: c,
     }));
-    const dateWidth = dateColumnWidth(locale);
-    return [...new Map([...builtinsFor(entity), ...(extraColumns ?? []), ...customDefs].map((c) => [c.id,
-      c.id === 'due_date' ? { ...c, defaultWidth: dateWidth, minWidth: dateWidth, align: 'end' as const } : c])).values()];
-  }, [customColumns, extraColumns, entity, locale]);
+    return [...new Map([...builtinsFor(entity), ...(extraColumns ?? []), ...customDefs].map((c) => [c.id, c])).values()];
+  }, [customColumns, extraColumns, entity]);
 
   // ─── Reconcile with catalogue ─────────────────────────────────────────────
   // 1) Order: keep stored entries that still exist; append catalogue
@@ -370,17 +342,19 @@ export function useListColumns(
   );
 
   // ─── Mutators ─────────────────────────────────────────────────────────────
+  const specFor = useCallback((id: ColumnId): WidthSpec => {
+    if (id === NAME_COL_KEY) return NAME_SPEC;
+    const column = catalogueById.get(id);
+    return column ? widthSpec(column) : widthSpec({ id });
+  }, [catalogueById]);
+
   const widthFor = useCallback((id: ColumnId): number => {
-    // Clamp on READ (not just on resize) so a width persisted under the old
-    // bounds — e.g. a Name saved at 300 before the floor moved to 550 — is
-    // floored to the current minimum instead of leaking through narrower.
-    const lo = id === NAME_COL_KEY ? NAME_MIN_WIDTH : catalogueById.get(id)?.minWidth ?? COLUMN_MIN_WIDTH;
-    const hi = id === NAME_COL_KEY ? NAME_MAX_WIDTH : COLUMN_MAX_WIDTH;
+    // Held to its bounds on read too, so a width saved under other bounds
+    // never draws outside the current ones.
+    const spec = specFor(id);
     const stored = widths[id];
-    if (typeof stored === 'number' && stored > 0) return Math.max(lo, Math.min(hi, stored));
-    if (id === NAME_COL_KEY) return NAME_DEFAULT_WIDTH;
-    return catalogueById.get(id)?.defaultWidth ?? DEFAULT_COLUMN_WIDTH;
-  }, [widths, catalogueById]);
+    return typeof stored === 'number' && stored > 0 ? clampWidth(stored, spec) : spec.base;
+  }, [widths, specFor]);
 
   const isSized = useCallback((id: ColumnId) => typeof widths[id] === 'number' && widths[id] > 0, [widths]);
 
@@ -428,15 +402,12 @@ export function useListColumns(
 
   const setWidth = useCallback((id: ColumnId, width: number) => {
     if (!storageKey) return;
-    // Name uses its own floor/ceiling; data columns use the shared bounds.
-    const lo = id === NAME_COL_KEY ? NAME_MIN_WIDTH : catalogueById.get(id)?.minWidth ?? COLUMN_MIN_WIDTH;
-    const hi = id === NAME_COL_KEY ? NAME_MAX_WIDTH : COLUMN_MAX_WIDTH;
-    const clamped = Math.max(lo, Math.min(hi, Math.round(width)));
+    const clamped = clampWidth(width, specFor(id));
     setSnapshot(storageKey, (prev) => {
       if (prev.widths[id] === clamped) return prev;
       return { ...prev, widths: { ...prev.widths, [id]: clamped } };
     });
-  }, [storageKey, catalogueById]);
+  }, [storageKey, specFor]);
 
 
   const setSortDirect = useCallback((nextSort: ColumnSort | null) => {

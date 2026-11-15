@@ -20,12 +20,10 @@ import { fieldDisplayLabel } from '@/Function/property/fieldModel';
 // column will land, so the columns stay still while you aim. The right edge
 // resizes.
 export function ColumnHeader({
-  column, width, inset = 0, isDragging, dropEdge, sort, onResize, onResizeStart, onSort, onHide, onEdit, onMoveLeft, onMoveRight,
+  column, width, isDragging, dropEdge, sort, onResize, onResizeStart, onSort, onHide, onEdit, onMoveLeft, onMoveRight,
 }: {
   column: DataColumn;
   width: number;
-  /** Drawn width that is not the saved width (the sort arrow's room). */
-  inset?: number;
   isDragging: boolean;
   /** Where a column being dragged would land against this one. */
   dropEdge: 'before' | 'after' | null;
@@ -43,7 +41,6 @@ export function ColumnHeader({
   const { t } = useI18n();
   // Built-in column names are English keys; a Property's name is the user's own.
   const label = fieldDisplayLabel(t, column);
-  const end = column.align === 'end';
   const { setNodeRef, attributes, listeners } = useSortable({ id: HEADER_DRAG_PREFIX + column.id, animateLayoutChanges: () => false });
   const [open, setOpen] = useState(false);
   // The menu opens on click, not on press: a press may be the start of a
@@ -56,7 +53,7 @@ export function ColumnHeader({
       style={{ width, minWidth: width, maxWidth: width }}
       {...attributes}
       {...listeners}
-      className={`table-cell group/col relative ${end ? 'px-0.5' : 'px-1'} py-1.5 text-left text-[13px] font-normal text-muted-foreground bg-card whitespace-nowrap select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
+      className={`table-cell group/col relative px-1 py-1.5 text-left text-[13px] font-normal text-muted-foreground bg-card whitespace-nowrap select-none transition-opacity ${isDragging ? 'opacity-40' : ''}`}
     >
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
@@ -71,16 +68,15 @@ export function ColumnHeader({
               setOpen(true);
             }}
             title={label}
-            // The name starts (or, flush right, ends) at the x of the cell
-            // text below: th px-1 + px-2 = the cells' 12px; a flush-right
-            // column's th px-0.5 + px-1 = its cells' 6px.
-            className={`flex h-7 w-full min-w-0 items-center gap-1 rounded-md text-muted-foreground/90 transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground focus:outline-none focus-visible:bg-[var(--surface-strong)] data-[state=open]:bg-[var(--surface-strong)] data-[state=open]:text-foreground ${end ? 'justify-end px-1' : 'justify-start px-2'}`}
+            // The name starts at the x of the cell text below: th px-1 +
+            // px-2 = the cells' 12px. Every column is set flush left.
+            className={`flex h-7 w-full min-w-0 items-center gap-1 rounded-md text-muted-foreground/90 transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground focus:outline-none focus-visible:bg-[var(--surface-strong)] data-[state=open]:bg-[var(--surface-strong)] data-[state=open]:text-foreground justify-start px-2`}
           >
             <span className="truncate">{label}</span>
             {sort && <SortIcon size={12} className="shrink-0 text-foreground" />}
           </button>
         </DropdownMenuTrigger>
-        <MenuShell as="dropdown" align={end ? 'end' : 'start'} onCloseAutoFocus={(e) => e.preventDefault()}>
+        <MenuShell as="dropdown" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
           <DropdownMenuItem onSelect={() => onSort('asc')}>
             <ArrowUp size={14} />
             <span className="flex-1">{t('Sort ascending')}</span>
@@ -107,7 +103,7 @@ export function ColumnHeader({
       {dropEdge && (
         <span aria-hidden className={`pointer-events-none absolute inset-y-1 z-20 w-0.5 rounded-full bg-[var(--accent-default)] ${dropEdge === 'before' ? '-left-px' : '-right-px'}`} />
       )}
-      <ResizeHandle width={width - inset} inset={inset} onResize={onResize} onResizeStart={onResizeStart} />
+      <ResizeHandle width={width} onResize={onResize} onResizeStart={onResizeStart} />
     </th>
   );
 }
@@ -117,14 +113,10 @@ export function ColumnHeader({
  *  freezes the Name width first — see ListTable), so the edge follows the
  *  pointer. */
 export function ResizeHandle({
-  width, inset = 0, startWidth, onResize, onResizeStart,
+  width, onResize, onResizeStart,
 }: {
+  /** The column's width as drawn, where a drag starts from. */
   width: number;
-  /** Header width that is not this column's (the sort arrow's room). */
-  inset?: number;
-  /** The drawn width at the start of a drag, when the header cell is not
-   *  the whole column (Name spans two tracks and two header cells). */
-  startWidth?: () => number;
   onResize: (w: number) => void;
   onResizeStart?: () => void;
 }) {
@@ -151,9 +143,8 @@ export function ResizeHandle({
       // feedback is the hairline in the middle, accent while dragging.
       className="group/resize absolute top-0 -right-1.5 z-30 h-full w-3 touch-none cursor-col-resize"
       onPointerDown={(e) => {
-        const header = e.currentTarget.closest('th');
         onResizeStart?.();
-        startRef.current = { x: e.clientX, w: startWidth ? startWidth() : header ? header.getBoundingClientRect().width - inset : width };
+        startRef.current = { x: e.clientX, w: width };
         setActive(true);
         e.currentTarget.setPointerCapture(e.pointerId);
         e.preventDefault();
@@ -161,7 +152,7 @@ export function ResizeHandle({
       }}
       onPointerMove={(e) => {
         if (!startRef.current) return;
-        // Raw width — setWidth applies the per-column min/max clamp.
+        // Raw width — setWidth holds it to the column's own bounds.
         onResize(startRef.current.w + (e.clientX - startRef.current.x));
       }}
       onPointerUp={(e) => {

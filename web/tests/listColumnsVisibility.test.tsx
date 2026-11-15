@@ -29,7 +29,7 @@ describe('view column preferences', () => {
     expect(a.result.current.isVisible('cc:field-1')).toBe(false);
   });
   it('deduplicates built-ins and saves name width', () => {
-    const { result } = renderHook(() => useListColumns('width-test', empty, { extraColumns: [{ id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true, defaultWidth: 160 }] }));
+    const { result } = renderHook(() => useListColumns('width-test', empty, { extraColumns: [{ id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true }] }));
     expect(result.current.allColumns.filter((c) => c.id === 'objects')).toHaveLength(1);
     act(() => result.current.setWidth('__name__', 280));
     expect(result.current.widthFor('__name__')).toBe(280);
