@@ -1,5 +1,6 @@
 // Copies the homepage (../website) into public/homepage/, where the app serves
-// it at /homepage. A signed-out visitor to / is sent there.
+// it at /homepage (English, index.html) and /homepage/ja (Japanese, ja.html).
+// A signed-out visitor to / is sent to /homepage.
 //
 // website/ links its images as assets/…; served from /homepage they become
 // /homepage/assets/…. Generated output is not committed (.gitignore).
@@ -14,6 +15,8 @@ const out = join(web, 'public', 'homepage');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, 'assets'), { recursive: true });
 
-const html = readFileSync(join(from, 'index.html'), 'utf8').replace(/(src|href)="assets\//g, '$1="/homepage/assets/');
-writeFileSync(join(out, 'index.html'), html);
+for (const page of readdirSync(from).filter((f) => f.endsWith('.html'))) {
+  const html = readFileSync(join(from, page), 'utf8').replace(/(src|href)="assets\//g, '$1="/homepage/assets/');
+  writeFileSync(join(out, page), html);
+}
 for (const file of readdirSync(join(from, 'assets'))) copyFileSync(join(from, 'assets', file), join(out, 'assets', file));
