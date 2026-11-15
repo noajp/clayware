@@ -23,7 +23,16 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
   <div class="container nav__bar">
     <a href="index.html" class="wordmark" aria-label="Clayware home">Clayware</a>
     <nav class="menu" id="menu" aria-label="Main">
-      <a class="menu__link" href="product.html">Product</a>
+      <div class="dd">
+        <a class="menu__link dd__link" href="product.html" aria-haspopup="true">Product</a>
+        <div class="mega">
+          <div class="mega__panel">
+            <div class="mega__grid"><a class="mega__item" href="index.html#hub"><b>Multichannel integration</b><span>Mail, chat, business apps and your own systems, connected by API into one place</span></a><a class="mega__item" href="product.html"><b>Strategy &amp; Execution</b><span>From a goal down to owned tasks</span></a><a class="mega__item" href="product.html#integrations"><b>Athena AI</b><span>Goes out to your tools, sorts what’s happening into Elements, and checks it against your Strategy</span></a><a class="mega__item" href="timeline.html"><b>Time management</b><span>Deadlines and dependencies on one timeline</span></a></div>
+            <div class="mega__side"><a href="product.html#integrations">Integrations</a><a href="product.html#product-safety">Security</a></div>
+          </div>
+          <a class="mega__new" href="product.html"><b>New</b><span>Clayware v4, Incoming work becomes owned tasks</span><em>Learn more</em></a>
+        </div>
+      </div>
       <a class="menu__link" href="timeline.html">Timeline</a>
       <a class="menu__link" href="change.html">Change management</a>
       <a class="menu__link" href="education.html">Education</a>
@@ -49,7 +58,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
     <div class="hero__top">
       <h1 id="hero-title">Bring every channel together.<br> Point the company the right way.</h1>
       <div class="hero__row">
-        <p class="lead">Mail, chat, forms. Clayware gathers every request in one place and settles when, what, why and who.</p>
+        <p class="lead">Mail, chat, business apps, your own systems. Clayware connects them by API, gathers every request in one place, and settles when, what, why and who.</p>
       </div>
     </div>
     <figure class="hero__shot">
@@ -97,7 +106,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
     <table class="index index--solves">
       <thead><tr><th scope="col">The problem</th><th scope="col">What changes</th><th scope="col"><span class="visually-hidden">Learn more</span></th></tr></thead>
       <tbody>
-        <tr><td>Requests fall between mail, chat and forms</td><td>Every channel lands in one place, sorted and owned.</td><td class="go"><a href="product.html" class="textlink">Learn more</a></td></tr>
+        <tr><td>Requests fall between mail, chat, apps and systems</td><td>Every channel lands in one place, sorted and owned.</td><td class="go"><a href="index.html#hub" class="textlink">Learn more</a></td></tr>
         <tr><td>Deadlines collide without anyone noticing</td><td>Dependencies are drawn as lines; collisions turn red.</td><td class="go"><a href="timeline.html" class="textlink">Learn more</a></td></tr>
         <tr><td>Nobody knows where a task stands</td><td>One board shows every task and who has it.</td><td class="go"><a href="product.html#board" class="textlink">Learn more</a></td></tr>
         <tr><td>AI was bought, but only writes drafts</td><td>AI does the work and stops for your sign-off.</td><td class="go"><a href="product.html#integrations" class="textlink">Learn more</a></td></tr>
