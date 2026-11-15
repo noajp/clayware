@@ -9,21 +9,16 @@
 // up to its kind's most — past which it would only be air — and back; a
 // width set by hand is kept.
 //
-// The table is laid out from the left: the pinned mark, Name, each column
-// at its own width, then the "+". Every boundary belongs to the column on
-// its left and is dragged like any other: left narrows that column, right
-// widens it, the boundary stays under the pointer and everything after it
-// moves along.
-//
-// Name, until it is sized by hand, takes whatever room the columns leave,
-// so they sit at the right edge and a wide pane gives its room to the
-// titles. While a column is being dragged Name holds still (the boundary
-// must follow the pointer); when the drag ends it takes up the difference
-// again. Sized by hand — wider, to read long titles, up to its most — Name
-// keeps that width, the columns follow it, and any room left over is at
-// the far right. When the columns need more than the view has, the table
-// scrolls sideways: the title stays pinned and the columns slide under its
-// edge, the leftmost first.
+// The table is laid out from the left and stays anchored there: the pinned
+// mark, Name, each column at its own width, then the "+", with whatever
+// room the view has left over empty at the far right. Every boundary
+// belongs to the column on its left and is dragged like any other: left
+// narrows that column, right widens it, the boundary stays under the
+// pointer, everything after it moves along and nothing before it moves.
+// Name is a column like the rest: it opens at its usual width and is
+// dragged between its least and its most. When the columns need more than
+// the view has, the table scrolls sideways: the title stays pinned and the
+// columns slide under its edge, the leftmost first.
 
 export interface WidthSpec {
   min: number;
@@ -124,15 +119,12 @@ export function clampWidth(width: number, spec: WidthSpec): number {
   return Math.max(spec.min, Math.min(spec.max, Math.round(width)));
 }
 
-/** Pure. The table's tracks for a view `view` px wide. With no width set on
- *  Name (`name` null) it takes whatever the columns leave, never less than
- *  its least, so the columns sit at the right edge. With one set, Name is
- *  that wide, the columns follow it, and what the view has left over is an
- *  empty filler after the last of them. `fixed` is the pinned mark plus the
- *  "+"; `columns` the data columns' sum. */
-export function tableLayout({ view, fixed, columns, name }: { view: number; fixed: number; columns: number; name: number | null }): { name: number; filler: number; width: number } {
-  const n = name ?? Math.max(NAME_SPEC.min, view - fixed - columns);
-  const packed = fixed + n + columns;
+/** Pure. The table's tracks for a view `view` px wide: Name at its width,
+ *  the columns after it, and whatever the view has left over as an empty
+ *  filler after the last of them. `fixed` is the pinned mark plus the "+";
+ *  `columns` the data columns' sum. */
+export function tableLayout({ view, fixed, columns, name }: { view: number; fixed: number; columns: number; name: number }): { filler: number; width: number } {
+  const packed = fixed + name + columns;
   const filler = Math.max(0, view - packed);
-  return { name: n, filler, width: packed + filler };
+  return { filler, width: packed + filler };
 }
