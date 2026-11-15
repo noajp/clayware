@@ -19,7 +19,33 @@ import { useListColumns, sortElements, NAME_COL_KEY, type ColumnId, type DataCol
 import { refreshAwaitingAnswers, useAwaitingAnswerElementIds } from '@/hooks/awaitingAnswerData';
 import { useQuestionNotificationCount, useUnreadCommentElementIds } from '@/hooks/notificationData';
 import { EMPTY_CUSTOM_COLUMNS, EMPTY_ELEMENT_TYPES, EMPTY_WORKERS, EMPTY_ELEMENT_IDS, type ElementUpdate, type ListSection, HEADER_DRAG_PREFIX, OBJECT_DRAG_PREFIX, ROW_ROUND_BASE, STICKY_TINT_HOVER, LEAD_CELL, LEAD_CELL_HOVER, signalsTrackWidth } from './shared';
-import { NAME_SPEC, tableLayout } from './columnWidths';
+import { FIRST_ROWS, WINDOW_FROM, splitRange, widenRange, windowRange, type RowRange } from './rowWindow';
+import { clampWidth, fittedWidths, NAME_SPEC, tableLayout } from './columnWidths';
+
+/** Runs `then` with what `find` returns as soon as it returns something: a
+ *  row scrolled to is drawn a moment after the scroll, not with it. Gives up
+ *  after a second and a half. */
+function whenDrawn<T>(find: () => T | null, then: (found: T) => void, tries = 40): void {
+  const found = find();
+  if (found) then(found);
+  else if (tries > 0) setTimeout(() => whenDrawn(find, then, tries - 1), 40);
+}
+
+/** How wide a cell's content is when nothing cuts it short. An inline box
+ *  hugs what it holds (and reports what it hides); one that fills its cell
+ *  is as wide as the things in it, first to last. */
+function naturalWidth(content: HTMLElement): number {
+  const hidden = Math.max(0, content.scrollWidth - content.clientWidth);
+  if (getComputedStyle(content).display.startsWith('inline')) return content.getBoundingClientRect().width + hidden;
+  const first = content.firstElementChild;
+  const last = content.lastElementChild;
+  if (!first || !last) return content.scrollWidth;
+  return last.getBoundingClientRect().right - first.getBoundingClientRect().left + hidden;
+}
+
+// The widths each list's columns were last fitted to, so a list opened
+// again starts from them instead of from the usual widths.
+const FITTED = new Map<string, Record<string, number>>();
 import { ElementRow } from './ElementRow';
 import { reorderWithinSections } from './rowReorder';
 import { ObjectRow } from './ObjectRow';
@@ -223,6 +249,7 @@ export function ListTable({
     extraColumns,
     defaultVisible: defaultVisibleColumns,
     entity,
+    density,
   });
 
   // Show Element-specific data columns only when at least one section
@@ -511,11 +538,29 @@ export function ListTable({
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => setViewWidth(entry.contentRect.width));
     ro.observe(el);
+    // The observer reports with the next frame; the width is known now, and
+    // a list opened in a tab not yet drawn would otherwise wait for it.
+    queueMicrotask(() => setViewWidth(el.clientWidth));
     return () => ro.disconnect();
   }, []);
   // The trailing "+" (which fields show) is one 28px button.
   const TRAILING_COL_WIDTH = 40;
-  const drawnWidth = (c: DataColumn) => cols.widthFor(c.id);
+  // Every column is at least as wide as the widest thing in it — its
+  // values and its heading (columnWidths), measured off the rows once they
+  // are drawn, below. That is the width it opens at, and the least it can
+  // be dragged to: the gap from one column to the next is never less than
+  // the cells' own padding. Dragged wider, it stops at its kind's most.
+  const [fitted, setFitted] = useState<Record<string, number>>(() => (colStorageKey ? FITTED.get(colStorageKey) ?? {} : {}));
+  const drawnWidth = (c: DataColumn) => {
+    const fit = fitted[c.id];
+    if (!cols.isSized(c.id)) return fit ?? cols.widthFor(c.id);
+    return fit ? Math.max(fit, cols.widthFor(c.id)) : cols.widthFor(c.id);
+  };
+  /** The bounds a drag moves a column within: from what it holds to its kind's most. */
+  const dragSpec = (id: ColumnId) => {
+    const spec = cols.specFor(id);
+    return id !== NAME_COL_KEY && fitted[id] ? { ...spec, min: Math.min(spec.max, fitted[id]) } : spec;
+  };
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
   const fixedWidth = 52 + (hasTrailingCol ? TRAILING_COL_WIDTH : 0);
   // Name is pinned while the rest scrolls under it, so a set Name wider than
@@ -530,22 +575,255 @@ export function ListTable({
   const nameWidth = hasTrailingCol ? layout.name : layout.name + layout.filler;
   const trailingWidth = TRAILING_COL_WIDTH + layout.filler;
   const freezeName = () => { if (nameFluid) cols.setWidth(NAME_COL_KEY, nameWidth); };
+  const titleWidth = `calc(${nameWidth}px - var(--signals-w, 0px))`;
+
+  // ─── Row window (rowWindow) ───────────────────────────────────────────────
+  // A long list draws only the rows in and near the view; spacers stand in
+  // for the rest. Where each section's rows sit is read off the page (its
+  // top spacer's place), on every scroll and whenever the scroller or the
+  // table changes size — which is also what a row added, removed, folded
+  // away or set tighter does.
+  const totalRows = useMemo(
+    () => sortedSections.reduce((sum, sec) => sum + (collapsed.has(sec.id) ? 0 : sec.objects.length + (sec.elements?.length ?? 0)), 0),
+    [sortedSections, collapsed],
+  );
+  const windowed = totalRows > WINDOW_FROM;
+  const [rowHeight, setRowHeight] = useState(density === 'compact' ? 26 : 46);
+  const [ranges, setRanges] = useState<Record<string, RowRange>>({});
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const table = tableRef.current;
+    if (!scroller || !table || !windowed) return;
+    // Read on the scroll itself, not a frame later: a frame is long enough
+    // for a fast scroll to show the spacer where rows should be.
+    const measure = () => {
+      const row = table.querySelector<HTMLElement>('tbody tr[data-row]');
+      const h = row ? row.getBoundingClientRect().height : 0;
+      if (h > 0) setRowHeight((prev) => (Math.abs(prev - h) > 0.5 ? h : prev));
+      const origin = scroller.getBoundingClientRect().top - scroller.scrollTop;
+      const inHand = table.hasAttribute('data-row-in-hand');
+      const next: Record<string, RowRange> = {};
+      table.querySelectorAll<HTMLElement>('tbody tr[data-space-top]').forEach((spacer) => {
+        next[spacer.dataset.spaceTop ?? ''] = windowRange({
+          top: spacer.getBoundingClientRect().top - origin,
+          rowHeight: h > 0 ? h : Number(spacer.dataset.rowHeight) || 46,
+          count: Number(spacer.dataset.count) || 0,
+          scrollTop: scroller.scrollTop,
+          viewHeight: scroller.clientHeight,
+        });
+      });
+      setRanges((prev) => {
+        const merged = inHand ? Object.fromEntries(Object.entries(next).map(([id, r]) => [id, widenRange(prev[id], r)])) : next;
+        const ids = Object.keys(merged);
+        const same = ids.length === Object.keys(prev).length && ids.every((id) => prev[id]?.[0] === merged[id][0] && prev[id]?.[1] === merged[id][1]);
+        return same ? prev : merged;
+      });
+    };
+    scroller.addEventListener('scroll', measure, { passive: true });
+    const ro = new ResizeObserver(measure);
+    ro.observe(scroller);
+    ro.observe(table);
+    return () => { scroller.removeEventListener('scroll', measure); ro.disconnect(); };
+  }, [windowed]);
   // Name is two tracks: the pinned title, then the rows' signals (comments,
   // labels…), which scroll with the data columns. The signals track is as
   // wide as the widest row's signals — measured once the rows are drawn and
   // handed over as --signals-w — but the title keeps at least half of Name
   // (signalsTrackWidth): a row is read for its title first.
+  const signalsSeen = useRef<{ rows: unknown; width: number }>({ rows: null, width: 0 });
   useLayoutEffect(() => {
     const table = tableRef.current;
     if (!table) return;
     let w = 0;
     table.querySelectorAll<HTMLElement>('[data-row-signals]').forEach((el) => { w = Math.max(w, el.scrollWidth); });
+    // A windowed list measures the rows drawn; the track keeps the widest
+    // it has seen for these rows, so it does not narrow and widen as rows
+    // scroll through.
+    const seen = signalsSeen.current;
+    if (seen.rows === sortedSections) w = Math.max(w, seen.width);
+    signalsSeen.current = { rows: sortedSections, width: w };
     table.style.setProperty('--signals-w', `${signalsTrackWidth(w, nameWidth)}px`);
     // The rows' own signals arrive after the rows do (who waits on the
     // viewer, unread comments, blockers): each is measured again when it
     // lands, or a mark that came late would sit in a track of the old width.
-  }, [sortedSections, visibleColumns, nameWidth, awaitingAnswer, unreadComments, elementBlockers]);
-  const titleWidth = `calc(${nameWidth}px - var(--signals-w, 0px))`;
+  }, [sortedSections, visibleColumns, nameWidth, awaitingAnswer, unreadComments, elementBlockers, ranges]);
+  // Measure what each column holds, right after the rows are drawn; the widest seen is kept while the same rows are shown, so a
+  // long list does not change its columns as it scrolls.
+  const fitSeen = useRef<{ rows: unknown; widths: Record<string, number> } | null>(null);
+  const specFor = cols.specFor;
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table) return;
+    let stale = false;
+    queueMicrotask(() => {
+      if (stale) return;
+      const measured: Record<string, number> = {};
+      visibleColumns.forEach((c, index) => {
+        let need = 0;
+        // The lead mark, the title and the signals come before the data columns.
+        table.querySelectorAll<HTMLElement>(`tbody tr[data-row] > td:nth-child(${index + 4})`).forEach((cell) => {
+          const content = cell.firstElementChild as HTMLElement | null;
+          if (!content) return;
+          const style = getComputedStyle(cell);
+          need = Math.max(need, naturalWidth(content) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight));
+        });
+        // The heading: its word (the button around it fills the cell, so
+        // the word itself is measured), the button's and the cell's
+        // padding, and the sort arrow when it holds the sort.
+        const label = table.querySelector<HTMLElement>(`thead th[data-col-id="${CSS.escape(c.id)}"] button > span`);
+        if (label) need = Math.max(need, label.scrollWidth + 24 + (cols.sort?.id === c.id ? 16 : 0));
+        if (need > 0) measured[c.id] = Math.ceil(need) + 2;
+      });
+      const before = fitSeen.current?.rows === sortedSections ? fitSeen.current.widths : null;
+      const next = fittedWidths(measured, before, specFor);
+      fitSeen.current = { rows: sortedSections, widths: next };
+      if (colStorageKey) FITTED.set(colStorageKey, next);
+      setFitted((prev) => {
+        const ids = Object.keys(next);
+        return ids.length === Object.keys(prev).length && ids.every((id) => prev[id] === next[id]) ? prev : next;
+      });
+    });
+    return () => { stale = true; };
+  }, [sortedSections, visibleColumns, ranges, density, specFor, colStorageKey, cols.sort?.id]);
+
+  // Per section: which of its rows to draw (all of them in a short list;
+  // before a windowed one is measured, the first few, shared across the
+  // sections), and where its first row counts for assistive tech (from 1,
+  // the header row first).
+  const plans: { range: RowRange; firstAriaRow: number }[] = [];
+  {
+    let unmeasured = FIRST_ROWS;
+    let ariaRow = 1;
+    for (const sec of sortedSections) {
+      const count = sec.objects.length + (sec.elements?.length ?? 0);
+      const folded = collapsed.has(sec.id);
+      let range: RowRange = [0, count];
+      if (folded) range = [0, 0];
+      else if (windowed) {
+        const known = ranges[sec.id];
+        if (known) range = [Math.min(known[0], count), Math.min(known[1], count)];
+        else { range = [0, Math.min(count, unmeasured)]; unmeasured -= range[1]; }
+      }
+      if (!hideSectionHeaders) ariaRow += 1;
+      plans.push({ range, firstAriaRow: ariaRow + 1 });
+      ariaRow += folded ? 0 : count + (onAddObject ? 1 : 0);
+    }
+  }
+
+  // Arrow keys move through the grid: up and down between rows (keeping the
+  // cell the focus is in), left and right between a row and the controls in
+  // it, Home and End to the first and last row. A row not drawn yet is
+  // scrolled to first.
+  const onGridKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
+    if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || activeRowData) return;
+    if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const row = target.closest<HTMLTableRowElement>('tr[data-row]');
+    const scroller = scrollerRef.current;
+    if (!row || !scroller) return;
+    const stopsIn = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')]
+      .filter((c) => c.offsetParent !== null);
+    e.preventDefault();
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      const stops = stopsIn(row);
+      const at = stops.indexOf(target);
+      const next = e.key === 'ArrowRight' ? stops[at + 1] : at <= 0 ? row : stops[at - 1];
+      next?.focus();
+      return;
+    }
+    const cellIndex = target === row ? -1 : (target.closest('td') as HTMLTableCellElement | null)?.cellIndex ?? -1;
+    const focusRow = (r: HTMLTableRowElement) => {
+      const cell = cellIndex >= 0 ? r.cells.item(cellIndex) : null;
+      ((cell && stopsIn(cell)[0]) || r).focus();
+      r.scrollIntoView({ block: 'nearest' });
+    };
+    const body = e.currentTarget;
+    if (e.key === 'Home' || e.key === 'End') {
+      const home = e.key === 'Home';
+      scroller.scrollTop = home ? 0 : scroller.scrollHeight;
+      // The rows at that end are drawn once the scroll has been read: wait
+      // until no spacer stands between the end and its row.
+      whenDrawn(() => {
+        const rows = body.querySelectorAll<HTMLTableRowElement>('tr[data-row]');
+        const r = home ? rows[0] : rows[rows.length - 1];
+        if (!r) return null;
+        let el = home ? r.previousElementSibling : r.nextElementSibling;
+        while (el) {
+          if (el.matches('tr[data-space]') && el.getBoundingClientRect().height > 0) return null;
+          el = home ? el.previousElementSibling : el.nextElementSibling;
+        }
+        return r;
+      }, focusRow);
+      return;
+    }
+    const down = e.key === 'ArrowDown';
+    const step = (from: Element): { row?: HTMLTableRowElement; gap: boolean } => {
+      let el = down ? from.nextElementSibling : from.previousElementSibling;
+      let gap = false;
+      while (el) {
+        if (el.matches('tr[data-row]')) return { row: el as HTMLTableRowElement, gap };
+        if (el.matches('tr[data-space]') && el.getBoundingClientRect().height > 0) gap = true;
+        el = down ? el.nextElementSibling : el.previousElementSibling;
+      }
+      return { gap };
+    };
+    const found = step(row);
+    if (found.row && !found.gap) { focusRow(found.row); return; }
+    if (!found.gap) return;
+    // The next row is behind a spacer: bring it onto the page, then step.
+    const id = row.dataset.rowId;
+    scroller.scrollTop += (down ? 1 : -1) * rowHeight * 6;
+    whenDrawn(() => {
+      const again = id ? body.querySelector<HTMLTableRowElement>(`tr[data-row-id="${CSS.escape(id)}"]`) : null;
+      const next = again ? step(again) : null;
+      return next?.row && !next.gap ? next.row : null;
+    }, focusRow);
+  };
+
+  // A width being dragged is drawn straight onto the table's tracks — the
+  // column's, the "+" track's (which gives up or takes the difference) and
+  // the table's own — without rendering the rows again; it is saved once,
+  // when the drag ends (ResizeHandle). Returns the width drawn.
+  const drawWidth = (id: ColumnId, raw: number): number => {
+    const table = tableRef.current;
+    const w = clampWidth(raw, dragSpec(id));
+    if (!table) return w;
+    const isName = id === NAME_COL_KEY;
+    const next = tableLayout({
+      view: viewWidth,
+      fixed: fixedWidth,
+      columns: isName ? dataWidth : dataWidth - (visibleColumns.some((c) => c.id === id) ? drawnWidth(visibleColumns.find((c) => c.id === id)!) : 0) + w,
+      name: isName ? w : layout.name,
+    });
+    const set = (col: HTMLElement | null, width: string) => { if (col) { col.style.width = width; col.style.minWidth = width; } };
+    set(table.querySelector<HTMLElement>(`col[data-col="${CSS.escape(id)}"]`), isName ? `calc(${w}px - var(--signals-w, 0px))` : `${w}px`);
+    set(table.querySelector<HTMLElement>('col[data-col="+"]'), `${TRAILING_COL_WIDTH + next.filler}px`);
+    table.style.width = `${next.width}px`;
+    table.style.minWidth = `${next.width}px`;
+    return w;
+  };
+  // Fits a column to what it holds (a double click on its edge).
+  const fitColumn = (id: ColumnId) => {
+    const table = tableRef.current;
+    if (!table) return;
+    freezeName();
+    if (id === NAME_COL_KEY) {
+      let need = 0;
+      table.querySelectorAll<HTMLElement>('tbody .list-row-title').forEach((title) => {
+        const cell = title.closest('td');
+        if (cell) need = Math.max(need, title.getBoundingClientRect().left - cell.getBoundingClientRect().left + title.scrollWidth + 12);
+      });
+      const signals = parseFloat(getComputedStyle(table).getPropertyValue('--signals-w')) || 0;
+      if (need > 0) cols.setWidth(NAME_COL_KEY, need + signals);
+      return;
+    }
+    // A column already measures what it holds: fitting it is setting it
+    // to that.
+    const fit = fitted[id] ?? cols.specFor(id).base;
+    cols.setWidth(id, fit);
+    drawWidth(id, fit);
+  };
 
   // With no rows the table is its header alone, and a horizontal scrollbar
   // (when the columns are wider than the pane) would sit right under it as a
@@ -570,20 +848,24 @@ export function ListTable({
           : ''}`}
         data-density={density}
         data-has-selection={hasSelection ? '' : undefined}
+        data-row-in-hand={activeRowData ? '' : undefined}
+        // A windowed list tells assistive tech how many rows there are in
+        // all, since only some of them are on the page.
+        aria-rowcount={windowed ? 1 + totalRows + (hideSectionHeaders ? 0 : sortedSections.length) + (onAddObject ? sortedSections.length : 0) : undefined}
       >
         {/* Every track at its own width; the "+" track takes the slack. */}
         <colgroup>
           <col style={{ width: 52, minWidth: 52 }} />
-          <col style={{ width: titleWidth, minWidth: titleWidth }} />
+          <col data-col={NAME_COL_KEY} style={{ width: titleWidth, minWidth: titleWidth }} />
           <col style={{ width: 'var(--signals-w, 0px)', minWidth: 'var(--signals-w, 0px)' }} />
           {visibleColumns.map((c) => {
             const w = drawnWidth(c);
             // Match the data cells' `table-cell` so the column track
             // isn't reserved below md — otherwise the hidden data columns leave
             // an empty gap and force horizontal scroll in narrow panels.
-            return <col key={c.id} className="table-column" style={{ width: w, minWidth: w }} />;
+            return <col key={c.id} data-col={c.id} className="table-column" style={{ width: w, minWidth: w }} />;
           })}
-          {hasTrailingCol && <col className="table-column" style={{ width: trailingWidth, minWidth: trailingWidth }} />}
+          {hasTrailingCol && <col data-col="+" className="table-column" style={{ width: trailingWidth, minWidth: trailingWidth }} />}
         </colgroup>
         <thead className="sticky top-0 z-20 bg-card">
           <tr>
@@ -605,7 +887,9 @@ export function ListTable({
                 <ResizeHandle
                   width={nameWidth}
                   onResizeStart={freezeName}
-                  onResize={(w) => cols.setWidth(NAME_COL_KEY, w)}
+                  onDraft={(w) => drawWidth(NAME_COL_KEY, w)}
+                  onCommit={(w) => cols.setWidth(NAME_COL_KEY, w)}
+                  onAutoFit={() => fitColumn(NAME_COL_KEY)}
                 />
               )}
             </th>
@@ -619,7 +903,9 @@ export function ListTable({
                   dropEdge={colDrop?.id === col.id ? colDrop.edge : null}
                   sort={cols.sort && cols.sort.id === col.id ? cols.sort.direction : null}
                   onResizeStart={freezeName}
-                  onResize={(w) => cols.setWidth(col.id, w)}
+                  onDraft={(w) => drawWidth(col.id, w)}
+                  onCommit={(w) => cols.setWidth(col.id, clampWidth(w, dragSpec(col.id)))}
+                  onAutoFit={() => fitColumn(col.id)}
                   onSort={(direction) => cols.setSort(direction ? { id: col.id, direction } : null)}
                   onEdit={col.custom && onEditColumn ? () => onEditColumn(col.custom!) : undefined}
                   onMoveLeft={visibleColumns.indexOf(col) > 0 ? () => cols.moveColumn(col.id, visibleColumns[visibleColumns.indexOf(col) - 1].id) : undefined}
@@ -642,7 +928,7 @@ export function ListTable({
             )}
           </tr>
         </thead>
-        <tbody>
+        <tbody onKeyDown={onGridKeyDown}>
           {sortedSections.map((section, sectionIndex) => {
             const isCollapsed = collapsed.has(section.id);
             // Already sorted by `sortedSections` (the single display-order
@@ -651,6 +937,16 @@ export function ListTable({
             const sectionObjects = section.objects ?? [];
             const sectionElements = section.elements ?? [];
             const itemCount = sectionObjects.length + sectionElements.length;
+            // The rows of this section to draw (all of them in a short list),
+            // and the spacers standing in for the rest.
+            const { range, firstAriaRow } = plans[sectionIndex];
+            const drawn = splitRange(range, sectionObjects.length, sectionElements.length);
+            const spanAll = 1 + totalDataColumns + (hasTrailingCol ? 1 : 0);
+            const spacer = (rows: number, top: boolean) => (
+              <tr aria-hidden data-space {...(top ? { 'data-space-top': section.id, 'data-count': itemCount, 'data-row-height': rowHeight } : {})} style={{ height: rows * rowHeight }}>
+                <td colSpan={spanAll} className="!p-0" style={{ height: rows * rowHeight }} />
+              </tr>
+            );
             return (
               <Fragment key={section.id}>
                 {!hideSectionHeaders && (
@@ -716,6 +1012,7 @@ export function ListTable({
                     </td>
                   </tr>
                 )}
+                {!isCollapsed && windowed && spacer(range[0], true)}
                 {!isCollapsed && (
                   // Object rows: drag-to-reorder + multi-select checkbox.
                   // Same dnd-kit context the headers and elements share; the
@@ -724,12 +1021,14 @@ export function ListTable({
                     items={sectionObjects.map((o) => OBJECT_DRAG_PREFIX + o.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {sectionObjects.map((obj, i) => {
+                    {sectionObjects.slice(drawn.objects[0], drawn.objects[1]).map((obj, k) => {
+                      const i = drawn.objects[0] + k;
                       const sel = selectedObjectIds?.has(obj.id) ?? false;
                       return (
                       <ObjectRow
                         key={`obj-${obj.id}`}
                         obj={obj}
+                        ariaRowIndex={windowed ? firstAriaRow + i : undefined}
                         isSelected={sel}
                         hasSelectionRef={hasSelectionRef}
                         visibleColumns={visibleColumns}
@@ -756,12 +1055,14 @@ export function ListTable({
                     items={sectionElements.map((e) => e.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {sectionElements.map((el, i) => {
+                    {sectionElements.slice(drawn.elements[0], drawn.elements[1]).map((el, k) => {
+                      const i = drawn.elements[0] + k;
                       const sel = selectedElementIds?.has(el.id) ?? false;
                       return (
                       <ElementRow
                         key={`el-${el.id}`}
                         el={el}
+                        ariaRowIndex={windowed ? firstAriaRow + sectionObjects.length + i : undefined}
                         isSelected={sel}
                         hasSelectionRef={hasSelectionRef}
                         elementTypes={elementTypes}
@@ -788,6 +1089,7 @@ export function ListTable({
                     })}
                   </SortableContext>
                 )}
+                {!isCollapsed && windowed && spacer(itemCount - range[1], false)}
                 {!isCollapsed && onAddObject && (
                   <tr
                     className={`group cursor-pointer [&>td]:transition-colors ${ROW_ROUND_BASE} [&:hover>td:not(.sticky):not(:last-child)]:bg-foreground/[0.06] ${STICKY_TINT_HOVER}`}

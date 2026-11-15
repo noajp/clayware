@@ -427,7 +427,7 @@ export function ElementCell({
     const cellValue = col.values?.[el.id]?.value ?? null;
     return (
       <td
-        className="table-cell px-1.5 py-1 max-w-0 overflow-hidden"
+        className={`table-cell px-1.5 py-1 max-w-0 overflow-hidden ${column.align === 'end' ? 'text-right' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <CustomColumnCell
@@ -657,7 +657,7 @@ export function ObjectCell({
     const cellValue = col.values?.[obj.id]?.value ?? null;
     return (
       <td
-        className="table-cell px-1.5 py-1 max-w-0 overflow-hidden"
+        className={`table-cell px-1.5 py-1 max-w-0 overflow-hidden ${column.align === 'end' ? 'text-right' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         <CustomColumnCell
@@ -701,8 +701,8 @@ export function ObjectCell({
   if (column.id === 'elements') {
     const count = obj.elements?.length ?? 0;
     return (
-      // pl-3: the read-only roll-ups start where their heading's label does.
-      <td className="table-cell pl-3 pr-1.5 py-2 max-w-0 overflow-hidden text-[13px] text-muted-foreground tabular-nums">
+      // A figure: flush right, ending where its heading's label ends.
+      <td className="table-cell pl-1.5 pr-3 py-2 max-w-0 overflow-hidden text-right text-[13px] text-muted-foreground tabular-nums">
         {count === 0 ? <EmptyCellMark /> : count}
       </td>
     );
