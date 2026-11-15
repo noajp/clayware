@@ -13,10 +13,13 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ToggleRow } from '@/Function/settings/SettingsControls';
 import type { Integration } from '@/types/database';
 import {
-  KIND_LABELS, SOURCE_LABELS, darkIconFor, buildIntegrationRow, oauthProviderOf, readLastTest, signsInWithOAuth, testOutcomeLabel, type OAuthProvider,
-  type IntegrationAuthType, type IntegrationDelegation, type IntegrationPreset, type IntegrationSource,
+  KIND_LABELS, SOURCE_LABELS, TOKEN_AUTH_LABELS, darkIconFor, buildIntegrationRow, customOAuthFormOf, customOAuthHosts, oauthProviderOf,
+  oauthRedirectUriFor, readLastTest, signsInWithOAuth, testOutcomeLabel, type CustomOAuthForm, type OAuthProvider,
+  type IntegrationAuthType, type IntegrationDelegation, type IntegrationPreset, type IntegrationSource, type TokenAuthMethod,
 } from './catalog';
 import { useIntegrationActions, useIntegrationOAuthStatus } from './data';
+import { CopyField } from './CopyField';
+import { supabaseProjectUrl } from '@/lib/supabase';
 import { CommandPermissions } from './CommandPermissions';
 import { useActiveDraftForIntegration } from './draftData';
 import { draftPermissionHashWeb, draftStructureHashWeb } from './draftModel';
@@ -38,6 +41,13 @@ import { draftPermissionHashWeb, draftStructureHashWeb } from './draftModel';
 // starts at approve_each. For an existing connection, on/off and
 // delegation apply at once (optimistically, rolled back on failure); custom name / endpoint / auth are
 // saved with 「保存」. Members see the same dialog read-only.
+//
+// A custom API / MCP connection can also sign in with OAuth through an app
+// the owner registered at the service (catalog.ts's CustomOAuthForm): the
+// dialog takes the sign-in URLs, scopes and client, shows the redirect URI
+// to register, sends the client secret to Vault, and signs in like a
+// preset does. Where sign-in goes and where the secret goes are said in
+// plain words before the person signs in.
 
 /** What a sign-in connection says, per provider (English source strings for t()). */
 const OAUTH_COPY: Record<OAuthProvider, {
@@ -95,10 +105,11 @@ const GMAIL_OAUTH_COPY: typeof OAUTH_COPY.google = {
   revokeFailed: 'Clayware could not revoke its access at Google. Remove it from your Google Account under Security › Third-party access.',
 };
 
-const CUSTOM_AUTH_LABELS: Record<'none' | 'bearer' | 'header', string> = {
+const CUSTOM_AUTH_LABELS: Record<'none' | 'bearer' | 'header' | 'oauth', string> = {
   none: 'None',
   bearer: 'Bearer token',
   header: 'Custom header',
+  oauth: 'Sign in (OAuth)',
 };
 
 /** The delegation choice's words (English source strings for t()). */
@@ -163,6 +174,9 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
   const [endpoint, setEndpoint] = useState(integration?.endpoint ?? initial?.endpoint ?? preset.endpoint ?? '');
   const [auth, setAuth] = useState<IntegrationAuthType>(integration?.auth_type ?? initial?.auth ?? preset.auth);
   const [authHeader, setAuthHeader] = useState(integration?.auth_header ?? initial?.authHeader ?? '');
+  const [oauthForm, setOAuthForm] = useState<CustomOAuthForm>(() => customOAuthFormOf(integration?.oauth_config));
+  const [clientSecretInput, setClientSecretInput] = useState('');
+  const [editingClientSecret, setEditingClientSecret] = useState(false);
   const [secretInput, setSecretInput] = useState('');
   const [editingSecret, setEditingSecret] = useState(false);
   const [newEnabled, setNewEnabled] = useState(true);
@@ -197,15 +211,25 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
   const oauthStatus = useIntegrationOAuthStatus(oauth && canEdit, provider);
   const oauthReady = oauthStatus === true;
   const oauthAccount = integration?.external_account ?? null;
-  const oauthConnected = oauth && hasSecret;
+  // A custom connection signing in through the owner's own app.
+  const ownOAuth = preset.custom && !isModel && auth === 'oauth';
+  const oauthConnected = (oauth || ownOAuth) && hasSecret;
+  const storedOAuthForm = customOAuthFormOf(integration?.oauth_config);
+  const oauthFormDirty = ownOAuth && JSON.stringify(oauthForm) !== JSON.stringify(storedOAuthForm);
+  const hasClientSecret = !!integration?.oauth_client_secret_id;
+  const clientSecretNeeded = oauthForm.tokenAuth !== 'none';
   const customDirty = !!integration && preset.custom && (
     name.trim() !== integration.name || endpoint.trim() !== integration.endpoint
     || auth !== integration.auth_type || (auth === 'header' && authHeader.trim() !== (integration.auth_header ?? ''))
+    || oauthFormDirty
   );
+  // A saved connection with its client in place can sign in; edits are saved first.
+  const ownOAuthReady = ownOAuth && !!integration && integration.auth_type === 'oauth' && !customDirty
+    && (!clientSecretNeeded || hasClientSecret);
   const busy = actions.create.isPending || actions.update.isPending || actions.remove.isPending || actions.secret.isPending
-    || actions.signIn.isPending || actions.revoke.isPending;
+    || actions.clientSecret.isPending || actions.signIn.isPending || actions.revoke.isPending;
 
-  const draft = () => ({ name, endpoint, auth, authHeader, delegation, enabled });
+  const draft = () => ({ name, endpoint, auth, authHeader, oauth: oauthForm, oauthKeep: integration?.oauth_config ?? null, delegation, enabled });
 
   /** Leaves the app for the provider's sign-in; it comes back to the Settings page it left. */
   const signIn = async (id: string) => {
@@ -218,13 +242,19 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
     const built = buildIntegrationRow(preset, spaceId, draft());
     if (!built.ok) { setError(t(built.error)); return; }
     if (needsSecret && !secretInput.trim()) { setError(t('Enter the {label}.', { label: t(preset.credentialLabel) })); return; }
+    if (ownOAuth && clientSecretNeeded && !clientSecretInput.trim()) { setError(t('Enter the client secret.')); return; }
     let created: Integration;
     try {
-      created = await actions.create.mutateAsync({ row: built.row, secret: needsSecret ? secretInput.trim() : '' });
+      created = await actions.create.mutateAsync({
+        row: built.row,
+        secret: needsSecret ? secretInput.trim() : '',
+        clientSecret: ownOAuth && clientSecretNeeded ? clientSecretInput.trim() : '',
+      });
       setSecretInput('');
+      setClientSecretInput('');
       onCreated(created);
     } catch (e) { setError(t(formatError(e))); return; }
-    if (oauth) {
+    if (oauth || ownOAuth) {
       // The row stays when sign-in can't start; Sign in retries.
       try { await signIn(created.id); } catch (e) { setError(t(formatError(e))); }
     }
@@ -250,15 +280,38 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
     setError(null);
     const built = buildIntegrationRow(preset, spaceId, draft());
     if (!built.ok) { setError(t(built.error)); return; }
-    const { name: n, endpoint: ep, auth_type, auth_header } = built.row;
+    const { name: n, endpoint: ep, auth_type, auth_header, oauth_config } = built.row;
     // A credential belongs to its destination: changing where or how it is
     // sent drops it (a database rule), so say so before it happens.
     const rebinds = ep !== integration.endpoint || auth_type !== integration.auth_type || (auth_header ?? null) !== (integration.auth_header ?? null);
-    if (rebinds && integration.secret_id
+    // The same rule for a sign-in: new sign-in settings (or a new address)
+    // end the current sign-in, and a new token URL, revocation URL, client
+    // or client authentication deletes the client secret as well.
+    const signedInBefore = integration.auth_type === 'oauth' && (!!integration.secret_id || hasClientSecret);
+    if (signedInBefore && (rebinds || oauthFormDirty)) {
+      if (!await appDialog.confirm(t('Changing the sign-in settings ends the current sign-in. If the token URL, revocation URL, client ID or client authentication changes, the stored client secret is deleted too. Continue?'))) return;
+    } else if (rebinds && integration.secret_id
       && !await appDialog.confirm(t('Changing the address or how the credential is sent deletes the stored credential. Enter it again afterwards. Continue?'))) return;
     try {
-      await actions.update.mutateAsync({ id: integration.id, patch: { name: n, endpoint: ep, auth_type, auth_header } });
+      await actions.update.mutateAsync({ id: integration.id, patch: { name: n, endpoint: ep, auth_type, auth_header, oauth_config } });
     } catch (e) { setError(t(formatError(e))); }
+  };
+
+  const saveClientSecret = async () => {
+    if (!integration || !clientSecretInput.trim()) return;
+    setError(null);
+    try {
+      await actions.clientSecret.mutateAsync({ id: integration.id, value: clientSecretInput.trim() });
+      setClientSecretInput('');
+      setEditingClientSecret(false);
+    } catch (e) { setError(t(formatError(e))); }
+  };
+
+  const clearClientSecret = async () => {
+    if (!integration) return;
+    if (!await appDialog.confirm(t('Delete the stored client secret for {name}? It cannot sign in or renew its sign-in until a new one is set.', { name: integration.name }))) return;
+    setError(null);
+    try { await actions.clientSecret.mutateAsync({ id: integration.id, value: '' }); } catch (e) { setError(t(formatError(e))); }
   };
 
   const saveSecret = async () => {
@@ -287,7 +340,9 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
   const disconnect = async () => {
     if (!integration) return;
     const question = oauthConnected
-      ? t(copy.disconnect, { name: integration.name })
+      ? (ownOAuth
+        ? t('Disconnect {name}? Clayware revokes its access at the service when it can, and deletes the access it holds.', { name: integration.name })
+        : t(copy.disconnect, { name: integration.name }))
       : t('Disconnect {name}? Its credential is deleted and agents can no longer use it.', { name: integration.name });
     if (!await appDialog.confirm(question)) return;
     setError(null);
@@ -301,7 +356,9 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
           revoked = (await actions.revoke.mutateAsync(integration.id)).revoked;
         } catch { /* reported below */ }
         if (!revoked) {
-          await appDialog.alert(t(copy.revokeFailed));
+          await appDialog.alert(ownOAuth
+            ? t('Clayware deleted the access it held. If the service still lists the permission you granted, remove it in the service’s settings.')
+            : t(copy.revokeFailed));
         }
       }
       await actions.remove.mutateAsync(integration.id);
@@ -362,7 +419,7 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" align="start" disabled={readOnly}>
-                      <span>{t(CUSTOM_AUTH_LABELS[auth === 'oauth' ? 'bearer' : auth])}</span>
+                      <span>{t(CUSTOM_AUTH_LABELS[auth])}</span>
                       <ChevronDown size={12} aria-hidden="true" className="opacity-60" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -381,6 +438,17 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
                 )}
               </div>
             </Field>
+          )}
+
+          {ownOAuth && (
+            <OwnOAuthFields
+              form={oauthForm} setForm={setOAuthForm} readOnly={readOnly} canEdit={canEdit} busy={busy}
+              isNew={isNew} hasClientSecret={hasClientSecret} editingClientSecret={editingClientSecret}
+              setEditingClientSecret={setEditingClientSecret} clientSecretInput={clientSecretInput}
+              setClientSecretInput={setClientSecretInput} onSaveClientSecret={saveClientSecret} onClearClientSecret={clearClientSecret}
+              connected={oauthConnected} account={oauthAccount} ready={ownOAuthReady} dirty={customDirty}
+              signingIn={actions.signIn.isPending} onSignIn={reconnect}
+            />
           )}
 
           {oauth && (
@@ -581,6 +649,7 @@ function DraftDriftNote({ integration }: { integration: Integration }) {
     const content = {
       name: integration.name, endpoint: integration.endpoint, auth_type: integration.auth_type,
       auth_header: integration.auth_header, manifest: integration.manifest, guide: integration.guide,
+      oauth_config: integration.oauth_config,
     };
     void (async () => {
       const [s, p] = await Promise.all([draftStructureHashWeb(content), draftPermissionHashWeb(content)]);
@@ -623,6 +692,135 @@ function DraftDriftNote({ integration }: { integration: Integration }) {
         )}
       </div>
     </Field>
+  );
+}
+
+/** A custom connection's own sign-in: where it goes (the service's URLs
+ *  and scopes), the client registered there, the redirect URI to register,
+ *  and — once saved — whether it is signed in. The client secret is
+ *  write-only, like a credential. */
+function OwnOAuthFields(p: {
+  form: CustomOAuthForm;
+  setForm: (next: CustomOAuthForm) => void;
+  readOnly: boolean;
+  canEdit: boolean;
+  busy: boolean;
+  isNew: boolean;
+  hasClientSecret: boolean;
+  editingClientSecret: boolean;
+  setEditingClientSecret: (v: boolean) => void;
+  clientSecretInput: string;
+  setClientSecretInput: (v: string) => void;
+  onSaveClientSecret: () => void;
+  onClearClientSecret: () => void;
+  connected: boolean;
+  account: string | null;
+  ready: boolean;
+  dirty: boolean;
+  signingIn: boolean;
+  onSignIn: () => void;
+}) {
+  const { t } = useI18n();
+  const { form, setForm, readOnly } = p;
+  const set = (patch: Partial<CustomOAuthForm>) => setForm({ ...form, ...patch });
+  const hosts = customOAuthHosts({ authorize_url: form.authorizeUrl.trim(), token_url: form.tokenUrl.trim(), revoke_url: form.revokeUrl.trim() || null });
+  const needsSecret = form.tokenAuth !== 'none';
+  const input = 'h-8 font-mono text-[12px] md:text-[12px]';
+  return (
+    <>
+      <Field label={t('Redirect URI')}>
+        <div className="space-y-1.5">
+          <CopyField value={oauthRedirectUriFor(supabaseProjectUrl)} label={t('Redirect URI')} />
+          <p className="text-[12px] text-muted-foreground">{t('Register an app at the service with this redirect URI, then enter its client ID and secret here.')}</p>
+        </div>
+      </Field>
+      <Field label={t('Authorization URL')}>
+        <Input value={form.authorizeUrl} onChange={(e) => set({ authorizeUrl: e.target.value })} disabled={readOnly} inputMode="url" placeholder="https://" className={input} />
+      </Field>
+      <Field label={t('Token URL')}>
+        <Input value={form.tokenUrl} onChange={(e) => set({ tokenUrl: e.target.value })} disabled={readOnly} inputMode="url" placeholder="https://" className={input} />
+      </Field>
+      <Field label={t('Revocation URL (optional)')}>
+        <Input value={form.revokeUrl} onChange={(e) => set({ revokeUrl: e.target.value })} disabled={readOnly} inputMode="url" placeholder="https://" className={input} />
+      </Field>
+      <Field label={t('Scopes')}>
+        <div className="space-y-1.5">
+          <Input value={form.scopes} onChange={(e) => set({ scopes: e.target.value })} disabled={readOnly} className={input} />
+          <p className="text-[12px] text-muted-foreground">{t('Separate scopes with spaces.')}</p>
+        </div>
+      </Field>
+      <Field label={t('Client ID')}>
+        <Input value={form.clientId} onChange={(e) => set({ clientId: e.target.value })} disabled={readOnly} autoComplete="off" className={input} />
+      </Field>
+      <Field label={t('Client authentication')}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" align="start" disabled={readOnly}>
+              <span>{t(TOKEN_AUTH_LABELS[form.tokenAuth])}</span>
+              <ChevronDown size={12} aria-hidden="true" className="opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[240px]">
+            {(Object.keys(TOKEN_AUTH_LABELS) as TokenAuthMethod[]).map((k) => (
+              <DropdownMenuItem key={k} onSelect={() => set({ tokenAuth: k })} className="gap-2 text-[12px]">
+                <span className="flex-1">{t(TOKEN_AUTH_LABELS[k])}</span>
+                {form.tokenAuth === k && <MenuCheck />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Field>
+      {needsSecret && (
+        <Field label={t('Client secret')}>
+          {!p.isNew && p.hasClientSecret && !p.editingClientSecret ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] text-foreground">{t('Set')}</span>
+              {p.canEdit && (
+                <>
+                  <Button variant="ghost" size="xs" onClick={() => p.setEditingClientSecret(true)} disabled={p.busy}>{t('Update')}</Button>
+                  <Button variant="danger" size="xs" onClick={p.onClearClientSecret} disabled={p.busy}>{t('Delete')}</Button>
+                </>
+              )}
+            </div>
+          ) : !readOnly ? (
+            <div className="flex items-center gap-2">
+              <Input type="password" autoComplete="off" value={p.clientSecretInput} onChange={(e) => p.setClientSecretInput(e.target.value)}
+                placeholder={!p.isNew && !p.hasClientSecret ? t('Not set') : ''} aria-label={t('Client secret')} className="h-8 text-[13px] md:text-[13px]" />
+              {!p.isNew && (
+                <>
+                  <Button variant="primary" size="sm" onClick={p.onSaveClientSecret} disabled={p.busy || !p.clientSecretInput.trim()}>{t('Save')}</Button>
+                  {p.editingClientSecret && <Button variant="ghost" size="sm" onClick={() => { p.setEditingClientSecret(false); p.setClientSecretInput(''); }}>{t('Cancel')}</Button>}
+                </>
+              )}
+            </div>
+          ) : (
+            <span className="text-[13px] text-muted-foreground">{p.hasClientSecret ? t('Set') : t('Not set')}</span>
+          )}
+        </Field>
+      )}
+      {hosts.authorize && hosts.token && (
+        <p className="text-[12px] text-muted-foreground">
+          {t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
+        </p>
+      )}
+      {!p.isNew && (
+        <Field label={t('Sign-in')}>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn('min-w-0 truncate text-[13px]', p.connected ? 'text-foreground' : 'text-muted-foreground')}>
+                {p.connected ? (p.account ? t('Connected as {account}', { account: p.account }) : t('Connected')) : t('Not connected')}
+              </span>
+              {p.canEdit && (
+                <Button variant={p.connected ? 'ghost' : 'secondary'} size={p.connected ? 'xs' : 'sm'} onClick={p.onSignIn} disabled={p.busy || !p.ready}>
+                  {p.signingIn ? t('Opening sign-in…') : p.connected ? t('Reconnect') : t('Sign in')}
+                </Button>
+              )}
+            </div>
+            {p.canEdit && p.dirty && <p className="text-[12px] text-muted-foreground">{t('Save the settings before signing in.')}</p>}
+          </div>
+        </Field>
+      )}
+    </>
   );
 }
 

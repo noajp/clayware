@@ -151,15 +151,29 @@ async function runTest(row: IntegrationRow & { preset: string | null }, secret: 
   }
 }
 
-/** A signed-in connection. An MCP profile (GitHub's): the token opens its
- *  MCP server. An API profile (Google's, Microsoft's): who the stored token
- *  belongs to, asked at the profile's account check. */
+/** A signed-in connection. An MCP profile (GitHub's), or a connection with
+ *  its own OAuth config (customOAuth.ts): the token is tested against the
+ *  endpoint itself, as a credential is. An API profile (Google's,
+ *  Microsoft's): who the stored token belongs to, asked at the profile's
+ *  account check. */
 async function runOAuthTest(admin: SupabaseClient, row: IntegrationRow & { preset: string | null }, raw: string | null): Promise<LastTest> {
   const at = new Date().toISOString();
   const signIn = signInOf(row);
-  if (signIn?.profile.kind === "mcp") {
-    const token = raw ? await resolveCredential(admin, row, raw) : null;
-    return token ? await runTest(row, token) : { ok: false, at, code: "oauth_required", detail: "" };
+  if (signIn?.profile.kind === "mcp" || (signIn && !signIn.profile.accountCheck)) {
+    if (!raw) return { ok: false, at, code: "oauth_required", detail: "" };
+    let token: string | null;
+    try {
+      token = await resolveCredential(admin, row, raw);
+    } catch (e) {
+      return { ok: false, at, code: "error", detail: scrub(e instanceof Error ? e.message : String(e), null) };
+    }
+    if (!token) {
+      // resolveCredential records a refresh the service refused for good as oauth_expired.
+      const { data } = await admin.from("integrations").select("last_test").eq("id", row.id).maybeSingle();
+      const expired = (data?.last_test as { code?: string } | null)?.code === "oauth_expired";
+      return { ok: false, at, code: expired ? "oauth_expired" : "oauth_required", detail: "" };
+    }
+    return await runTest(row, token);
   }
   if (!signIn || !raw) return { ok: false, at, code: "oauth_required", detail: "" };
   const { provider, profile } = signIn;
@@ -191,8 +205,9 @@ async function runOAuthTest(admin: SupabaseClient, row: IntegrationRow & { prese
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 20_000);
-    const res = await fetch(profile.accountCheck.url, {
-      headers: { accept: "application/json", ...profile.accountCheck.headers, Authorization: `Bearer ${token}` },
+    const check = profile.accountCheck!;
+    const res = await fetch(check.url, {
+      headers: { accept: "application/json", ...check.headers, Authorization: `Bearer ${token}` },
       signal: ctl.signal, redirect: "manual",
     })
       .finally(() => clearTimeout(timer));
@@ -233,7 +248,7 @@ Deno.serve(async (req: Request) => {
   // Visible to the caller (RLS: Space member)…
   const { data: visible, error: readErr } = await userDb
     .from("integrations")
-    .select("id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation")
+    .select("id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, oauth_config")
     .eq("id", integrationId)
     .maybeSingle();
   if (readErr) return json({ error: "could not read the integration" }, 500);

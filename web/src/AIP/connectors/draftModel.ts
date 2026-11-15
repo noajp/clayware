@@ -412,13 +412,27 @@ export interface DraftContentLike {
   auth_header: string | null;
   manifest: unknown;
   guide: string | null;
+  /** A connection's own OAuth config; its client is not part of what was drafted. */
+  oauth_config?: unknown;
+}
+
+/** The OAuth config as a draft's content holds it: without the client ID
+ *  (the server's draftOAuthConfigOf). Null when there is none. */
+function draftOAuthConfigOfWeb(config: unknown): Record<string, unknown> | null {
+  const o = obj(config);
+  if (!o) return null;
+  const rest = { ...o };
+  delete rest.client_id;
+  return rest;
 }
 
 /** The structure projection (permissions stripped), as the server's draftStructureOf. */
 export function draftStructureOfWeb(c: DraftContentLike): unknown {
   const { commands, aliases } = parseManifestTwin(c.manifest);
+  const oauth = draftOAuthConfigOfWeb(c.oauth_config);
   return {
     name: c.name, endpoint: c.endpoint, auth_type: c.auth_type, auth_header: c.auth_header, guide: c.guide,
+    ...(oauth ? { oauth_config: oauth } : {}),
     commands: commands
       .map((cmd) => ({ name: cmd.name, action: cmd.action, effect: cmd.effect, http: cmd.http, mcp: cmd.mcp, input: cmd.input, required: cmd.required, verify: cmd.verify, reversibility: cmd.reversibility, quota: cmd.quota, undo: cmd.undo, transform: cmd.transform }))
       .sort((a, b) => (a.name < b.name ? -1 : 1)),

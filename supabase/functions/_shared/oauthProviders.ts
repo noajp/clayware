@@ -9,6 +9,11 @@
 // (integrationClient.ts) refreshes, integration-test checks. A new provider
 // is a new entry here and its pure module, not new flow code.
 //
+// Besides these providers Clayware registered, a connection may carry its
+// own OAuth config (customOAuth.ts): signInOf builds that connection's
+// provider from the row, and the same flow runs it. Its client comes from
+// the row and Vault rather than the Edge secrets.
+//
 // Pure apart from `revoke`, which is given its fetch. No Deno globals, so
 // web/tests imports it.
 
@@ -20,11 +25,18 @@ import {
   GITHUB_PROFILE, GITHUB_TOKEN_URL, buildGithubAuthorizeUrl, githubHasScope, githubSecretFromTokenResponse, isGithubOAuthRow, parseGithubSecret,
 } from "./githubOAuth.ts";
 import {
+  CUSTOM_PROVIDER_ID, basicClientAuth, customOAuthConfigOf, customOAuthProfile, customOAuthProvider, parseCustomTokenSet,
+  type TokenAuthMethod,
+} from "./customOAuth.ts";
+import {
   MICROSOFT_TOKEN_URL, buildMicrosoftAuthorizeUrl, microsoftAdminApproved, microsoftAdminConsentUrl, microsoftGrantsRequiredScopes,
   microsoftNeedsAdminConsent, microsoftProfileOf, microsoftSecretFromTokenResponse, microsoftTokenParams, parseMicrosoftSecret,
 } from "./microsoftOAuth.ts";
 
-export type OAuthProviderId = "google" | "github" | "microsoft";
+/** The providers Clayware registered, each with its client in the Edge secrets. */
+export type StaticOAuthProviderId = "google" | "github" | "microsoft";
+/** Those, or a connection's own config (customOAuth.ts). */
+export type OAuthProviderId = StaticOAuthProviderId | typeof CUSTOM_PROVIDER_ID;
 
 /** Who signed in: the request that answers it and where the answer says so. */
 export interface OAuthAccountCheck {
@@ -43,7 +55,9 @@ export interface OAuthProfile {
   kind: "http" | "mcp";
   endpoint: string;
   scopes: readonly string[];
-  accountCheck: OAuthAccountCheck;
+  /** Absent for a connection's own config: the connection test asks the
+   *  endpoint itself instead. */
+  accountCheck?: OAuthAccountCheck;
 }
 
 /** A stored token set, under the provider it was signed in with. A provider
@@ -55,6 +69,9 @@ export interface OAuthTokenSet {
   refresh_token?: string;
   expires_at?: number;
   scope: string;
+  /** A connection's own config only: the binding it was signed in under
+   *  (customOAuthBinding). */
+  binding?: string;
 }
 
 export interface OAuthClientConfig {
@@ -64,14 +81,20 @@ export interface OAuthClientConfig {
 
 export type OAuthFetch = (url: string, init: RequestInit) => Promise<Response>;
 
-type IntegrationRowLike = { preset?: string | null; kind?: string | null; auth_type?: string | null; endpoint?: string | null } | null | undefined;
+type IntegrationRowLike = {
+  preset?: string | null; kind?: string | null; auth_type?: string | null; endpoint?: string | null; oauth_config?: unknown;
+} | null | undefined;
 
 export interface OAuthProvider {
   id: OAuthProviderId;
   /** The provider's proper name, for messages ("Google sign-in is not set up yet"). */
   name: string;
-  /** The Edge secrets that hold the provider's OAuth client. */
-  clientEnv: { id: string; secret: string };
+  /** The Edge secrets that hold the provider's OAuth client. Absent for a
+   *  connection's own config, whose client is the row's. */
+  clientEnv?: { id: string; secret: string };
+  /** How the client authenticates at the token endpoint (RFC 6749 §2.3).
+   *  Absent: client_secret_post, as every registered provider takes it. */
+  tokenAuth?: TokenAuthMethod;
   tokenUrl: string;
   /** The profile a row signs in under, or null when the row is not this provider's. */
   profileOf(row: IntegrationRowLike): OAuthProfile | null;
@@ -195,16 +218,22 @@ const MICROSOFT: OAuthProvider = {
   adminConsent: { required: microsoftNeedsAdminConsent, url: microsoftAdminConsentUrl, approved: microsoftAdminApproved },
 };
 
-export const OAUTH_PROVIDERS: Readonly<Record<OAuthProviderId, OAuthProvider>> = { google: GOOGLE, github: GITHUB, microsoft: MICROSOFT };
-export const OAUTH_PROVIDER_IDS = Object.keys(OAUTH_PROVIDERS) as OAuthProviderId[];
+export const OAUTH_PROVIDERS: Readonly<Record<StaticOAuthProviderId, OAuthProvider>> = { google: GOOGLE, github: GITHUB, microsoft: MICROSOFT };
+export const OAUTH_PROVIDER_IDS = Object.keys(OAUTH_PROVIDERS) as StaticOAuthProviderId[];
 
 /** The provider and profile a row signs in with, or null when it signs in
- *  with none (not an OAuth row, or one no profile claims). */
+ *  with none (not an OAuth row, or one neither a registered provider's
+ *  profile nor a valid config of its own claims). A registered provider's
+ *  profile wins over a config on the same row. */
 export function signInOf(row: IntegrationRowLike): { provider: OAuthProvider; profile: OAuthProfile } | null {
   for (const id of OAUTH_PROVIDER_IDS) {
     const provider = OAUTH_PROVIDERS[id];
     const profile = provider.profileOf(row);
     if (profile) return { provider, profile };
+  }
+  const config = customOAuthConfigOf(row);
+  if (config && row && typeof row.kind === "string" && typeof row.endpoint === "string") {
+    return { provider: customOAuthProvider(config), profile: customOAuthProfile({ preset: row.preset, kind: row.kind, endpoint: row.endpoint }, config) };
   }
   return null;
 }
@@ -216,14 +245,44 @@ export function parseTokenSet(raw: unknown): OAuthTokenSet | null {
     const tokens = OAUTH_PROVIDERS[id].parse(raw);
     if (tokens) return tokens;
   }
-  return null;
+  return parseCustomTokenSet(raw);
 }
 
-/** The provider's OAuth client from the Edge secrets, or null until both are set. */
+/** The provider's OAuth client from the Edge secrets, or null until both
+ *  are set (and always null for a connection's own config). */
 export function oauthClientFromEnv(provider: OAuthProvider, get: (key: string) => string | undefined): OAuthClientConfig | null {
+  if (!provider.clientEnv) return null;
   const clientId = get(provider.clientEnv.id)?.trim();
   const clientSecret = get(provider.clientEnv.secret)?.trim();
   return clientId && clientSecret ? { clientId, clientSecret } : null;
+}
+
+/**
+ * Pure. The headers and form body of a request to the provider's token
+ * endpoint: the grant (a code exchange or a refresh), the client
+ * authenticated the provider's way, and the provider's own fields.
+ *   client_secret_post   client_id and client_secret in the body
+ *   client_secret_basic  HTTP Basic (RFC 6749 §2.3.1); neither in the body
+ *   none                 a public client: client_id in the body, no secret
+ *                        (PKCE is what binds the code)
+ */
+export function tokenRequestInit(
+  provider: OAuthProvider, client: OAuthClientConfig, grant: Record<string, string>, profile: OAuthProfile,
+): { headers: Record<string, string>; body: string } {
+  const headers: Record<string, string> = { "content-type": "application/x-www-form-urlencoded", accept: "application/json" };
+  const form: Record<string, string> = { ...provider.tokenParams?.(profile), ...grant };
+  const auth = provider.tokenAuth ?? "client_secret_post";
+  if (auth === "client_secret_basic") headers.authorization = basicClientAuth(client.clientId, client.clientSecret);
+  else {
+    form.client_id = client.clientId;
+    if (auth === "client_secret_post") form.client_secret = client.clientSecret;
+  }
+  return { headers, body: new URLSearchParams(form).toString() };
+}
+
+/** True for the provider a connection's own config builds. */
+export function isCustomProvider(provider: OAuthProvider): boolean {
+  return provider.id === CUSTOM_PROVIDER_ID;
 }
 
 /** The `state` an administrator's approval comes back to the callback with:
@@ -240,6 +299,6 @@ export function adminConsentState(provider: OAuthProvider): string {
 export function adminConsentProviderOf(state: string): OAuthProvider | null {
   if (!state.startsWith(ADMIN_CONSENT_STATE_PREFIX)) return null;
   const id = state.slice(ADMIN_CONSENT_STATE_PREFIX.length);
-  const provider = (OAUTH_PROVIDER_IDS as string[]).includes(id) ? OAUTH_PROVIDERS[id as OAuthProviderId] : null;
+  const provider = (OAUTH_PROVIDER_IDS as string[]).includes(id) ? OAUTH_PROVIDERS[id as StaticOAuthProviderId] : null;
   return provider?.adminConsent ? provider : null;
 }

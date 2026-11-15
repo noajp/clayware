@@ -10,7 +10,7 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseManifest, requestFor, type Manifest } from "./connectorManifest.ts";
-import { callHttp, isSafeEndpoint, resolvesToPublic, type IntegrationRow } from "./integrationClient.ts";
+import { callHttp, isSafeEndpoint, resolveCredential, resolvesToPublic, type IntegrationRow } from "./integrationClient.ts";
 import {
   classifyCommandOutcome, draftContentHash, draftContentOf, draftPermissionHash, draftReviewExpiresAt,
   draftStructureHash, primaryFailureClass, withLimitFloor, MAX_DRAFT_TEST_ROUNDS,
@@ -43,7 +43,7 @@ interface StagedRow extends IntegrationRow {
 }
 
 const STAGED_COLUMNS =
-  "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, secret_id, delegation, enabled, manifest, guide, last_test";
+  "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, secret_id, delegation, enabled, manifest, guide, last_test, oauth_config";
 
 async function loadStagedRow(admin: SupabaseClient, rowId: string): Promise<StagedRow | null> {
   const { data } = await admin.from("integrations").select(STAGED_COLUMNS).eq("id", rowId).maybeSingle();
@@ -75,10 +75,18 @@ export async function materializeDraft(
     manifest: draft.manifest,
     guide: draft.guide,
   };
+  // An OAuth draft's config, with the client the person entered on the
+  // staged row (or, for an update, the live row's) kept: the client is
+  // theirs, not part of what was drafted.
+  const withClient = (clientOf: unknown) => {
+    if ((draft.auth_type ?? "none") !== "oauth" || !draft.oauth_config) return null;
+    const clientId = (clientOf as { client_id?: unknown } | null)?.client_id;
+    return typeof clientId === "string" && clientId ? { ...draft.oauth_config, client_id: clientId } : { ...draft.oauth_config };
+  };
   if (draft.materialized_integration_id) {
     const existing = await loadStagedRow(admin, draft.materialized_integration_id);
     if (existing) {
-      await admin.from("integrations").update({ ...fields, enabled: false, updated_at: new Date().toISOString() })
+      await admin.from("integrations").update({ ...fields, oauth_config: withClient(existing.oauth_config), enabled: false, updated_at: new Date().toISOString() })
         .eq("id", existing.id);
       return { row: (await loadStagedRow(admin, existing.id)) ?? existing };
     }
@@ -91,9 +99,10 @@ export async function materializeDraft(
     delegation: "approve_each",
     created_by: draft.created_by,
   };
+  let targetConfig: unknown = null;
   if (draft.target_integration_id) {
     const { data: target } = await admin.from("integrations")
-      .select("kind, description, icon, delegation").eq("id", draft.target_integration_id).maybeSingle();
+      .select("kind, description, icon, delegation, oauth_config").eq("id", draft.target_integration_id).maybeSingle();
     if (target) {
       base = {
         ...base,
@@ -102,10 +111,11 @@ export async function materializeDraft(
         icon: (target as { icon: string | null }).icon,
         delegation: (target as { delegation: string }).delegation,
       };
+      targetConfig = (target as { oauth_config: unknown }).oauth_config;
     }
   }
   const { data: created, error } = await admin.from("integrations")
-    .insert({ ...base, ...fields, enabled: false })
+    .insert({ ...base, ...fields, oauth_config: withClient(targetConfig), enabled: false })
     .select(STAGED_COLUMNS).single();
   if (error || !created) return { error: `素材化できませんでした: ${error?.message ?? "unknown"}` };
   const row = created as unknown as StagedRow;
@@ -222,7 +232,14 @@ export async function runDraftTestRound(
   }
   const { data: secretData } = await admin.rpc("get_integration_secret", { p_integration_id: staged.id });
   const raw = typeof secretData === "string" && secretData.length > 0 ? secretData : null;
-  const secret = staged.auth_type === "none" ? null : raw;
+  let secret = staged.auth_type === "none" ? null : raw;
+  if (staged.auth_type === "oauth") {
+    // The stored value is a token set: the access token it yields (refreshed
+    // when due) is the credential. Without a sign-in there is nothing to
+    // test with, and a round would only burn one of the draft's tries.
+    secret = raw ? await resolveCredential(admin, staged, raw).catch(() => null) : null;
+    if (!secret) return { error: "サインインが済んでいません。審査画面で client ID と client secret を入れてサインインしてから、テストしてください" };
+  }
 
   const at = new Date().toISOString();
   const results: DraftCommandResult[] = [];
@@ -341,7 +358,7 @@ export async function settleDraftToReview(
 ): Promise<boolean> {
   const content = draftContentOf({
     name: draft.name, endpoint: draft.endpoint ?? "", auth_type: draft.auth_type ?? "none",
-    auth_header: draft.auth_header, manifest: draft.manifest, guide: draft.guide,
+    auth_header: draft.auth_header, manifest: draft.manifest, guide: draft.guide, oauth_config: draft.oauth_config,
   });
   const [testedHash, structureHash, permissionHash] = await Promise.all([
     draftContentHash(content), draftStructureHash(content), draftPermissionHash(content),

@@ -3511,6 +3511,7 @@ export type Database = {
       }
       integration_oauth_states: {
         Row: {
+          binding_hash: string | null
           browser_nonce_hash: string | null
           code_verifier: string
           completion_expires_at: string | null
@@ -3527,6 +3528,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          binding_hash?: string | null
           browser_nonce_hash?: string | null
           code_verifier: string
           completion_expires_at?: string | null
@@ -3543,6 +3545,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          binding_hash?: string | null
           browser_nonce_hash?: string | null
           code_verifier?: string
           completion_expires_at?: string | null
@@ -3595,6 +3598,7 @@ export type Database = {
           materialized_integration_id: string | null
           name: string
           name_key: string
+          oauth_config: Json | null
           request_context: Json
           required_commands: Json
           sources: Json
@@ -3634,6 +3638,7 @@ export type Database = {
           materialized_integration_id?: string | null
           name: string
           name_key: string
+          oauth_config?: Json | null
           request_context?: Json
           required_commands?: Json
           sources?: Json
@@ -3673,6 +3678,7 @@ export type Database = {
           materialized_integration_id?: string | null
           name?: string
           name_key?: string
+          oauth_config?: Json | null
           request_context?: Json
           required_commands?: Json
           sources?: Json
@@ -3736,6 +3742,8 @@ export type Database = {
           last_test: Json | null
           manifest: Json | null
           name: string
+          oauth_client_secret_id: string | null
+          oauth_config: Json | null
           preset: string | null
           secret_id: string | null
           updated_at: string
@@ -3758,6 +3766,8 @@ export type Database = {
           last_test?: Json | null
           manifest?: Json | null
           name: string
+          oauth_client_secret_id?: string | null
+          oauth_config?: Json | null
           preset?: string | null
           secret_id?: string | null
           updated_at?: string
@@ -3780,6 +3790,8 @@ export type Database = {
           last_test?: Json | null
           manifest?: Json | null
           name?: string
+          oauth_client_secret_id?: string | null
+          oauth_config?: Json | null
           preset?: string | null
           secret_id?: string | null
           updated_at?: string
@@ -7436,6 +7448,10 @@ export type Database = {
         Args: { p_domain_id?: string; p_object_id?: string }
         Returns: Json
       }
+      get_integration_oauth_client_secret: {
+        Args: { p_integration_id: string }
+        Returns: string
+      }
       get_integration_secret: {
         Args: { p_integration_id: string }
         Returns: string
@@ -7736,6 +7752,10 @@ export type Database = {
           p_upstream_id: string
         }
         Returns: Json
+      }
+      set_integration_oauth_client_secret: {
+        Args: { p_integration_id: string; p_secret: string }
+        Returns: undefined
       }
       set_integration_secret: {
         Args: { p_integration_id: string; p_secret: string }

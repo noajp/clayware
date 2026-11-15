@@ -6,7 +6,10 @@
 // integration row's — the one whose profile claims it in the registry
 // (oauthProviders.ts) — and every step below is the same for each. What
 // differs per provider and service — URLs, scopes, the token set, the
-// account check, revoking — is the registry's.
+// account check, revoking — is the registry's. A connection with its own
+// OAuth config (customOAuth.ts) signs in through the same steps, with its
+// client from the row and Vault; its sign-in is bound to the row as it was
+// at /start (customOAuthBinding), and a row changed meanwhile ends it.
 //
 //   GET  /status                 { google, github, microsoft: boolean } —
 //                                whether each sign-in is configured (client +
@@ -65,15 +68,16 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { readCapped, type IntegrationRow } from "../_shared/integrationClient.ts";
+import { clientFor, readCapped, resolvesToPublic, type IntegrationRow } from "../_shared/integrationClient.ts";
+import { customOAuthBinding, customOAuthConfigOf } from "../_shared/customOAuth.ts";
 import {
   NONCE_COOKIE, STATE_TTL_MS, TICKET_TTL_MS,
   appOrigin, appReturnUrl, returnOrigin, clearNonceCookie, finishDecision, isExpired,
   nonceCookie, randomToken, readCookie, redirectUriFor, s256Challenge, sha256Hex, type AppReturnResult,
 } from "../_shared/googleOAuth.ts";
 import {
-  OAUTH_PROVIDERS, OAUTH_PROVIDER_IDS, adminConsentProviderOf, adminConsentState, oauthClientFromEnv, parseTokenSet, signInOf,
-  type OAuthClientConfig, type OAuthProfile, type OAuthProviderId,
+  OAUTH_PROVIDERS, OAUTH_PROVIDER_IDS, adminConsentProviderOf, adminConsentState, isCustomProvider, oauthClientFromEnv, parseTokenSet, signInOf,
+  tokenRequestInit, type OAuthClientConfig, type OAuthProfile, type OAuthProvider, type OAuthProviderId, type StaticOAuthProviderId,
 } from "../_shared/oauthProviders.ts";
 
 const corsHeaders = {
@@ -82,7 +86,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const ROW_COLUMNS = "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation";
+const ROW_COLUMNS = "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, oauth_config";
 const NO_APP_ORIGIN = "Sign-in cannot finish because APP_ORIGIN is not set on the server. Ask an administrator to set APP_ORIGIN, then try again from Clayware.";
 
 type Row = IntegrationRow & { activity_space_id: string };
@@ -94,7 +98,7 @@ function providerOf(row: Parameters<typeof signInOf>[0]): Provider | null {
   return signInOf(row)?.provider.id ?? null;
 }
 
-type Clients = Record<Provider, OAuthClientConfig | null>;
+type Clients = Record<StaticOAuthProviderId, OAuthClientConfig | null>;
 
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
@@ -189,14 +193,14 @@ async function readIntegrationId(req: Request, body?: Record<string, unknown>): 
   return id;
 }
 
-async function postForm(url: string, params: Record<string, string>): Promise<{ status: number; body: Record<string, unknown> }> {
+async function postForm(url: string, request: { headers: Record<string, string>; body: string }): Promise<{ status: number; body: Record<string, unknown> }> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 20_000);
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-      body: new URLSearchParams(params).toString(),
+      headers: request.headers,
+      body: request.body,
       signal: ctl.signal,
       redirect: "manual",
     });
@@ -220,6 +224,7 @@ async function sweepExpired(admin: SupabaseClient): Promise<void> {
  *  Gmail's profile, GitHub's user, Microsoft Graph's me). The account, or
  *  null when it cannot be read. */
 async function accountOf(accessToken: string, profile: OAuthProfile): Promise<string | null> {
+  if (!profile.accountCheck) return null;
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 20_000);
   try {
@@ -256,10 +261,20 @@ Deno.serve(async (req: Request) => {
   if (!["/start", "/go", "/callback", "/finish", "/revoke", "/admin-consent"].includes(path)) return json({ error: "not found" }, 404);
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-  /** The refusal when `provider` cannot sign in here; null when it can. */
-  const notConfigured = (provider: Provider | null): Response | null => {
-    if (provider && clients[provider] && origin) return null;
-    const what = provider ? `${OAUTH_PROVIDERS[provider].name} sign-in` : "Sign-in";
+  /** The client a row signs in with: a registered provider's from the Edge
+   *  secrets, a connection's own from the row and Vault. */
+  const clientOf = async (row: Row, provider: OAuthProvider): Promise<OAuthClientConfig | null> =>
+    isCustomProvider(provider) ? await clientFor(admin, row, provider) : clients[provider.id as StaticOAuthProviderId];
+  /** The refusal when `provider` cannot sign in here (no client, or no
+   *  APP_ORIGIN); null when it can. */
+  const notConfigured = (provider: OAuthProvider | null, client: OAuthClientConfig | null): Response | null => {
+    if (provider && client && origin) return null;
+    if (provider && isCustomProvider(provider) && origin) {
+      const message = "This connection's OAuth client is not set yet. Enter its client ID and client secret in Settings › Connectors, then sign in.";
+      if (req.method === "GET") return text(message, 503);
+      return json({ error: message, code: "client_missing" }, 503);
+    }
+    const what = provider ? `${provider.name} sign-in` : "Sign-in";
     if (req.method === "GET") return text(origin ? `${what} is not set up yet.` : NO_APP_ORIGIN, 503);
     return json({ error: origin ? `${what} is not set up yet` : `${what} is not set up yet (APP_ORIGIN is missing)`, code: "not_configured" }, 503);
   };
@@ -270,7 +285,7 @@ Deno.serve(async (req: Request) => {
   };
   // /finish needs APP_ORIGIN like every step; /revoke works whatever the
   // configuration, so a connection can always be ended.
-  if (path === "/finish" && !origin) return notConfigured(null)!;
+  if (path === "/finish" && !origin) return notConfigured(null, null)!;
 
   // ── POST /start ─────────────────────────────────────────────────────────
   if (path === "/start") {
@@ -281,11 +296,11 @@ Deno.serve(async (req: Request) => {
     if (integrationId instanceof Response) return integrationId;
     const owned = await ownedIntegration(req, env, integrationId);
     if (owned instanceof Response) return owned;
-    const provider = providerOf(owned.row);
-    if (!provider) return json({ error: "this integration does not sign in with OAuth", code: "not_oauth" }, 400);
+    const signIn = signInOf(owned.row);
+    if (!signIn) return json({ error: "this integration does not sign in with OAuth", code: "not_oauth" }, 400);
     // Back to the app that started it (its origin, when allowed).
     const returnTo = returnOrigin(body.returnTo, Deno.env.get("APP_ORIGIN"), Deno.env.get("APP_RETURN_ORIGINS"));
-    const refused = notConfigured(provider);
+    const refused = notConfigured(signIn.provider, await clientOf(owned.row, signIn.provider));
     if (refused) return refused;
 
     await sweepExpired(admin);
@@ -299,6 +314,8 @@ Deno.serve(async (req: Request) => {
       ticket_expires_at: new Date(now + TICKET_TTL_MS).toISOString(),
       expires_at: new Date(now + STATE_TTL_MS).toISOString(),
       return_origin: returnTo,
+      // A connection's own config: what the sign-in is bound to.
+      binding_hash: isCustomProvider(signIn.provider) ? await customOAuthBinding(owned.row) : null,
     });
     if (error) return json({ error: "could not start the sign-in" }, 500);
     return json({ url: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/integration-oauth/go?ticket=${encodeURIComponent(ticket)}` });
@@ -316,15 +333,17 @@ Deno.serve(async (req: Request) => {
       .eq("ticket_hash", await sha256Hex(ticket))
       .gt("ticket_expires_at", new Date().toISOString())
       .is("browser_nonce_hash", null)
-      .select("integration_id, code_verifier")
+      .select("integration_id, code_verifier, binding_hash")
       .maybeSingle();
     if (!row) return backToApp("error", null);
     const integration = await rowOfIntegration(row.integration_id as string);
     const signIn = integration ? signInOf(integration) : null;
-    const refused = notConfigured(signIn?.provider.id ?? null);
+    const client = signIn ? await clientOf(integration!, signIn.provider) : null;
+    const refused = notConfigured(signIn?.provider ?? null, client);
     if (refused) return refused;
+    if (isCustomProvider(signIn!.provider) && row.binding_hash !== await customOAuthBinding(integration!)) return backToApp("error", integration!.id);
     const location = signIn!.provider.authorizeUrl({
-      clientId: clients[signIn!.provider.id]!.clientId,
+      clientId: client!.clientId,
       redirectUri: redirectUriFor(supabaseUrl),
       state,
       codeChallenge: await s256Challenge(row.code_verifier as string),
@@ -350,7 +369,7 @@ Deno.serve(async (req: Request) => {
     const { data: flow } = await admin.from("integration_oauth_states")
       .update({ state_hash: null })
       .eq("state_hash", await sha256Hex(state))
-      .select("id, integration_id, code_verifier, browser_nonce_hash, expires_at, return_origin")
+      .select("id, integration_id, code_verifier, browser_nonce_hash, expires_at, return_origin, binding_hash")
       .maybeSingle();
     if (!flow) return backToApp("error", null);
     const flowId = flow.id as string;
@@ -375,23 +394,28 @@ Deno.serve(async (req: Request) => {
       return await fail();
     }
     const code = url.searchParams.get("code") ?? "";
-    if (!code || !signIn || !clients[signIn.provider.id]) return await fail();
+    if (!code || !signIn) return await fail();
     const { provider, profile } = signIn;
-    const client = clients[provider.id]!;
+    const custom = isCustomProvider(provider);
+    // A connection's own config must still be the one the sign-in started
+    // under — otherwise the code (and the client secret) would go wherever
+    // the row was changed to point — and its token host must be public.
+    if (custom && flow.binding_hash !== await customOAuthBinding(integration!)) return await fail();
+    if (custom && !(await resolvesToPublic(provider.tokenUrl))) return await fail();
+    const client = await clientOf(integration!, provider);
+    if (!client) return await fail();
 
-    const token = await postForm(provider.tokenUrl, {
+    const token = await postForm(provider.tokenUrl, tokenRequestInit(provider, client, {
       grant_type: "authorization_code",
       code,
-      client_id: client.clientId,
-      client_secret: client.clientSecret,
       redirect_uri: redirectUriFor(supabaseUrl),
       code_verifier: flow.code_verifier as string,
-      ...provider.tokenParams?.(profile),
-    }).catch(() => null);
+    }, profile)).catch(() => null);
     if (!token || token.status !== 200) return await fail();
     // A refused code can come back 200 with { error } (GitHub): no token set.
-    const tokens = provider.tokenSetFrom(token.body, Date.now());
-    if (!tokens || !provider.grants(tokens.scope, profile)) return await fail();
+    const signed = provider.tokenSetFrom(token.body, Date.now());
+    if (!signed || !provider.grants(signed.scope, profile)) return await fail();
+    const tokens = custom ? { ...signed, binding: flow.binding_hash as string } : signed;
     const held = { secret: JSON.stringify(tokens), account: await accountOf(tokens.access_token, profile) };
 
     // Held, not stored: only /finish, under the starter's own JWT, stores it.
@@ -433,7 +457,12 @@ Deno.serve(async (req: Request) => {
     if (decision === "wrong_user") return await discard(403, "This sign-in was started by someone else, so it was discarded.", "wrong_user");
     if (decision === "expired") return await discard(410, "This sign-in has expired. Connect again.", "expired");
     // The token goes only to a row of its own provider: a Google token never lands on a GitHub row.
-    if (!await stillOwned(admin, integrationId, who.userId, provider)) return await discard(403, "Only Space owners can connect integrations.", "not_owner");
+    const owned = await stillOwned(admin, integrationId, who.userId, provider);
+    if (!owned) return await discard(403, "Only Space owners can connect integrations.", "not_owner");
+    // A connection's own sign-in lands only on the row as it was signed in for.
+    if (provider === "custom" && tokens!.binding !== await customOAuthBinding(owned)) {
+      return await discard(409, "This connection changed while you were signing in, so the sign-in was discarded. Sign in again.", "changed");
+    }
 
     const { error: storeErr } = await admin.rpc("store_integration_oauth_token", { p_integration_id: integrationId, p_secret: JSON.stringify(tokens) });
     if (storeErr) return await discard(500, "The connection could not be saved. Connect again.", "error");
@@ -453,11 +482,12 @@ Deno.serve(async (req: Request) => {
     if (owned instanceof Response) return owned;
     const signIn = signInOf(owned.row);
     if (!signIn?.provider.adminConsent) return json({ error: "this connection has no administrator approval", code: "no_admin_consent" }, 400);
-    const refused = notConfigured(signIn.provider.id);
+    const client = await clientOf(owned.row, signIn.provider);
+    const refused = notConfigured(signIn.provider, client);
     if (refused) return refused;
     return json({
       url: signIn.provider.adminConsent.url({
-        clientId: clients[signIn.provider.id]!.clientId,
+        clientId: client!.clientId,
         redirectUri: redirectUriFor(supabaseUrl),
         profile: signIn.profile,
         state: adminConsentState(signIn.provider),
@@ -478,9 +508,15 @@ Deno.serve(async (req: Request) => {
   // Spaces that connected the same account.
   const signIn = signInOf(owned.row);
   const tokens = signIn ? signIn.provider.parse(raw) : null;
-  const revoked = signIn?.provider.revoke && tokens
-    ? await signIn.provider.revoke({ client: clients[signIn.provider.id], tokens, fetch })
-    : false;
+  let revoked = false;
+  if (signIn?.provider.revoke && tokens) {
+    const custom = isCustomProvider(signIn.provider);
+    // A connection's own revoke URL gets the client secret: only to a public
+    // host, and only for a token signed in under the row as it is now.
+    const revokeUrl = custom ? customOAuthConfigOf(owned.row)?.revoke_url ?? null : null;
+    const allowed = !custom || (tokens.binding === await customOAuthBinding(owned.row) && !!revokeUrl && await resolvesToPublic(revokeUrl));
+    if (allowed) revoked = await signIn.provider.revoke({ client: await clientOf(owned.row, signIn.provider), tokens, fetch });
+  }
   const { error: clearErr } = await admin.rpc("store_integration_oauth_token", { p_integration_id: integrationId, p_secret: "" });
   if (clearErr) return json({ error: "could not clear the stored credential" }, 500);
   await admin.from("integrations").update({ last_test: null }).eq("id", integrationId);

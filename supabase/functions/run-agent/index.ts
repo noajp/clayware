@@ -997,7 +997,7 @@ async function execute(a: ExecArgs): Promise<void> {
     // it, so the trail can say which run spent which credential.
     const auditUse = { spaceId: run.activity_space_id, runId: run.id };
     const { data: rows } = await userDb.from("integrations")
-      .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, secret_id, external_account, last_test")
+      .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, secret_id, external_account, last_test, oauth_config")
       .eq("activity_space_id", run.activity_space_id).eq("enabled", true).in("kind", ["mcp", "http"]).order("created_at");
     // The integrations' cached tool plans, read once for the whole Space:
     // this slice plans fresh only what the cache cannot vouch for, and a
@@ -5200,8 +5200,9 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
         testInputs: (input.testInputs && typeof input.testInputs === "object" && !Array.isArray(input.testInputs)
           ? input.testInputs : {}) as Record<string, Record<string, unknown>>,
         sources: Array.isArray(input.sources) ? input.sources.filter((s): s is string => typeof s === "string") : [],
+        oauth: input.oauth ?? null,
       };
-      const { errors, manifest } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d, candidate) });
+      const { errors, manifest, oauth } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d, candidate) });
       if (errors.length || !manifest) {
         await addStep(admin, run.id, "error", "候補が検証に通りませんでした", errors.join("\n"));
         return { content: `検証で落ちました。直して出し直してください:\n- ${errors.join("\n- ")}`, is_error: true };
@@ -5221,7 +5222,7 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
           is_error: true,
         };
       }
-      const stored: DraftCandidate = { ...candidate, manifest: JSON.parse(JSON.stringify(manifest)) as unknown };
+      const stored: DraftCandidate = { ...candidate, manifest: JSON.parse(JSON.stringify(manifest)) as unknown, oauth };
       if (!await applyCandidate(admin, d, stored, drops)) {
         return { content: "候補を保存できませんでした（ドラフトの状態が変わっています）。", is_error: true };
       }

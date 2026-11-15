@@ -19,7 +19,7 @@ import { useSpaceRoleQuery } from '@/Function/space/data';
 // integration-oauth Edge Function signs in with the provider and stores the tokens;
 // `external_account` says which account it signed in as.
 
-const COLUMNS = 'id, activity_space_id, preset, kind, name, description, icon, endpoint, auth_type, auth_header, secret_id, delegation, enabled, last_test, external_account, manifest, guide, created_by, created_at, updated_at';
+const COLUMNS = 'id, activity_space_id, preset, kind, name, description, icon, endpoint, auth_type, auth_header, secret_id, delegation, enabled, last_test, external_account, manifest, guide, oauth_config, oauth_client_secret_id, created_by, created_at, updated_at';
 
 const integrationsKey = (spaceId: string | null) => ['integrations', spaceId] as const;
 
@@ -62,6 +62,13 @@ export function useIsSpaceOwner(spaceId: string | null): boolean | null {
 /** Writes (or, with an empty string, clears) the credential in Vault. */
 async function setIntegrationSecret(integrationId: string, secret: string): Promise<void> {
   const { error } = await supabase.rpc('set_integration_secret', { p_integration_id: integrationId, p_secret: secret });
+  if (error) throw error;
+}
+
+/** Writes (or, with an empty string, clears) a connection's own OAuth client
+ *  secret in Vault. Write-only: `oauth_client_secret_id` says one is set. */
+async function setOAuthClientSecret(integrationId: string, secret: string): Promise<void> {
+  const { error } = await supabase.rpc('set_integration_oauth_client_secret', { p_integration_id: integrationId, p_secret: secret });
   if (error) throw error;
 }
 
@@ -152,13 +159,14 @@ export function useIntegrationActions(spaceId: string | null) {
   const create = useMutation({
     // The caller shows this failure inline.
     meta: { silent: true },
-    mutationFn: async ({ row, secret }: { row: IntegrationInsertRow; secret: string }) => {
+    mutationFn: async ({ row, secret, clientSecret }: { row: IntegrationInsertRow; secret: string; clientSecret?: string }) => {
       const { data, error } = await supabase.from('integrations').insert(row).select(COLUMNS).single();
       if (error) throw error;
       const created = data as Integration;
-      if (secret) {
+      if (secret || clientSecret) {
         try {
-          await setIntegrationSecret(created.id, secret);
+          if (secret) await setIntegrationSecret(created.id, secret);
+          if (clientSecret) await setOAuthClientSecret(created.id, clientSecret);
         } catch (e) {
           // A connection without the credential it was created with is not
           // what the person asked for — undo the insert.
@@ -166,7 +174,10 @@ export function useIntegrationActions(spaceId: string | null) {
           throw e;
         }
       }
-      return created;
+      if (!clientSecret) return created;
+      // Re-read: the secret RPC set oauth_client_secret_id after the insert.
+      const { data: fresh } = await supabase.from('integrations').select(COLUMNS).eq('id', created.id).maybeSingle();
+      return (fresh as Integration | null) ?? created;
     },
     onSettled: refresh,
   });
@@ -218,6 +229,13 @@ export function useIntegrationActions(spaceId: string | null) {
     onSettled: refresh,
   });
 
+  const clientSecret = useMutation({
+    // The caller shows this failure inline.
+    meta: { silent: true },
+    mutationFn: ({ id, value }: { id: string; value: string }) => setOAuthClientSecret(id, value),
+    onSettled: refresh,
+  });
+
   const test = useMutation({
     // The caller shows this failure inline.
     meta: { silent: true },
@@ -238,5 +256,5 @@ export function useIntegrationActions(spaceId: string | null) {
     onSettled: refresh,
   });
 
-  return { create, update, remove, secret, test, signIn, revoke };
+  return { create, update, remove, secret, clientSecret, test, signIn, revoke };
 }
