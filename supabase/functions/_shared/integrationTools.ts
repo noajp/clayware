@@ -602,12 +602,13 @@ const MAX_INTEGRATION_TOOLS = 120;
  * it — a row a provider's profile claims in the registry
  * (oauthProviders.ts: Google's, GitHub's, Microsoft's; the token
  * resolveCredential refreshes serves every profile, Drive's typed surface
- * aside). Any other OAuth row has no way to authenticate, so both
+ * aside), or a row with a valid OAuth config of its own (customOAuth.ts).
+ * Any other OAuth row has no way to authenticate, so both
  * assemblies (a run's, in run-agent, and the chat's, below) close it
  * rather than offer tools that could only fail. Non-OAuth rows pass.
  */
 export function oauthRowOpens(
-  row: { auth_type?: string | null; preset?: string | null; endpoint?: string | null; kind?: string | null },
+  row: { auth_type?: string | null; preset?: string | null; endpoint?: string | null; kind?: string | null; oauth_config?: unknown },
 ): boolean {
   return row.auth_type !== "oauth" || signInOf(row) !== null;
 }
@@ -649,7 +650,7 @@ export async function buildSpaceIntegrationTools(args: {
   const usable: IntegrationUsable[] = [];
   const down: IntegrationDown[] = [];
   const { data: rows } = await userDb.from("integrations")
-    .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at")
+    .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, oauth_config")
     .eq("activity_space_id", spaceId).eq("enabled", true).in("kind", ["mcp", "http"]).order("created_at");
   const list = (rows ?? []) as (IntegrationRow & { enabled: boolean; manifest: unknown; guide: string | null; updated_at?: string | null })[];
   const cachedPlans = await loadToolPlans(admin, list.map((r) => r.id));

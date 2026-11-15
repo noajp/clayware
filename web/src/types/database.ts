@@ -1512,13 +1512,19 @@ export interface Integration {
   manifest: Json | null
   /** How to use the connection, for agents. Not enforced. */
   guide: string | null
+  /** A connection's own OAuth config (supabase/functions/_shared/customOAuth.ts):
+   *  sign-in URLs, scopes, client_id, how the client authenticates. Never a secret. */
+  oauth_config: Json | null
+  /** Says the connection's OAuth client secret is stored (Vault); the browser
+   *  writes it through set_integration_oauth_client_secret and never reads it. */
+  oauth_client_secret_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
 }
 
 export type IntegrationUpdate = Partial<Pick<Integration,
-  'name' | 'description' | 'endpoint' | 'auth_type' | 'auth_header' | 'delegation' | 'enabled' | 'manifest'>>
+  'name' | 'description' | 'endpoint' | 'auth_type' | 'auth_header' | 'delegation' | 'enabled' | 'manifest' | 'oauth_config'>>
 
 /** A website username/password login (secure-login PR1): the metadata a
  *  browser may know. The password itself lives only in Vault under
@@ -1842,6 +1848,8 @@ export interface IntegrationDraft {
   endpoint: string | null
   auth_type: 'none' | 'bearer' | 'header' | 'oauth' | null
   auth_header: string | null
+  /** An OAuth draft's sign-in config, without a client (the person enters it on the staged connection). */
+  oauth_config: Json | null
   manifest: Json | null
   guide: string | null
   test_inputs: Record<string, Record<string, unknown>>

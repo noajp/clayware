@@ -14,6 +14,7 @@ import { foldConnectorName } from "./connectorNeeds.ts";
 import { isSafeEndpoint, WRITE_VERB } from "./integrationClient.ts";
 import { canonicalJson } from "./integrationPlans.ts";
 import { sha256Hex } from "./googleOAuth.ts";
+import { customOAuthHosts, parseCustomOAuthConfig, storedCustomOAuthConfig } from "./customOAuth.ts";
 
 // ── The draft and its states ─────────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export function openDraftsForNames(
 // Two-level public suffixes this product's services commonly sit under.
 // A simplification, stated as one: registrableDomain is eTLD+1 for the
 // common cases, not a full public-suffix database.
-const TWO_LEVEL_SUFFIXES = new Set([
+export const TWO_LEVEL_SUFFIXES: ReadonlySet<string> = new Set([
   "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "ed.jp", "lg.jp",
   "co.uk", "org.uk", "ac.uk", "com.au", "net.au", "org.au", "co.nz",
   "com.br", "com.cn", "com.tw", "co.kr", "ne.kr", "com.mx", "co.in",
@@ -176,9 +177,34 @@ export function registrableDomain(host: string): string {
   return TWO_LEVEL_SUFFIXES.has(last2) ? labels.slice(-3).join(".") : last2;
 }
 
+// Domains under which anyone can get a host of their own (hosting and
+// tenant platforms). Sharing one says nothing about who runs a host:
+// api.example.github.io and evil.github.io are strangers. A host under
+// one of these is the same site only as itself.
+export const MULTI_TENANT_SUFFIXES: readonly string[] = [
+  "github.io", "gitlab.io", "vercel.app", "now.sh", "netlify.app", "pages.dev", "workers.dev", "trycloudflare.com",
+  "herokuapp.com", "onrender.com", "fly.dev", "railway.app", "deno.dev", "run.app", "appspot.com", "web.app",
+  "firebaseapp.com", "cloudfunctions.net", "googleusercontent.com", "cloudfront.net", "amazonaws.com", "on.aws",
+  "azurewebsites.net", "azurestaticapps.net", "azure-api.net", "cloudapp.net", "blob.core.windows.net",
+  "supabase.co", "ngrok.io", "ngrok-free.app", "ngrok.app", "loca.lt", "repl.co", "replit.app", "glitch.me",
+  "surge.sh", "blogspot.com", "myshopify.com", "webflow.io", "wixsite.com", "cybozu.com", "kintone.com",
+];
+
+function normalHost(host: string): string {
+  return host.toLowerCase().replace(/\.+$/, "");
+}
+
+/** Pure. True for a host under a multi-tenant suffix (or the suffix itself). */
+export function isMultiTenantHost(host: string): boolean {
+  const h = normalHost(host);
+  return MULTI_TENANT_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`));
+}
+
 /** Pure. Whether two hosts are the same registrable domain — the only
- *  sense in which a spec's alternative server may be picked automatically. */
+ *  sense in which a spec's alternative server may be picked automatically.
+ *  A host on a multi-tenant platform matches only itself. */
 export function sameRegistrableDomain(a: string, b: string): boolean {
+  if (isMultiTenantHost(a) || isMultiTenantHost(b)) return normalHost(a) === normalHost(b);
   return registrableDomain(a) === registrableDomain(b);
 }
 
@@ -193,6 +219,9 @@ export interface DraftCandidate {
   guide: string | null;
   testInputs: Record<string, Record<string, unknown>>;
   sources: string[];
+  /** authType "oauth" only: the service's OAuth config as its docs give it
+   *  (customOAuth.ts), without a client — the person brings that. */
+  oauth?: unknown;
 }
 
 const HEADER_NAME = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/;
@@ -242,7 +271,11 @@ export function validateGuide(guide: string | null, endpointHost: string | null)
  * stay read=allow / write=ask, a write's permission is exactly ask with
  * no allow rule anywhere on it, a read's name must not carry a writing
  * verb, the endpoint must pass the same guard every request passes, the
- * auth is a key-shaped one (OAuth cannot be drafted), no command may
+ * auth is a key-shaped one or an OAuth config of the service's own (its
+ * URLs on public https hosts, in the registrable domain of the person's
+ * documentation URL when they gave one — else of the endpoint, never a
+ * source the drafter cited — and no client in it: the person enters
+ * theirs, and confirms the hosts before activation), no command may
  * name a response transform or a body builder (a code reference is
  * first-party only), the guide obeys validateGuide, and — when the
  * person's own host is known — the endpoint must sit in that host's
@@ -253,7 +286,7 @@ export function validateGuide(guide: string | null, endpointHost: string | null)
 export function validateDraftCandidate(
   c: DraftCandidate,
   opts: { officialHost?: string | null } = {},
-): { errors: string[]; manifest: Manifest | null } {
+): { errors: string[]; manifest: Manifest | null; oauth: Record<string, unknown> | null } {
   const errors: string[] = [];
   const name = (c.name ?? "").trim();
   if (!name) errors.push("名前が要ります");
@@ -265,10 +298,28 @@ export function validateDraftCandidate(
     errors.push(`endpoint のホスト（${endpointHost}）が、公式ホスト（${opts.officialHost}）と同じドメインにありません。公式の API ホストが分からない場合は推測せず、人に確認してください`);
   }
 
+  let oauth: Record<string, unknown> | null = null;
   if (c.authType === "oauth") {
-    errors.push("サインイン方式（OAuth）のサービスはまだ起草できません。人に、その旨を伝えてください");
+    const parsed = parseCustomOAuthConfig(c.oauth ?? null, { requireClientId: false });
+    errors.push(...parsed.errors.map((e) => `oauth: ${e}`));
+    if (parsed.config) {
+      // Where the person is sent to sign in, and where the code and the
+      // client secret go, must be the service's own: a config read from
+      // a page can name any host, and the secret would follow it.
+      const anchor = opts.officialHost ?? endpointHost;
+      const hosts = customOAuthHosts(parsed.config);
+      for (const [label, host] of [["認可 URL", hosts.authorize], ["トークン URL", hosts.token], ["取り消し URL", hosts.revoke]] as const) {
+        if (host && anchor && !sameRegistrableDomain(host, anchor)) {
+          errors.push(`oauth: ${label}のホスト（${host}）が、${opts.officialHost ? "公式ホスト" : "endpoint"}（${anchor}）と同じドメインにありません。公式のサインインのホストが分からない場合は推測せず、人に確認してください`);
+        }
+      }
+      oauth = storedCustomOAuthConfig(parsed.config);
+    }
   } else if (c.authType !== "none" && c.authType !== "bearer" && c.authType !== "header") {
-    errors.push("auth は none / bearer / header のいずれかにしてください");
+    errors.push("auth は none / bearer / header / oauth のいずれかにしてください");
+  }
+  if (c.authType !== "oauth" && c.oauth !== undefined && c.oauth !== null) {
+    errors.push("auth が oauth でない場合、oauth は空にしてください");
   }
   if (c.authType === "header") {
     const header = (c.authHeader ?? "").trim();
@@ -316,7 +367,7 @@ export function validateDraftCandidate(
   for (const s of c.sources ?? []) {
     if (typeof s !== "string" || !/^https:\/\//.test(s)) errors.push(`出典は https の URL で記録してください: ${String(s).slice(0, 80)}`);
   }
-  return { errors, manifest };
+  return { errors, manifest, oauth };
 }
 
 /** A required command the drafter wants to drop, with the reason a person will read. */
@@ -353,16 +404,38 @@ export interface DraftContent {
   auth_header: string | null;
   manifest: unknown;
   guide: string | null;
+  /** An OAuth draft's config (without the client the person brings).
+   *  Present only when the draft has one, so a key-shaped draft's content
+   *  and hashes are what they always were. */
+  oauth_config?: unknown;
+}
+
+/** Pure. A row's OAuth config as a draft's content holds it: without the
+ *  client ID, which the person enters on the staged connection and which
+ *  is not part of what was drafted or tested. */
+export function draftOAuthConfigOf(config: unknown): Record<string, unknown> | null {
+  if (!config || typeof config !== "object" || Array.isArray(config)) return null;
+  const rest = { ...config as Record<string, unknown> };
+  delete rest.client_id;
+  return rest;
 }
 
 export function draftContentOf(d: {
   name: string; endpoint: string | null; auth_type: string | null; auth_header: string | null;
-  manifest: unknown; guide: string | null;
+  manifest: unknown; guide: string | null; oauth_config?: unknown;
 }): DraftContent {
-  return {
+  const content: DraftContent = {
     name: d.name, endpoint: d.endpoint ?? "", auth_type: d.auth_type ?? "none",
     auth_header: d.auth_header ?? null, manifest: d.manifest ?? null, guide: d.guide ?? null,
   };
+  const oauth = draftOAuthConfigOf(d.oauth_config);
+  if (oauth) content.oauth_config = oauth;
+  return content;
+}
+
+/** The OAuth config's part of a hashed projection: nothing when absent. */
+function oauthPart(c: DraftContent): Record<string, unknown> {
+  return c.oauth_config ? { oauth_config: c.oauth_config } : {};
 }
 
 /** Pure but for the digest. The one canonicalization (integrationPlans'
@@ -371,6 +444,7 @@ export async function draftContentHash(c: DraftContent): Promise<string> {
   return sha256Hex(canonicalJson({
     name: c.name, endpoint: c.endpoint, auth_type: c.auth_type,
     auth_header: c.auth_header, manifest: c.manifest ?? null, guide: c.guide,
+    ...oauthPart(c),
   }));
 }
 
@@ -396,6 +470,8 @@ export function draftStructureOf(c: DraftContent): unknown {
   const { manifest } = parseManifest(c.manifest);
   return {
     name: c.name, endpoint: c.endpoint, auth_type: c.auth_type, auth_header: c.auth_header, guide: c.guide,
+    // Where a sign-in goes is structure: it moves the structure hash.
+    ...oauthPart(c),
     commands: manifest.commands
       .map((cmd) => ({
         name: cmd.name, action: cmd.action, effect: cmd.effect,

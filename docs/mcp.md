@@ -131,11 +131,31 @@ Microsoft 365 も資格情報を貼り付けず、owner が職場または学校
 
 Microsoft にはこの接続の許可を取り消す口がないので、切断は Clayware に保存したトークンを消すだけで、`/revoke` は `revoked: false` を返す。許可そのものは、組織の管理者が Entra 管理センターのエンタープライズ アプリケーションで外す。
 
+### 接続ごとの OAuth（Custom API / Custom MCP）
+
+Clayware が登録した相手（Google・GitHub・Microsoft）のほかに、OAuth 2.0 の認可コード方式（PKCE つき）でサインインするサービスは、接続ごとの設定でつなぐ。Settings › Connectors の Custom API か Custom MCP で、認証に「Sign in (OAuth)」を選ぶ。owner は先にそのサービスでアプリを登録し、ダイアログに出るリダイレクト URI（下のサインインの流れと同じコールバック）をそこに入れておく。ダイアログに入れるのは次のもの。
+
+| 項目 | 内容 |
+| --- | --- |
+| Authorization URL | サービスの認可エンドポイント |
+| Token URL | サービスのトークンエンドポイント |
+| Revocation URL | トークンの取り消しエンドポイント（RFC 7009）。任意 |
+| Scopes | 求める scope。空白で区切る |
+| Client ID | サービスで登録したアプリの ID |
+| Client authentication | トークンエンドポイントでの client の認証。本文で送る（`client_secret_post`）、HTTP Basic（`client_secret_basic`）、secret なし（`none`、PKCE だけで結ぶ公開クライアント） |
+| Client secret | アプリの secret。`none` 以外のとき |
+
+設定は `integrations.oauth_config` に置き、client secret だけは Vault（`integration-oauth-client:<id>`）に置く。ブラウザは `set_integration_oauth_client_secret`（owner だけ）で書き、読み返せない。`oauth_client_secret_id` は入っているかどうかだけを示す。サーバーは使うたびに設定を検査し直し、URL は https の公開ホストだけを通す（トークンと取り消しのホストは、送る前に DNS で公開アドレスかを確かめる）。client secret と認可コードはトークン URL にだけ、アクセストークンは接続の endpoint にだけ送る。
+
+トークンは、サインインしたときの接続（種類・endpoint・設定の全体）に結び付けて保存する。endpoint や設定を変えた接続では、それまでのトークンは使われない。データベースも、設定を変えるとトークンを消し、トークン URL・取り消し URL・client ID・client の認証方式を変えると client secret も消す（`integrations_rebind_drops_secret`）。サインインの途中で接続が変わったときは、そのサインインを捨てる。トークンの応答に `expires_in` があればその時刻の 2 分前に更新し、新しいリフレッシュトークンが返れば保存し直す。接続のテストは、Clayware が登録した相手のような本人確認の URL を持たないので、トークンで endpoint そのものを試す。
+
+接続の起草でも、API キー方式のないサービスは OAuth の設定で起草できる。AI は公式ドキュメントから認可 URL・トークン URL・scope・client の認証方式を書き、client は書かない。認可・トークン・取り消しのホストは、人が渡した公式ホスト（なければ endpoint）と同じドメインでなければ通らない。審査画面では、サインインが開くホストと client secret の送り先を示し、API と違うドメインなら注意を出す。owner がそこで client ID と secret を入れてサインインしてから、テストを行う。既存の接続を更新する起草では、テストに使う複製に原本の資格情報を写すのは送り先が同じときだけにする。API キーは endpoint と認証の方式が原本と同じとき、OAuth の client secret はトークン URL・取り消し URL・client ID・client の認証方式がすべて同じときに限る。OAuth のトークンは写さず、owner が複製でサインインする（使うたびに入れ替わるリフレッシュトークンを、複製のテストで原本から奪わないため）。比べる基準は、人が渡したドキュメント URL のホスト（なければ endpoint）で、起草した AI が挙げた出典は使わない。github.io・vercel.app・amazonaws.com のように誰でもホストを持てるドメインでは、同じホストだけを同じとみなす。有効にするときは、テストした設定（client を除く）と仮の接続の設定が一致していることを確かめる。
+
 ### サインインの流れ（共通）
 
-サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` と `gmail` なら Google、`github` なら GitHub、`microsoft-365` なら Microsoft）で相手を決める。相手ごとの URL・スコープ・トークンの扱い・本人確認・取り消しは `supabase/functions/_shared/oauthProviders.ts` の表にある。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke`・`/admin-consent` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
+サインインは Edge Function `integration-oauth` が行い、連携の行（`google-drive` と `gmail` なら Google、`github` なら GitHub、`microsoft-365` なら Microsoft、それ以外で自分の OAuth 設定を持つ行はその設定）で相手を決める。相手ごとの URL・スコープ・トークンの扱い・本人確認・取り消しは `supabase/functions/_shared/oauthProviders.ts` の表に、接続ごとの設定の扱いは `customOAuth.ts` にある。ブラウザが JWT なしで `/go` と `/callback` に来るので `--no-verify-jwt` で配置し、`/start`・`/finish`・`/revoke`・`/admin-consent` は関数の中で JWT を確かめる。コールバックはトークンを預かるだけで連携には保存せず、アプリに戻ったあと、サインイン中の利用者の JWT で `/finish` を呼んだときに、`/start` を呼んだ本人であり今もオーナーである場合だけ、同じ相手の行に保存する。他人が完了したサインインのトークンは、相手で取り消さずに捨てる（取り消すと、その人が自分の Space で使っている接続まで切れる）。
 
-配置は順番を守る。アプリは `integrations.external_account` を読むので、先に migration `20261006090000_integration_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
+配置は順番を守る。アプリと関数は `integrations.external_account`・`oauth_config`・`oauth_client_secret_id` を読むので、先に migration `20261006090000_integration_oauth.sql` と `20270113090000_integration_custom_oauth.sql` を本番に適用し、次に関数、最後にアプリを公開する。
 
 ```bash
 env -u SUPABASE_ACCESS_TOKEN supabase functions deploy integration-oauth --project-ref rkugtcqztkkacvoylupw --no-verify-jwt --use-api
@@ -156,4 +176,4 @@ Edge Function のシークレットに次を入れる。相手ごとのクライ
 | `MICROSOFT_OAUTH_CLIENT_SECRET` | 同じアプリの登録のクライアント シークレットの値。期限（最長 24 か月）が来る前に作り直して入れ替える |
 | `APP_ORIGIN` | サインイン後に戻るアプリの origin（例 `https://clayware.example.com`）。パスは付けない。保存を確定する `/finish` はこのアプリから呼ばれるので、ない間はサインインを完了できない（コールバックは何も保存せず「APP_ORIGIN を設定してください」と返す） |
 
-Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に `https://www.googleapis.com/auth/drive.file` を加える。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。Microsoft は Entra 管理センターの「アプリの登録」で新規に登録し、サポートされるアカウントの種類を「任意の組織ディレクトリ内のアカウント（マルチテナント）」にして、プラットフォーム「Web」のリダイレクト URI に同じ URL を入れる（管理者の承認もここに戻る）。API のアクセス許可には Microsoft Graph の委任されたアクセス許可 `openid` `profile` `offline_access` `User.Read` を加える。他の組織の人が自分で同意できるようにするには、発行元の確認（Microsoft AI Cloud Partner Program の ID とドメインの確認）を済ませておく。確認のないアプリは、管理者の承認がなければ多くの組織で使えない。
+Google の OAuth クライアントには、承認済みのリダイレクト URI として `https://rkugtcqztkkacvoylupw.supabase.co/functions/v1/integration-oauth/callback` を登録し、同意画面に Google Drive の `https://www.googleapis.com/auth/drive.file` と、Gmail の `https://www.googleapis.com/auth/gmail.readonly`・`https://www.googleapis.com/auth/gmail.send` を加える。`gmail.readonly` は Google が制限付きとするスコープで、組織の外の人に使ってもらうには Google の審査が要る。GitHub の OAuth App（GitHub › Settings › Developer settings › OAuth Apps）は、Authorization callback URL に同じ URL を、Homepage URL に `APP_ORIGIN` を入れる。Microsoft は Entra 管理センターの「アプリの登録」で新規に登録し、サポートされるアカウントの種類を「任意の組織ディレクトリ内のアカウント（マルチテナント）」にして、プラットフォーム「Web」のリダイレクト URI に同じ URL を入れる（管理者の承認もここに戻る）。API のアクセス許可には Microsoft Graph の委任されたアクセス許可 `openid` `profile` `offline_access` `User.Read` を加える。他の組織の人が自分で同意できるようにするには、発行元の確認（Microsoft AI Cloud Partner Program の ID とドメインの確認）を済ませておく。確認のないアプリは、管理者の承認がなければ多くの組織で使えない。

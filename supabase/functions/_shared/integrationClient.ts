@@ -17,7 +17,11 @@
 // link-local hosts, and an http_request path can never leave its base URL.
 
 import { needsRefresh, sha256Hex } from "./googleOAuth.ts";
-import { oauthClientFromEnv, signInOf, type OAuthClientConfig } from "./oauthProviders.ts";
+import { isSafeEndpoint } from "./safeEndpoint.ts";
+
+export { isSafeEndpoint };
+import { isCustomProvider, oauthClientFromEnv, signInOf, tokenRequestInit, type OAuthClientConfig, type OAuthProvider } from "./oauthProviders.ts";
+import { customOAuthBinding, customOAuthConfigOf } from "./customOAuth.ts";
 
 export interface IntegrationRow {
   id: string;
@@ -29,6 +33,8 @@ export interface IntegrationRow {
   auth_type: "none" | "bearer" | "header" | "oauth";
   auth_header: string | null;
   delegation: "approve_each" | "full_delegation";
+  /** A connection's own OAuth config (customOAuth.ts), when it has one. */
+  oauth_config?: unknown;
 }
 
 export interface RemoteTool {
@@ -40,29 +46,6 @@ export interface RemoteTool {
 
 const TIMEOUT_MS = 30_000;
 const MAX_RESULT_CHARS = 20_000;
-
-/** Pure. True when a URL is safe to call from the server: https to a public host. */
-export function isSafeEndpoint(raw: string): boolean {
-  let u: URL;
-  try { u = new URL(raw); } catch { return false; }
-  if (u.protocol !== "https:") return false;
-  if (u.username || u.password) return false;
-  // A trailing dot names the same host ("localhost." is localhost).
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
-  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return false;
-  if (!host.includes(".") && !host.includes(":")) return false;
-  // IPv4 literals in private, loopback, link-local, CGNAT and metadata ranges.
-  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19)) || a >= 224) return false;
-  }
-  // IPv6 literals are refused outright: loopback, unique/site/link-local,
-  // IPv4-mapped / -compatible / NAT64 forms all spell private targets, and
-  // no real integration endpoint is an IPv6 literal.
-  if (host.includes(":")) return false;
-  return true;
-}
 
 /** Pure. True when an IPv4 address is in a private, loopback, link-local,
  *  CGNAT, benchmark, metadata, multicast or reserved range. */
@@ -451,9 +434,14 @@ function envGet(key: string): string | undefined {
  *                            (Google's invalid_grant, say) the row's
  *                            last_test becomes oauth_expired and the result
  *                            is null.
+ * A row with its own OAuth config (customOAuth.ts) refreshes the same way,
+ * with its client from the row (client_id) and Vault (the client secret,
+ * get_integration_oauth_client_secret), at its token URL once that host
+ * resolves to public addresses; its token set is used only while it was
+ * signed in under the row's current binding (customOAuthBinding).
  * Any other OAuth row, a malformed secret or a missing OAuth client gives
  * null. A refresh that fails for another reason throws. `opts.client`
- * replaces the provider's client from the environment.
+ * replaces the provider's client from the environment (or the row's).
  */
 export async function resolveCredential(
   admin: CredentialStore,
@@ -467,22 +455,21 @@ export async function resolveCredential(
   const { provider, profile } = signIn;
   const tokens = provider.parse(raw);
   if (!tokens) return null;
+  // A connection's own sign-in serves only the row it was made for: a row
+  // repointed or reconfigured since then needs a new sign-in.
+  if (isCustomProvider(provider) && tokens.binding !== await customOAuthBinding(row)) return null;
   if (!provider.refresh || !tokens.refresh_token || tokens.expires_at === undefined) return tokens.access_token;
   const now = opts.now ?? Date.now();
   if (!needsRefresh({ expires_at: tokens.expires_at }, now)) return tokens.access_token;
 
-  const client = opts.client !== undefined ? opts.client : oauthClientFromEnv(provider, envGet);
+  const client = opts.client !== undefined ? opts.client : await clientFor(admin, row, provider);
   if (!client) return null;
+  if (isCustomProvider(provider) && !(await resolvesToPublic(provider.tokenUrl))) {
+    throw new Error("the connection's token URL resolves to a non-public address");
+  }
   const res = await fetchWithTimeout(provider.tokenUrl, {
     method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: tokens.refresh_token,
-      client_id: client.clientId,
-      client_secret: client.clientSecret,
-      ...provider.tokenParams?.(profile),
-    }).toString(),
+    ...tokenRequestInit(provider, client, { grant_type: "refresh_token", refresh_token: tokens.refresh_token }, profile),
   }, opts.fetchImpl);
   const text = await readCapped(res, 100_000);
   let body: Record<string, unknown> = {};
@@ -514,7 +501,25 @@ export async function resolveCredential(
   if (!provider.refresh.rotates) return null;
   const { data: storedNow } = await admin.rpc("get_integration_secret", { p_integration_id: row.id });
   const current = provider.parse(storedNow);
-  return current?.expires_at !== undefined && !needsRefresh({ expires_at: current.expires_at }, now) ? current.access_token : null;
+  if (!current || current.expires_at === undefined || needsRefresh({ expires_at: current.expires_at }, now)) return null;
+  // The same binding rule as on the way in: a set stored for another
+  // binding is not this connection's.
+  if (isCustomProvider(provider) && current.binding !== await customOAuthBinding(row)) return null;
+  return current.access_token;
+}
+
+/**
+ * The OAuth client `row` signs in with: a registered provider's from the
+ * Edge secrets; a connection's own from the row's client_id and, unless it
+ * is a public client, the client secret in Vault. Null when it is not set.
+ */
+export async function clientFor(admin: Pick<CredentialStore, "rpc">, row: IntegrationRow, provider: OAuthProvider): Promise<OAuthClientConfig | null> {
+  if (!isCustomProvider(provider)) return oauthClientFromEnv(provider, envGet);
+  const config = customOAuthConfigOf(row);
+  if (!config?.client_id) return null;
+  if (config.token_auth === "none") return { clientId: config.client_id, clientSecret: "" };
+  const { data } = await admin.rpc("get_integration_oauth_client_secret", { p_integration_id: row.id });
+  return typeof data === "string" && data.length > 0 ? { clientId: config.client_id, clientSecret: data } : null;
 }
 
 /** Pure. True when a connection failed because its credential was refused

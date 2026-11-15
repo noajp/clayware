@@ -377,15 +377,113 @@ export function policyLineFor(delegation: IntegrationDelegation | string | null 
 
 // ── Building a row ─────────────────────────────────────────────────────────
 
+// ── A connection's own OAuth config ───────────────────────────────────────
+//
+// A custom API / MCP connection can sign in with OAuth 2.0 (authorization
+// code + PKCE) through an app the Space owner registered at the service:
+// the web twin of supabase/functions/_shared/customOAuth.ts, which the
+// server checks again before every use. The client secret is not part of
+// the config — it goes to Vault (set_integration_oauth_client_secret).
+
+export type TokenAuthMethod = 'client_secret_post' | 'client_secret_basic' | 'none';
+
+/** How the client authenticates at the token endpoint (English source strings for t()). */
+export const TOKEN_AUTH_LABELS: Record<TokenAuthMethod, string> = {
+  client_secret_post: 'Client secret in the request body',
+  client_secret_basic: 'Client secret as HTTP Basic',
+  none: 'No client secret (public client with PKCE)',
+};
+
+/** The form's view of a config: scopes as one space-separated line. */
+export interface CustomOAuthForm {
+  authorizeUrl: string;
+  tokenUrl: string;
+  revokeUrl: string;
+  scopes: string;
+  clientId: string;
+  tokenAuth: TokenAuthMethod;
+}
+
+export const EMPTY_CUSTOM_OAUTH: CustomOAuthForm = { authorizeUrl: '', tokenUrl: '', revokeUrl: '', scopes: '', clientId: '', tokenAuth: 'client_secret_post' };
+
+/** Whitespace or a control character: a value that could break a URL or a header. */
+const oauthUnsafe = (v: string) => /\s/.test(v) || [...v].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
+
+function oauthUrlOk(raw: string): boolean {
+  if (raw.length > 2000 || !isSafeEndpoint(raw)) return false;
+  try { return !new URL(raw).hash; } catch { return false; }
+}
+
+/** Pure. The config to store from the form, or why it can't be (an
+ *  English source string for t()). Extra parameters already on a stored
+ *  config (authorize_params / token_params, set by a draft) are kept. */
+export function buildCustomOAuthConfig(form: CustomOAuthForm, keep?: Json | null): { ok: true; config: Record<string, Json> } | { ok: false; error: string } {
+  const authorize = form.authorizeUrl.trim();
+  const token = form.tokenUrl.trim();
+  const revoke = form.revokeUrl.trim();
+  if (!oauthUrlOk(authorize)) return { ok: false, error: 'Enter the authorization URL as an https URL on a public host.' };
+  if (!oauthUrlOk(token)) return { ok: false, error: 'Enter the token URL as an https URL on a public host.' };
+  if (revoke && !oauthUrlOk(revoke)) return { ok: false, error: 'Enter the revocation URL as an https URL on a public host, or leave it empty.' };
+  const scopes = [...new Set(form.scopes.split(/\s+/).filter(Boolean))];
+  if (scopes.length > 50 || scopes.some((s) => s.length > 256)) return { ok: false, error: 'Enter at most 50 scopes, separated by spaces.' };
+  const clientId = form.clientId.trim();
+  if (!clientId || clientId.length > 512 || oauthUnsafe(clientId)) return { ok: false, error: 'Enter the client ID of the app you registered at the service.' };
+  if (!(form.tokenAuth in TOKEN_AUTH_LABELS)) return { ok: false, error: 'Choose how the client authenticates.' };
+  const config: Record<string, Json> = { authorize_url: authorize, token_url: token, scopes, client_id: clientId, token_auth: form.tokenAuth };
+  if (revoke) config.revoke_url = revoke;
+  const kept = keep && typeof keep === 'object' && !Array.isArray(keep) ? keep as Record<string, Json> : null;
+  for (const extra of ['authorize_params', 'token_params'] as const) {
+    if (kept?.[extra] && typeof kept[extra] === 'object' && !Array.isArray(kept[extra])) config[extra] = kept[extra];
+  }
+  return { ok: true, config };
+}
+
+/** Pure. A stored config as the form shows it; empty fields when there is none. */
+export function customOAuthFormOf(raw: Json | null | undefined): CustomOAuthForm {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, Json> : null;
+  if (!o) return EMPTY_CUSTOM_OAUTH;
+  const str = (v: Json | undefined) => (typeof v === 'string' ? v : '');
+  const auth = str(o.token_auth);
+  return {
+    authorizeUrl: str(o.authorize_url),
+    tokenUrl: str(o.token_url),
+    revokeUrl: str(o.revoke_url),
+    scopes: Array.isArray(o.scopes) ? o.scopes.filter((s): s is string => typeof s === 'string').join(' ') : '',
+    clientId: str(o.client_id),
+    tokenAuth: auth in TOKEN_AUTH_LABELS ? auth as TokenAuthMethod : 'client_secret_post',
+  };
+}
+
+function hostLabel(raw: string): string | null {
+  try { return new URL(raw).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return null; }
+}
+
+/** Pure. Where a config sends the person to sign in, and where the client
+ *  secret and the authorization code go — what the person confirms. */
+export function customOAuthHosts(raw: Json | null | undefined): { authorize: string | null; token: string | null; revoke: string | null } {
+  const form = customOAuthFormOf(raw);
+  return { authorize: hostLabel(form.authorizeUrl), token: hostLabel(form.tokenUrl), revoke: form.revokeUrl ? hostLabel(form.revokeUrl) : null };
+}
+
+/** Pure. The URL to register at the service as the app's redirect URI:
+ *  the integration-oauth callback (the server's redirectUriFor). */
+export function oauthRedirectUriFor(supabaseUrl: string): string {
+  return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/integration-oauth/callback`;
+}
+
 export interface IntegrationDraft {
   /** Custom presets only. */
   name?: string;
   /** Custom presets only. */
   endpoint?: string;
-  /** Custom presets only: 'none' | 'bearer' | 'header'. */
+  /** Custom presets only: 'none' | 'bearer' | 'header' | 'oauth' (an API or MCP connection's own sign-in). */
   auth?: IntegrationAuthType;
   /** Custom presets with auth 'header': the header the credential goes in. */
   authHeader?: string;
+  /** Custom presets with auth 'oauth': the sign-in config. */
+  oauth?: CustomOAuthForm;
+  /** The stored config being edited, whose extra parameters are kept. */
+  oauthKeep?: Json | null;
   delegation: IntegrationDelegation;
   enabled: boolean;
 }
@@ -404,6 +502,8 @@ export interface IntegrationInsertRow {
   enabled: boolean;
   /** A preset's bundled first-party manifest, when it carries one. */
   manifest: Json | null;
+  /** A custom connection's own OAuth config, when it signs in with one. */
+  oauth_config: Json | null;
 }
 
 export type BuildResult = { ok: true; row: IntegrationInsertRow } | { ok: false; error: string };
@@ -422,7 +522,7 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
         activity_space_id: spaceId, preset: preset.id, kind: preset.kind, name: preset.name,
         description: preset.description, icon: preset.icon, endpoint: preset.endpoint!, auth_type: preset.auth,
         auth_header: null, delegation: draft.delegation, enabled: draft.enabled,
-        manifest: preset.bundledManifest ?? null,
+        manifest: preset.bundledManifest ?? null, oauth_config: null,
       },
     };
   }
@@ -432,7 +532,12 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
   if (!isSafeEndpoint(endpoint)) return { ok: false, error: 'Enter an https URL on a public host.' };
   // A model provider always takes its key as a bearer credential.
   const auth = preset.kind === 'model' ? 'bearer' : draft.auth ?? 'bearer';
-  if (auth === 'oauth') return { ok: false, error: 'OAuth is not available for custom connections.' };
+  let oauthConfig: Json | null = null;
+  if (auth === 'oauth') {
+    const built = buildCustomOAuthConfig(draft.oauth ?? EMPTY_CUSTOM_OAUTH, draft.oauthKeep);
+    if (!built.ok) return built;
+    oauthConfig = built.config;
+  }
   let authHeader: string | null = null;
   if (auth === 'header') {
     authHeader = (draft.authHeader ?? '').trim();
@@ -445,7 +550,7 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
     row: {
       activity_space_id: spaceId, preset: preset.id, kind: preset.kind, name, description: null, icon: null,
       endpoint, auth_type: auth, auth_header: authHeader, delegation: draft.delegation, enabled: draft.enabled,
-      manifest: null,
+      manifest: null, oauth_config: oauthConfig,
     },
   };
 }

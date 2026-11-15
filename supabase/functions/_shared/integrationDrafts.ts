@@ -22,6 +22,8 @@ export interface DraftRow {
   endpoint: string | null;
   auth_type: string | null;
   auth_header: string | null;
+  /** An OAuth draft's config, without a client (customOAuth.ts). */
+  oauth_config: Record<string, unknown> | null;
   manifest: Record<string, unknown> | null;
   guide: string | null;
   test_inputs: Record<string, Record<string, unknown>>;
@@ -44,7 +46,7 @@ export interface DraftRow {
 }
 
 const DRAFT_COLUMNS =
-  "id, activity_space_id, name, name_key, kind, status, request_context, endpoint, auth_type, auth_header, " +
+  "id, activity_space_id, name, name_key, kind, status, request_context, endpoint, auth_type, auth_header, oauth_config, " +
   "manifest, guide, test_inputs, sources, test_results, required_commands, dropped_commands, tested_hash, " +
   "tested_content, materialized_integration_id, target_integration_id, activated_integration_id, draft_run_id, " +
   "failure_class, awaiting_question, expires_at, created_by, created_at, updated_at";
@@ -77,6 +79,7 @@ export async function applyCandidate(
 ): Promise<boolean> {
   const patch: Record<string, unknown> = {
     endpoint: candidate.endpoint, auth_type: candidate.authType, auth_header: candidate.authHeader,
+    oauth_config: candidate.authType === "oauth" ? (candidate.oauth ?? null) : null,
     manifest: candidate.manifest as unknown as Record<string, unknown>, guide: candidate.guide,
     test_inputs: candidate.testInputs, sources: candidate.sources,
     dropped_commands: drops, awaiting_question: null, failure_class: null,
