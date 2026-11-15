@@ -509,14 +509,14 @@ export function ElementCell({
       <button
         type="button"
         disabled={!canUpdate}
-        className={`${CELL_TRIGGER_BASE} pr-0 ${dateString ? (isOverdue ? 'text-[var(--status-danger)]' : '') : CELL_TRIGGER_EMPTY}`}
+        className={`${CELL_TRIGGER_BASE} ${dateString ? (isOverdue ? 'text-[var(--status-danger)]' : '') : CELL_TRIGGER_EMPTY}`}
       >
         {display ? <CellText>{display}</CellText> : <EmptyCellMark />}
       </button>
     );
     return (
       <td
-        className="table-cell pl-0 pr-1.5 py-1 text-right max-w-0 overflow-hidden"
+        className="table-cell px-1.5 py-1 max-w-0 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {canUpdate ? (
@@ -690,7 +690,7 @@ export function ObjectCell({
   if (column.id === 'due_date') {
     return (
       <td
-        className="table-cell pl-0 pr-1.5 py-1 text-right max-w-0 overflow-hidden"
+        className="table-cell px-1.5 py-1 max-w-0 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <DueDateCell obj={obj} onObjectUpdate={onObjectUpdate} />
@@ -757,7 +757,7 @@ export function DueDateCell({
     <button
       type="button"
       disabled={!canEdit}
-      className={`${CELL_TRIGGER_BASE} pr-0 ${dateString ? '' : CELL_TRIGGER_EMPTY}`}
+      className={`${CELL_TRIGGER_BASE} ${dateString ? '' : CELL_TRIGGER_EMPTY}`}
     >
       {display ? <CellText>{display}</CellText> : <EmptyCellMark />}
     </button>

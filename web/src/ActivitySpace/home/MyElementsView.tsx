@@ -58,7 +58,7 @@ interface MyElementsViewProps {
 // column is injected only here (not a global built-in) and on by default.
 // Module-level constants keep the array identities stable across renders.
 const MY_EXTRA_COLUMNS: DataColumn[] = [
-  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true, defaultWidth: 180 },
+  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true },
 ];
 // Element default columns + My Elements' cross-Object "Objects" column on top.
 const MY_DEFAULT_VISIBLE: ColumnId[] = [...ELEMENT_DEFAULT_VISIBLE, 'objects'];
