@@ -14,7 +14,7 @@ import { ElementDependencies } from './ElementDependencies';
 import { CheckInDialog } from './checkIn/CheckInDialog';
 import { STATUS, PRIORITY, FONT } from '@/shared/designTokens';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Calendar, User, Link2, Plus, CheckCircle2, Tag, Circle, Flag, History, Timer, ChevronRight, ChevronLeft, Pencil, Check, Compass } from '@/ui/icons';
+import { Calendar, User, Link2, Plus, Tag, Timer, ChevronRight, ChevronLeft, Check } from '@/ui/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,7 +94,7 @@ import { ElementCommentsPanel } from './ElementCommentsPanel';
 import { ElementApprovalMenu } from './ElementApprovalMenu';
 import { ApprovalRequestBanner } from './ApprovalRequestBanner';
 import { ElementActionsMenu } from './ElementActionsMenu';
-import { FileText, FolderInput, Trash2, RotateCcw, MoreHorizontal } from '@/ui/icons';
+import { FileText, MoreHorizontal } from '@/ui/icons';
 import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
 import { AttachButton } from '@/Function/shared/attachments/AttachButton';
 import { ACTION_LABEL, ActionIcon, ActionPicker } from '@/Function/shared/elementAction';
@@ -107,11 +107,11 @@ import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
 import { isCancelKey, isCommitEnter, isSubmitChord, useEscapeLayer } from '@/Function/shared/keyboard';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
+import { ActivityFeed } from './ActivityFeed';
 import { logActivity, useElementActivityLog, invalidateElementActivity, mergeActivity, type ActivityKind } from '@/hooks/elementActivity';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { getActiveDomainId } from '@/Function/space/domainsStore';
-import { formatElementDate, parseDateOnly, toDateOnlyString, formatAge } from '@/Function/shared/dateUtils';
-import { MessageIcon } from '@/Function/shared/conceptIcons';
+import { formatElementDate, parseDateOnly, toDateOnlyString } from '@/Function/shared/dateUtils';
 import { TypeMark, useTypeIcons } from '@/Function/shared/elementTypeIcon';
 
 interface ElementDetailViewProps {
@@ -1602,65 +1602,3 @@ function LabelAddButton({
   );
 }
 
-// ============================================
-// Activity feed — tiny vertical timeline.
-// ============================================
-const ACTIVITY_ICON: Record<ActivityKind | 'created', React.ComponentType<{ size?: number; className?: string }>> = {
-  created:    Plus,
-  renamed:    Pencil,
-  description: Pencil,
-  direction:  Compass,
-  status:     Circle,
-  priority:   Flag,
-  assigned:   User,
-  unassigned: User,
-  due:        Calendar,
-  estimate:   Timer,
-  subelement: CheckCircle2,
-  note:       FileText,
-  comment:    MessageIcon,
-  moved:      FolderInput,
-  deleted:    Trash2,
-  restored:   RotateCcw,
-};
-
-function ActivityFeed({
-  entries, compact = false,
-}: {
-  entries: { id: string; kind: ActivityKind | 'created'; detail: string; author: string; createdAt: Date }[];
-  compact?: boolean;
-}) {
-  const { t } = useI18n();
-  if (entries.length === 0) {
-    return (
-      <p className={`text-muted-foreground ${compact ? 'text-center text-[12px] py-3' : 'text-[13px]'}`}>
-        {t('No activity yet')}
-      </p>
-    );
-  }
-  return (
-    <div className="relative pl-4">
-      <div className="absolute left-[10px] top-2 bottom-2 w-px bg-border" />
-      <div className={compact ? 'space-y-2' : 'space-y-3'}>
-        {entries.map((entry) => {
-          const Icon = ACTIVITY_ICON[entry.kind] ?? History;
-          return (
-            <div key={entry.id} className="relative flex items-start gap-2">
-              <span className={`absolute -left-4 ${compact ? 'top-0' : 'top-0.5'} w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center`}>
-                <Icon size={10} className="text-muted-foreground" />
-              </span>
-              <div className="flex-1 min-w-0 pl-4">
-                <p className={compact ? 'text-[11.5px] leading-tight text-foreground/90' : 'text-[12.5px] text-foreground/90'}>
-                  <span className="text-foreground/80">{entry.detail}</span>
-                </p>
-                <span className={compact ? 'text-[10px] text-muted-foreground' : 'text-[10.5px] text-muted-foreground'}>
-                  {entry.author} · {formatAge(entry.createdAt, true)}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
