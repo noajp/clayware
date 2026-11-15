@@ -10,6 +10,7 @@ import { Textarea } from '@/ui/textarea';
 import { FONT } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { useCurrentUserId } from '@/providers/authContext';
 import type { Integration, IntegrationDraft } from '@/types/database';
 import { CRITICAL_CLASS_LABELS, customOAuthFormOf, customOAuthHosts, oauthRedirectUriFor } from './catalog';
 import {
@@ -56,6 +57,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
   onChanged?: () => void;
 }) {
   const { t } = useI18n();
+  const userId = useCurrentUserId();
   const { run, steps } = useDraftDetail(draft);
   const [words, setWords] = useState('');
   const [sending, setSending] = useState(false);
@@ -79,7 +81,9 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
   const endpointHost = hostOf(draft.endpoint);
   const sourceHosts = [...new Set(draft.sources.map((s) => hostOf(s)).filter(Boolean))];
   const runAtRest = !!run && (run.status === 'awaiting_input' || run.status === 'paused');
-  const canSend = OPEN.includes(draft.status) && runAtRest && !sending;
+  // run-agent takes a message only from the person who started the run.
+  const isStarter = !!run && userId !== null && run.triggered_by === userId;
+  const canSend = OPEN.includes(draft.status) && runAtRest && isStarter && !sending;
 
   const send = async () => {
     const message = words.trim();
@@ -172,7 +176,9 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
             <section className="rounded-md bg-[var(--status-warning-subtle)] px-3 py-2">
               <h3 className={FONT.label}>{t('The AI is asking')}</h3>
               <p className="mt-1 whitespace-pre-wrap text-foreground">{draft.awaiting_question}</p>
-              <p className="mt-1 text-[12px] text-muted-foreground">{t('Answer below — drafting resumes from your words.')}</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                {isStarter ? t('Answer below — drafting resumes from your words.') : t('Only the person who started this draft can answer.')}
+              </p>
             </section>
           )}
 
@@ -386,7 +392,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
               {sendError && <p className="text-[12px] text-[var(--status-danger)]">{sendError}</p>}
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12px] text-muted-foreground">
-                  {run.status === 'queued' || run.status === 'running' ? t('The AI is working…') : !runAtRest ? t('The drafting run has ended.') : null}
+                  {run.status === 'queued' || run.status === 'running' ? t('The AI is working…') : !runAtRest ? t('The drafting run has ended.') : !isStarter ? t('Only the person who started this draft can talk to the drafting AI.') : null}
                 </p>
                 <Button size="sm" onClick={() => void send()} disabled={!canSend || !words.trim()}>
                   {t('Send')}

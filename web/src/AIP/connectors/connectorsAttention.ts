@@ -7,7 +7,8 @@ import { siteCredentialStatus } from './siteCredentialModel';
 // answer (awaiting_input) or on a review (awaiting_review), the two
 // states the server's heartbeat treats as waiting on a person — and the
 // Space's connections and site logins count when they stopped working.
-// Answering and reviewing are an owner's acts (RLS), so a member reads
+// Only the person who started a draft can answer its AI (the drafting run
+// is theirs), and reviewing is an owner's act (RLS); everyone else reads
 // who it waits on instead of being asked. Pure.
 
 export type AttentionKind = 'draft-question' | 'draft-review' | 'connection' | 'site-login';
@@ -23,17 +24,19 @@ export interface AttentionItem {
   tone: 'warning' | 'danger';
 }
 
-export function attentionItems({ drafts, integrations, siteLogins, isOwner }: {
-  drafts: readonly Pick<IntegrationDraft, 'id' | 'name' | 'status'>[];
+export function attentionItems({ drafts, integrations, siteLogins, isOwner, userId }: {
+  drafts: readonly Pick<IntegrationDraft, 'id' | 'name' | 'status' | 'created_by'>[];
   integrations: readonly Pick<Integration, 'id' | 'name' | 'kind' | 'preset' | 'icon' | 'enabled' | 'last_test' | 'auth_type' | 'secret_id'>[];
   siteLogins: readonly Pick<SiteCredential, 'id' | 'origin' | 'label' | 'secret_id' | 'last_test'>[];
   isOwner: boolean;
+  /** The signed-in person; null while the session resolves. */
+  userId: string | null;
 }): AttentionItem[] {
   const items: AttentionItem[] = [];
   for (const d of drafts) {
     if (d.status !== 'awaiting_input') continue;
     items.push({ kind: 'draft-question', id: d.id, name: d.name, icon: null, tone: 'warning',
-      reason: isOwner ? 'The AI is asking you something' : 'The AI is waiting for an owner’s answer' });
+      reason: userId !== null && d.created_by === userId ? 'The AI is asking you something' : 'The AI is waiting for the person who started it' });
   }
   for (const d of drafts) {
     if (d.status !== 'awaiting_review') continue;

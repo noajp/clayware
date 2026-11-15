@@ -112,6 +112,8 @@ export async function rejectDraft(draftId: string): Promise<void> {
 export interface DraftRun {
   id: string;
   status: string;
+  /** Who started the drafting run: the only person run-agent lets talk to it. */
+  triggered_by: string | null;
   summary: string | null;
   error: string | null;
 }
@@ -129,7 +131,7 @@ export function useDraftDetail(draft: IntegrationDraft | null) {
     queryFn: async (): Promise<{ run: DraftRun | null; steps: DraftStepRow[] }> => {
       if (!runId) return { run: null, steps: [] };
       const [{ data: run }, { data: steps }] = await Promise.all([
-        supabase.from('agent_runs').select('id, status, summary, error').eq('id', runId).maybeSingle(),
+        supabase.from('agent_runs').select('id, status, summary, error, triggered_by').eq('id', runId).maybeSingle(),
         supabase.from('agent_run_steps').select('id, type, title, detail').eq('run_id', runId).order('idx', { ascending: true }),
       ]);
       return { run: (run as DraftRun | null) ?? null, steps: (steps ?? []) as DraftStepRow[] };

@@ -9,6 +9,7 @@ import { Input } from '@/ui/input';
 import { CARD_FLAT, CARD_HOVER, FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { useCurrentUserId } from '@/providers/authContext';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import type { Integration } from '@/types/database';
 import {
@@ -73,6 +74,7 @@ export function ConnectorsSettings() {
   const openedDraft = openedDraftId ? drafts.find((d) => d.id === openedDraftId) ?? null : null;
   const ownerRole = useIsSpaceOwner(spaceId);
   const isOwner = ownerRole === true;
+  const userId = useCurrentUserId();
   const [opened, setOpened] = useState<OpenedConnection | null>(null);
   // The site login dialog: an existing login (from its row or the strip) or a new one.
   const siteLoginsQuery = useSiteCredentials(spaceId);
@@ -126,8 +128,8 @@ export function ConnectorsSettings() {
   const customPresets = useMemo(() => INTEGRATION_PRESETS.filter((p) => p.custom && p.kind !== 'model'), []);
 
   const attention = useMemo(
-    () => attentionItems({ drafts, integrations, siteLogins, isOwner }),
-    [drafts, integrations, siteLogins, isOwner],
+    () => attentionItems({ drafts, integrations, siteLogins, isOwner, userId }),
+    [drafts, integrations, siteLogins, isOwner, userId],
   );
   const openAttention = (item: AttentionItem) => {
     if (item.kind === 'draft-question' || item.kind === 'draft-review') { setOpenedDraftId(item.id); return; }
