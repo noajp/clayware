@@ -23,7 +23,16 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
   <div class="container nav__bar">
     <a href="index.html" class="wordmark" aria-label="Clayware home">Clayware</a>
     <nav class="menu" id="menu" aria-label="Main">
-      <a class="menu__link" href="product.html" aria-current="page">Product</a>
+      <div class="dd">
+        <a class="menu__link dd__link" href="product.html" aria-haspopup="true" aria-current="page">Product</a>
+        <div class="mega">
+          <div class="mega__panel">
+            <div class="mega__grid"><a class="mega__item" href="index.html#hub"><b>Multichannel</b><span>Bring every request in from mail, chat and forms</span></a><a class="mega__item" href="product.html"><b>Strategy &amp; Execution</b><span>From a goal down to owned tasks</span></a><a class="mega__item" href="timeline.html"><b>Time management</b><span>Deadlines and dependencies on one timeline</span></a><a class="mega__item" href="product.html#integrations"><b>Athena AI</b><span>Agents that do the work and stop for your sign-off</span></a></div>
+            <div class="mega__side"><a href="product.html#integrations">Integrations</a><a href="product.html#product-safety">Security</a></div>
+          </div>
+          <a class="mega__new" href="product.html"><b>New</b><span>Clayware v4, Incoming work becomes owned tasks</span><em>Learn more</em></a>
+        </div>
+      </div>
       <a class="menu__link" href="timeline.html">Timeline</a>
       <a class="menu__link" href="change.html">Change management</a>
       <a class="menu__link" href="education.html">Education</a>
