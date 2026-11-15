@@ -5150,6 +5150,8 @@ export type Database = {
           type: string | null
           updated_at: string | null
           user_id: string | null
+          work_stage: string
+          work_status_id: string | null
         }
         Insert: {
           icon?: string | null
@@ -5173,6 +5175,8 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_stage?: string
+          work_status_id?: string | null
         }
         Update: {
           icon?: string | null
@@ -5196,6 +5200,8 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_stage?: string
+          work_status_id?: string | null
         }
         Relationships: [
           {
@@ -5931,6 +5937,8 @@ export type Database = {
           scope: Json
           status: string | null
           updated_at: string
+          work_stage: string
+          work_status_id: string | null
         }
         Insert: {
           activity_space_id?: string | null
@@ -5949,6 +5957,8 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          work_stage?: string
+          work_status_id?: string | null
         }
         Update: {
           activity_space_id?: string | null
@@ -5967,6 +5977,8 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          work_stage?: string
+          work_status_id?: string | null
         }
         Relationships: [
           {
@@ -6810,6 +6822,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      work_statuses: {
+        Row: {
+          activity_space_id: string
+          builtin: boolean
+          color: string | null
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number
+          scope: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          builtin?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          scope: string
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          builtin?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          scope?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       workers: {
         Row: {
