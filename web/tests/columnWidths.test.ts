@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampWidth, tableLayout, widthSpec } from '@/Function/shared/listTable/columnWidths';
+import { clampWidth, NAME_SPEC, tableLayout, widthSpec } from '@/Function/shared/listTable/columnWidths';
 
 describe('column widths', () => {
   it('opens every column at one width and lets each grow to its kind’s most', () => {
@@ -14,18 +14,26 @@ describe('column widths', () => {
     expect(clampWidth(900, chips)).toBe(chips.max);
   });
 
-  it('lays the tracks out from the left, with the room left over at the far right', () => {
-    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 440 })).toEqual({ filler: 268, width: 1200 });
-    // Wider than the view: no filler, the table scrolls.
-    expect(tableLayout({ view: 600, fixed: 92, columns: 400, name: 440 })).toEqual({ filler: 0, width: 932 });
+  it('gives an unsized Name whatever the columns leave, so they sit at the right edge', () => {
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: null })).toEqual({ name: 708, filler: 0, width: 1200 });
+    // Narrower than everything: Name stays at its least and the table scrolls.
+    expect(tableLayout({ view: 600, fixed: 92, columns: 400, name: null })).toEqual({ name: NAME_SPEC.min, filler: 0, width: 92 + NAME_SPEC.min + 400 });
   });
 
-  it('moves nothing before a dragged edge', () => {
-    // A column 60px narrower: the filler takes the difference, the table keeps its width.
-    const before = tableLayout({ view: 1200, fixed: 92, columns: 400, name: 440 });
-    const after = tableLayout({ view: 1200, fixed: 92, columns: 340, name: 440 });
-    expect(after.filler).toBe(before.filler + 60);
-    expect(after.width).toBe(before.width);
+  it('keeps a Name sized by hand, with the room left over after the columns', () => {
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 500 })).toEqual({ name: 500, filler: 208, width: 1200 });
+    // Wider than the view allows: the table scrolls.
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 400, name: 800 })).toEqual({ name: 800, filler: 0, width: 1292 });
+  });
+
+  it('holds everything left of a dragged edge still', () => {
+    // A column dragged 60px narrower while Name is held at the width drawn.
+    const before = tableLayout({ view: 1200, fixed: 92, columns: 400, name: 708 });
+    const during = tableLayout({ view: 1200, fixed: 92, columns: 340, name: 708 });
+    expect(during.name).toBe(before.name);
+    expect(during.filler).toBe(60);
+    // Released, an unsized Name takes the difference again.
+    expect(tableLayout({ view: 1200, fixed: 92, columns: 340, name: null }).name).toBe(768);
   });
 });
 

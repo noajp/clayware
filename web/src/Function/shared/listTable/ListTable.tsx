@@ -522,7 +522,9 @@ export function ListTable({
   };
 
   // The table's layout (columnWidths): from the left — the mark, Name,
-  // each column, the "+" — with the room left over empty in the "+" track.
+  // each column, the "+". Name takes what the columns leave until it is
+  // sized by hand; then it keeps its width and the room left over is an
+  // empty filler in the "+" track.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [viewWidth, setViewWidth] = useState(0);
   useEffect(() => {
@@ -540,15 +542,16 @@ export function ListTable({
   const drawnWidth = (c: DataColumn) => cols.widthFor(c.id);
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
   const fixedWidth = 52 + (hasTrailingCol ? TRAILING_COL_WIDTH : 0);
-  // Name is pinned while the rest scrolls under it, so a Name wider than
-  // the pane would hide every column for good: it is drawn no wider than
-  // leaves the first stretch of columns (up to 240px) in view.
-  const nameSet = viewWidth
-    ? Math.min(cols.widthFor(NAME_COL_KEY), Math.max(NAME_SPEC.min, viewWidth - fixedWidth - Math.min(dataWidth, 240)))
-    : cols.widthFor(NAME_COL_KEY);
-  const layout = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth, name: nameSet });
-  // A list with no "+" track has nowhere else for the leftover: Name takes it.
-  const nameWidth = hasTrailingCol ? nameSet : nameSet + layout.filler;
+  // Name is pinned while the rest scrolls under it, so a Name set wider
+  // than the pane would hide every column for good: it is drawn no wider
+  // than leaves the first stretch of columns (up to 240px) in view.
+  const nameSized = cols.isSized(NAME_COL_KEY);
+  const setName = nameSized
+    ? (viewWidth ? Math.min(cols.widthFor(NAME_COL_KEY), Math.max(NAME_SPEC.min, viewWidth - fixedWidth - Math.min(dataWidth, 240))) : cols.widthFor(NAME_COL_KEY))
+    : null;
+  const layout = tableLayout({ view: viewWidth, fixed: fixedWidth, columns: dataWidth, name: setName });
+  // Without a "+" track the leftover goes to Name.
+  const nameWidth = hasTrailingCol ? layout.name : layout.name + layout.filler;
   const trailingWidth = TRAILING_COL_WIDTH + layout.filler;
   const titleWidth = `calc(${nameWidth}px - var(--signals-w, 0px))`;
 
@@ -719,8 +722,10 @@ export function ListTable({
 
   // A width being dragged is drawn straight onto the table's tracks without
   // rendering the rows again; it is saved once, when the drag ends
-  // (ResizeHandle). The "+" track takes up or gives the difference.
-  // Returns the width drawn.
+  // (ResizeHandle). While it is dragged everything to the left of the edge
+  // holds still — Name included, at the width it is drawn at — so the edge
+  // stays under the pointer; the "+" track takes up or gives the
+  // difference. Returns the width drawn.
   const drawWidth = (id: ColumnId, raw: number): number => {
     const table = tableRef.current;
     const w = clampWidth(raw, cols.specFor(id));
@@ -757,8 +762,9 @@ export function ListTable({
     table.style.minWidth = `${layout.width}px`;
   });
 
-  // A double click on Name's edge: as wide as the longest title drawn
-  // needs, within its bounds.
+  // A double click on Name's edge: as wide as the longest title drawn needs,
+  // up to its most — or, when that is no more than the room the columns
+  // leave, back to taking that room.
   const fitName = () => {
     const table = tableRef.current;
     if (!table) return;
@@ -768,7 +774,10 @@ export function ListTable({
       if (cell) need = Math.max(need, title.getBoundingClientRect().left - cell.getBoundingClientRect().left + title.scrollWidth + 12);
     });
     const signals = parseFloat(getComputedStyle(table).getPropertyValue('--signals-w')) || 0;
-    if (need > 0) cols.setWidth(NAME_COL_KEY, need + signals);
+    const fit = clampWidth(need + signals, NAME_SPEC);
+    const room = viewWidth - fixedWidth - dataWidth;
+    if (fit <= room) cols.resetWidth(NAME_COL_KEY);
+    else cols.setWidth(NAME_COL_KEY, fit);
   };
   // Fits a column to what it holds (a double click on its edge).
   const fitColumn = (id: ColumnId) => {
@@ -819,7 +828,8 @@ export function ListTable({
         // all, since only some of them are on the page.
         aria-rowcount={windowed ? 1 + totalRows + (hideSectionHeaders ? 0 : sortedSections.length) + (onAddObject ? sortedSections.length : 0) : undefined}
       >
-        {/* Every track at its own width; the "+" track takes the slack. */}
+        {/* Every track at its own width; Name, or the "+" track once Name
+            is sized by hand, takes the slack. */}
         <colgroup>
           <col style={{ width: 52, minWidth: 52 }} />
           <col data-col={NAME_COL_KEY} style={{ width: titleWidth, minWidth: titleWidth }} />
@@ -884,9 +894,7 @@ export function ListTable({
               <th className="table-cell sticky top-0 right-0 z-30 w-8 px-1 py-2.5 bg-card text-center">
                 {/* Trailing "+": which fields show as columns, and a new
                     field where the list has a scope to create one in. */}
-                {/* At the start of its track: right after the last column,
-                    with the room left over beyond it. */}
-                <div className="flex items-center justify-start">
+                <div className="flex items-center justify-end">
                   <FieldsMenu allColumns={cols.allColumns} isVisible={cols.isVisible} onToggle={cols.toggleVisible} onCreate={onAddColumn} />
                 </div>
               </th>
