@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CATALOG_CATEGORY_ORDER, CATEGORY_LABELS, INTEGRATION_PRESETS, buildIntegrationRow, catalogByCategory, catalogCardState, catalogGroups,
   connectionMethodOf, customPresetFor, darkIconFor, installedPresetIds,
-  integrationStatus, isSafeEndpoint, matchesQuery, oauthProviderOf, presetById, presetMatchesQuery, readLastTest, signsInWithOAuth, testOutcomeLabel,
+  integrationStatus, isSafeEndpoint, matchesQuery, oauthProviderOf, presetById, presetMatchesQuery, readLastTest, signInUnfinished, signsInWithOAuth, testOutcomeLabel,
   type ConnectionMethod, type IntegrationDraft, type OAuthProvider,
 } from '@/AIP/connectors/catalog';
 import { GMAIL_MANIFEST } from '@/AIP/connectors/gmailManifest';
@@ -304,6 +304,30 @@ describe('integrationStatus', () => {
   it('any other failure is action-needed', () => {
     expect(integrationStatus({ enabled: true, last_test: tested('http_error', false) })).toBe('action-needed');
     expect(integrationStatus({ enabled: true, last_test: tested('unreachable', false) })).toBe('action-needed');
+  });
+
+  it('a sign-in connection holding no token needs action, whatever its last test says', () => {
+    // An abandoned sign-in, or one waiting for an administrator's approval, writes no test.
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth', secret_id: null })).toBe('action-needed');
+    expect(integrationStatus({ enabled: true, last_test: tested('connected', true), auth_type: 'oauth', secret_id: null })).toBe('action-needed');
+    // Off still wins.
+    expect(integrationStatus({ enabled: false, last_test: null, auth_type: 'oauth', secret_id: null })).toBe('off');
+  });
+
+  it('a signed-in connection, a key-based one without its key, or a row read without the token column keep their old meaning', () => {
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth', secret_id: 'tok' })).toBe('not-tested');
+    expect(integrationStatus({ enabled: true, last_test: tested('connected', true), auth_type: 'oauth', secret_id: 'tok' })).toBe('connected');
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'bearer', secret_id: null })).toBe('not-tested');
+    expect(integrationStatus({ enabled: true, last_test: null, auth_type: 'oauth' })).toBe('not-tested');
+  });
+});
+
+describe('signInUnfinished', () => {
+  it('is a sign-in connection that says it holds no token', () => {
+    expect(signInUnfinished({ auth_type: 'oauth', secret_id: null })).toBe(true);
+    expect(signInUnfinished({ auth_type: 'oauth', secret_id: 'tok' })).toBe(false);
+    expect(signInUnfinished({ auth_type: 'oauth' })).toBe(false);
+    expect(signInUnfinished({ auth_type: 'header', secret_id: null })).toBe(false);
   });
 });
 

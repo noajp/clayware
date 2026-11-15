@@ -98,7 +98,7 @@ const GMAIL_OAUTH_COPY: typeof OAUTH_COPY.google = {
   opening: 'Opening Google…',
   signIn: 'Sign in with Google',
   notSetUp: 'Google sign-in is not set up yet. An administrator needs to register the Google OAuth client before this can be connected.',
-  howItConnects: 'Connect opens Google sign-in. Clayware asks to read your mail, send mail and change labels — sending asks a person first, every time, and agents cannot delete any mail.',
+  howItConnects: 'Connect opens Google sign-in. Clayware asks to read your mail, send mail and change labels. Whether sending waits for a person follows this Space’s approval mode, and agents cannot delete any mail.',
   whose: 'Access belongs to the Google account: if it is connected in another Space too, agents there use the same mailbox, and disconnecting either one disconnects both.',
   actsAs: 'Mail is read and sent as {account}.',
   disconnect: "Disconnect {name}? Clayware's access is revoked at Google. If the same Google account is connected in another Space, that connection stops working too.",

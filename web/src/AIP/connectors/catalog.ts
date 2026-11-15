@@ -77,7 +77,7 @@ export const INTEGRATION_PRESETS: readonly IntegrationPreset[] = [
   },
   {
     id: 'gmail', name: 'Gmail', icon: '/integrations/gmail.svg', kind: 'http', endpoint: 'https://gmail.googleapis.com/gmail/v1/users/me', auth: 'oauth',
-    description: 'Let the AI search and read your mail, reply in threads and label messages. Sending always asks you first, and it never deletes mail.',
+    description: 'Let the AI search and read your mail, reply in threads, label messages and send mail. Whether sending waits for a person follows this Space’s approval mode; it never deletes mail.',
     credentialLabel: 'Google account', category: 'communication', source: 'official', builtBy: 'Google', featured: false, custom: false,
     docsUrl: 'https://developers.google.com/gmail/api',
     bundledManifest: GMAIL_MANIFEST,
@@ -679,16 +679,26 @@ export type IntegrationStatus = 'off' | 'not-tested' | 'connected' | 'reachable'
 
 /** The one status word a connector row shows, derived from the last test
  *  (the dialog keeps the detail, via testOutcomeLabel). Precedence: off →
- *  never tested → a sign-in problem needs the person → verified connected →
- *  reachable without a credential check → anything else that failed. */
-export function integrationStatus(i: { enabled: boolean; last_test: unknown }): IntegrationStatus {
+ *  a sign-in that never finished → never tested → a sign-in problem needs
+ *  the person → verified connected → reachable without a credential check
+ *  → anything else that failed. */
+export function integrationStatus(i: { enabled: boolean; last_test: unknown; auth_type?: string | null; secret_id?: string | null }): IntegrationStatus {
   if (!i.enabled) return 'off';
+  if (signInUnfinished(i)) return 'action-needed';
   const last = readLastTest(i.last_test);
   if (!last) return 'not-tested';
   if (!last.ok && (last.code === 'auth_failed' || last.code === 'oauth_expired' || last.code === 'oauth_required' || last.code === 'oauth_scope_missing')) return 'action-needed';
   if (last.code === 'connected') return 'connected';
   if (last.ok) return 'reachable';
   return 'action-needed';
+}
+
+/** Pure. A sign-in connection holding no token: its sign-in was abandoned,
+ *  refused or is still waiting for an administrator's approval — none of
+ *  which writes a test result. Only a row that says it has no token
+ *  (secret_id null) counts; one read without the column does not. */
+export function signInUnfinished(i: { auth_type?: string | null; secret_id?: string | null }): boolean {
+  return i.auth_type === 'oauth' && i.secret_id === null;
 }
 
 export const INTEGRATION_STATUS_LABELS: Record<IntegrationStatus, string> = {

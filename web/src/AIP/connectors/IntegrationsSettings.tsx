@@ -13,7 +13,7 @@ import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import type { Integration } from '@/types/database';
 import {
   CATEGORY_LABELS, INTEGRATION_PRESETS, INTEGRATION_STATUS_LABELS,
-  catalogByCategory, installedPresetIds, integrationStatus, matchesQuery, presetById, presetMatchesQuery, readLastTest, testOutcomeLabel,
+  catalogByCategory, installedPresetIds, integrationStatus, matchesQuery, presetById, presetMatchesQuery, readLastTest,
   type CatalogCardState, type IntegrationPreset, type IntegrationStatus, type OAuthProvider,
 } from './catalog';
 import { useIntegrationOAuthStatus, useIntegrations, useIsSpaceOwner } from './data';
@@ -25,6 +25,9 @@ import { createDraft, useIntegrationDrafts } from './draftData';
 import { DRAFT_STATUS_LABELS, reconcileDraftWeb } from './draftModel';
 import { IntegrationDraftDialog } from './IntegrationDraftDialog';
 import { SiteCredentialsSection } from './SiteCredentialsSection';
+import { SiteCredentialDialog } from './SiteCredentialDialog';
+import { useSiteCredentials, type SiteCredentialRow } from './siteCredentialData';
+import { attentionItems, type AttentionItem } from './connectorsAttention';
 import { Textarea } from '@/ui/textarea';
 import type { IntegrationDraft } from '@/types/database';
 import { IntegrationIcon } from './IntegrationDetailDialog';
@@ -36,12 +39,14 @@ import type { DirectoryEntry } from '@/hooks/customizeData';
 
 // Settings › AI › Connectors: the outside services the Space's AI can use.
 // The first screen answers "what do we have, what needs me, what can we
-// add": a search box, what needs attention (drafts to review, connections
-// that stopped working), the Space's connections, and the catalog by
-// purpose. Everything else — custom connections, website logins, the
-// public directory, drafting by AI — sits under "Other ways to connect",
-// which a search with no built-in match leads to. Members see everything
-// read-only; only owners can connect or change.
+// add": a search box, what needs attention (connectorsAttention.ts: a
+// draft whose AI is asking or waiting for review, a connection or site
+// login that stopped working), the Space's connections and site logins,
+// and the catalog by purpose. Ways to add something new — custom
+// connections, a website login, the public directory, drafting by AI — sit
+// under "Other ways to connect", which a search with no built-in match
+// leads to. Members see everything read-only; only owners can connect or
+// change.
 
 const DOCS_URL = 'https://github.com/noajp/clayware/blob/main/docs/mcp.md';
 
@@ -69,7 +74,13 @@ export function ConnectorsSettings() {
   const ownerRole = useIsSpaceOwner(spaceId);
   const isOwner = ownerRole === true;
   const [opened, setOpened] = useState<OpenedConnection | null>(null);
-  const [siteLoginAddOpen, setSiteLoginAddOpen] = useState(false);
+  // The site login dialog: an existing login (from its row or the strip) or a new one.
+  const siteLoginsQuery = useSiteCredentials(spaceId);
+  const siteLogins = siteLoginsQuery.data;
+  const [siteLoginOpened, setSiteLoginOpened] = useState<SiteCredentialRow | 'new' | null>(null);
+  const siteLoginOpenedRow = siteLoginOpened && siteLoginOpened !== 'new'
+    ? siteLogins.find((c) => c.id === siteLoginOpened.id) ?? siteLoginOpened
+    : null;
   // Sign-in readiness is the server's fact, shared with the detail
   // dialog: every provider read sits on the one status fetch.
   const googleConfigured = useIntegrationOAuthStatus(true, 'google');
@@ -114,9 +125,20 @@ export function ConnectorsSettings() {
   const categories = useMemo(() => catalogByCategory(INTEGRATION_PRESETS, installed, oauthConfigured), [installed, oauthConfigured]);
   const customPresets = useMemo(() => INTEGRATION_PRESETS.filter((p) => p.custom && p.kind !== 'model'), []);
 
-  // What needs a person: drafts waiting for review, connections that stopped working.
-  const reviewDrafts = useMemo(() => drafts.filter((d) => d.status === 'awaiting_review'), [drafts]);
-  const brokenRows = useMemo(() => connectedRows.filter((i) => integrationStatus(i) === 'action-needed'), [connectedRows]);
+  const attention = useMemo(
+    () => attentionItems({ drafts, integrations, siteLogins, isOwner }),
+    [drafts, integrations, siteLogins, isOwner],
+  );
+  const openAttention = (item: AttentionItem) => {
+    if (item.kind === 'draft-question' || item.kind === 'draft-review') { setOpenedDraftId(item.id); return; }
+    if (item.kind === 'site-login') {
+      const cred = siteLogins.find((c) => c.id === item.id);
+      if (cred) setSiteLoginOpened(cred);
+      return;
+    }
+    const row = integrations.find((i) => i.id === item.id);
+    if (row) openIntegration(row);
+  };
 
   const matchedConnections = useMemo(() => (q ? connectedRows.filter((i) => {
     const preset = presetById(i.preset);
@@ -222,22 +244,14 @@ export function ConnectorsSettings() {
         </section>
       ) : (
         <>
-          {(reviewDrafts.length > 0 || brokenRows.length > 0) && (
+          {attention.length > 0 && (
             <section className="space-y-3">
               <h2 className={`${FONT.lg} text-foreground`}>{t('Needs your attention')}</h2>
               <div className={`${SETTINGS_ISLAND} px-5 py-1.5`}>
-                {reviewDrafts.map((d) => (
-                  <AttentionRow key={d.id} name={d.name} icon={null} reason={t('Waiting for your review')} tone="warning"
-                    onOpen={() => setOpenedDraftId(d.id)} />
+                {attention.map((item) => (
+                  <AttentionRow key={`${item.kind}:${item.id}`} name={item.name} icon={item.icon} reason={t(item.reason)} tone={item.tone}
+                    onOpen={() => openAttention(item)} />
                 ))}
-                {brokenRows.map((i) => {
-                  const last = readLastTest(i.last_test);
-                  return (
-                    <AttentionRow key={i.id} name={i.name} icon={i.icon ?? presetById(i.preset)?.icon ?? null}
-                      reason={t(last ? testOutcomeLabel(last.code) : INTEGRATION_STATUS_LABELS['action-needed'])} tone="danger"
-                      onOpen={() => openIntegration(i)} />
-                  );
-                })}
               </div>
             </section>
           )}
@@ -259,6 +273,9 @@ export function ConnectorsSettings() {
               </div>
             )}
           </section>
+
+          <SiteCredentialsSection credentials={siteLogins} loading={siteLoginsQuery.loading} error={siteLoginsQuery.error}
+            isOwner={isOwner} ownerKnown={ownerRole !== null} onOpen={setSiteLoginOpened} />
 
           {categories.length > 0 && (
             <section className="space-y-5">
@@ -293,13 +310,8 @@ export function ConnectorsSettings() {
             {(customPresets.length > 0 || isOwner) && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {customPresets.map((preset) => presetCard({ preset, state: 'ready' }))}
-                {isOwner && <WebsiteSignInCard onOpen={() => setSiteLoginAddOpen(true)} />}
+                {isOwner && <WebsiteSignInCard onOpen={() => setSiteLoginOpened('new')} />}
               </div>
-            )}
-
-            {spaceId && (
-              <SiteCredentialsSection spaceId={spaceId} integrations={integrations} isOwner={isOwner} ownerKnown={ownerRole !== null}
-                addOpen={siteLoginAddOpen} onAddOpenChange={setSiteLoginAddOpen} />
             )}
 
             {drafts.length > 0 && (
@@ -343,6 +355,17 @@ export function ConnectorsSettings() {
           </div>
         )}
       </section>
+
+      {siteLoginOpened && spaceId && (
+        <SiteCredentialDialog
+          spaceId={spaceId}
+          credential={siteLoginOpenedRow}
+          integrations={integrations}
+          canEdit={isOwner}
+          onClose={() => setSiteLoginOpened(null)}
+          onChanged={() => { void siteLoginsQuery.refetch(); }}
+        />
+      )}
 
       {openedDraft && spaceId && (
         <IntegrationDraftDialog
