@@ -260,14 +260,19 @@ export function ConnectorsSettings() {
             )}
           </section>
 
-          {categories.map((group) => (
-            <section key={group.category} className="space-y-3">
-              <h2 className={FONT.label}>{t(CATEGORY_LABELS[group.category])}</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.cards.map(presetCard)}
-              </div>
+          {categories.length > 0 && (
+            <section className="space-y-5">
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Add a service')}</h2>
+              {categories.map((group) => (
+                <div key={group.category} className="space-y-3">
+                  <h3 className={FONT.label}>{t(CATEGORY_LABELS[group.category])}</h3>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.cards.map(presetCard)}
+                  </div>
+                </div>
+              ))}
             </section>
-          ))}
+          )}
         </>
       )}
 

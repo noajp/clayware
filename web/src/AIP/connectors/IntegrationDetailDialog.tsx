@@ -387,9 +387,9 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
               <DialogDescription className="mt-1 text-[12px]">{t(preset.description)}</DialogDescription>
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                 <SourceChip source={preset.source} />
-                {preset.custom
-                  ? <span>{KIND_LABELS[preset.kind]}</span>
-                  : <span>{t('Built by {name}', { name: t(preset.builtBy) })}</span>}
+                {!preset.custom && <span>{t('Built by {name}', { name: t(preset.builtBy) })}</span>}
+                {!preset.custom && <span aria-hidden="true">·</span>}
+                <span>{t(KIND_LABELS[preset.kind])}</span>
                 {preset.docsUrl && (
                   <>
                     <span aria-hidden="true">·</span>
@@ -558,12 +558,16 @@ export function IntegrationDetailDialog({ spaceId, preset, integration, canEdit,
             </p>
           )}
 
-          <div className="-my-1">
+          {/* On/off and delegation are a connection's settings: a new one
+              starts on, asking before every write, and both appear once it
+              exists — so a first look reads what it is → the one button →
+              what will be asked. */}
+          {integration && <div className="-my-1">
             <ToggleRow flush label={t('Enabled')} desc={isModel ? t('When off, AI agents on this connection do not run.') : t('When off, agents do not see this connection.')} value={enabled}
               disabled={readOnly} onChange={(v) => setLive({ enabled: v })} />
-          </div>
+          </div>}
 
-          {!isModel && (
+          {integration && !isModel && (
             <Field label={t('Delegation')}>
               <div className="space-y-1.5">
                 <DropdownMenu>
