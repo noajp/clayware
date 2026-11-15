@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { historyLine, readableDetail, readHandovers, readStatusChange } from '@/Function/shared/historyLine';
+import { historyLine, readVia, readBranches, readableDetail, readHandovers, readStatusChange } from '@/Function/shared/historyLine';
 
 const e = (id: string, kind: string, detail = '') => ({ id, kind, detail });
 const shape = (items: ReturnType<typeof historyLine<ReturnType<typeof e>>>) =>
@@ -17,7 +17,7 @@ describe('historyLine', () => {
     ]))).toEqual(['1', 'edits:2456', '7']);
   });
   it('folds a run at the very end', () => {
-    expect(historyLine([e('1', 'due'), e('2', 'priority')])).toEqual([{ type: 'edits', id: 'edits:1', entries: [e('1', 'due'), e('2', 'priority')] }]);
+    expect(historyLine([e('1', 'due'), e('2', 'priority')])).toEqual([{ type: 'edits', id: 'edits:1', entries: [e('1', 'due'), e('2', 'priority')], lane: 'main' }]);
   });
 });
 
@@ -53,5 +53,48 @@ describe('readHandovers', () => {
     const items = historyLine(entries);
     expect(items.map((i) => i.type === 'edits' ? 'edits' : i.entry.id)).toEqual(['5', '4', '2', '1']);
     expect(items[1]).toMatchObject({ type: 'change', handover: { from: 'Temp', to: 'Sato' } });
+  });
+});
+
+describe('readBranches', () => {
+  it('opens a branch at a request, keeps rework on it, and brings it back when approved', () => {
+    // Newest first.
+    const entries = [
+      e('8', 'due'),
+      e('7', 'status', 'review → done'),
+      e('6', 'status', 'in_progress → review'),
+      e('5', 'description'),
+      e('4', 'status', 'review → in_progress'),
+      e('3', 'status', 'in_progress → review'),
+      e('2', 'status', 'todo → in_progress'),
+      e('1', 'created'),
+    ];
+    const b = readBranches(entries);
+    expect(entries.map((x) => { const v = b.get(x.id)!; return `${x.id}:${v.lane}${v.role ? `:${v.role}` : ''}`; })).toEqual([
+      '8:main', '7:main:approve', '6:branch:request', '5:branch', '4:branch:sendBack', '3:branch:request', '2:main', '1:main',
+    ]);
+    const items = historyLine(entries);
+    expect(items.map((i) => (i.type === 'edits' ? 'edits' : i.entry.id) + ':' + i.lane)).toEqual([
+      '8:main', '7:main', '6:branch', '5:branch', '4:branch', '3:branch', '2:main', '1:main',
+    ]);
+  });
+  it('closes a branch cancelled before it is decided', () => {
+    const b = readBranches([e('3', 'status', 'review → cancelled'), e('2', 'status', 'todo → review'), e('1', 'created')]);
+    expect(b.get('3')).toEqual({ lane: 'branch', role: 'close' });
+    expect(b.get('1')).toEqual({ lane: 'main' });
+  });
+});
+
+describe('readVia', () => {
+  it('absorbs a "via" record into the change it was written after', () => {
+    const entries = [
+      { id: '3', kind: 'note', detail: 'Updated status — via Claude (MCP · OAuth)', author: 'TAKA' },
+      { id: '2', kind: 'status', detail: 'todo → done', author: 'TAKA' },
+      { id: '1', kind: 'note', detail: 'Linked a Note', author: 'TAKA' },
+    ];
+    const { via, absorbed } = readVia(entries);
+    expect([...absorbed]).toEqual(['3']);
+    expect(via.get('2')).toBe('Claude (MCP · OAuth)');
+    expect(historyLine(entries).map((i) => (i.type === 'change' ? `${i.entry.id}${i.via ? '+via' : ''}` : 'edits'))).toEqual(['2+via', '1']);
   });
 });

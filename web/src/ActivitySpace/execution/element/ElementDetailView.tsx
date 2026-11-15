@@ -925,8 +925,8 @@ function ElementDetailBody({
             </PageSection>
           )}
 
-          {layout === 'reader' && <section className="space-y-3" aria-label={t('Activity')}>
-            <h2 className={`${FONT.lg} text-foreground`}>{t('Activity')}</h2>
+          {layout === 'reader' && <section className="space-y-3" aria-label={t('History')}>
+            <h2 className={`${FONT.lg} text-foreground`}>{t('History')}</h2>
             <ActivityFeed entries={activityLog} compact />
           </section>}
 
@@ -1271,7 +1271,7 @@ function ElementDetailBody({
             {/* Activity — moved off the main column. Lives in the rail
                 as its own island so the body stays focused on title /
                 description / sub-elements / comments. */}
-            {layout !== 'reader' && <RailCard title={activityLog.length ? t('Activity · {n}', { n: activityLog.length }) : t('Activity')} padded>
+            {layout !== 'reader' && <RailCard title={t('History')} padded>
               <ActivityFeed entries={activityLog} compact />
             </RailCard>}
             {/* The standalone "Objects" island was folded into the top of the

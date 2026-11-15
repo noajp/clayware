@@ -1,10 +1,12 @@
 // The history drawn as one line, the way a git graph is drawn: only what
 // moves the work stands on the line (made, its status, a hand-over to someone
-// else, moved, deleted, restored, its direction), the newest as the ring that
-// stands for how the thing is now. The line is the thing's, not a person's:
-// who did each change is the name on its point. Everything between — dates, people, the title, a word of the
-// description — folds into one numbered point that opens to show it, and a
-// field set several times in a row shows only where it ended.
+// else, moved, deleted, restored, its direction), and a request for approval
+// branches off it until it is decided — approved, it comes back in. The
+// newest point is the ring that stands for how the thing is now. The line is
+// the thing's, not a person's: who did each change is the name on its point.
+// Everything between — dates, people, the title, a word of the description —
+// folds into one numbered point that opens to show it, and a field set
+// several times in a row shows only where it ended.
 
 /** What moves the work; the rest is detail between those points. */
 const LINE_KINDS = new Set(['created', 'status', 'moved', 'deleted', 'restored', 'direction']);
@@ -81,28 +83,90 @@ export function readHandovers(entries: readonly Dated[]): { handovers: Map<strin
   return { handovers, absorbed };
 }
 
+/** Where a point sits: on the line itself, or on the branch a request for
+ *  approval opens until it is decided. */
+export type Lane = 'main' | 'branch';
+
+/** What a point does to the branch: asks for approval (opens it, or asks
+ *  again on it), is approved (the branch comes back into the line), is sent
+ *  back (the work goes on on the branch), or is closed without approval. */
+export type BranchRole = 'request' | 'approve' | 'sendBack' | 'close';
+
+/** Pure. The records that only say through what a change was made ("Updated
+ *  status — via Claude (MCP · OAuth)"), written just after the change itself:
+ *  each is absorbed, and its "via …" goes to that change by the same person. */
+export function readVia(entries: readonly Dated[]): { via: Map<string, string>; absorbed: Set<string> } {
+  const via = new Map<string, string>();
+  const absorbed = new Set<string>();
+  entries.forEach((e, i) => {
+    if (e.kind !== 'note') return;
+    const m = /^(?:Updated|Created) .+ — via (.+)$/.exec(e.detail ?? '');
+    if (!m) return;
+    absorbed.add(e.id);
+    // Newest first: the change it speaks for is the next older record of the same person.
+    const change = entries.slice(i + 1).find((x) => x.kind !== 'note' && x.author === e.author);
+    if (change && !via.has(change.id)) via.set(change.id, m[1]);
+  });
+  return { via, absorbed };
+}
+
 export type HistoryItem<E> =
-  | { type: 'change'; entry: E; small: boolean; handover?: Handover }
-  | { type: 'edits'; id: string; entries: E[] };
+  | { type: 'change'; entry: E; small: boolean; lane: Lane; handover?: Handover; role?: BranchRole; via?: string }
+  | { type: 'edits'; id: string; entries: E[]; lane: Lane };
+
+/** Pure. Each entry's lane and its part in a review, read oldest first:
+ *  going In Review opens a branch; from there, Done brings it back into the
+ *  line (approved) and anything short of Done keeps the work on it (sent
+ *  back) until it is asked again; Cancelled closes it. Everything recorded
+ *  while it is open sits on it. */
+export function readBranches(entries: readonly Dated[]): Map<string, { lane: Lane; role?: BranchRole }> {
+  const out = new Map<string, { lane: Lane; role?: BranchRole }>();
+  let open = false;
+  for (const e of [...entries].reverse()) {
+    const change = e.kind === 'status' ? readStatusChange(e.detail ?? '') : null;
+    if (change) {
+      const [from, to] = change;
+      if (to === 'review') { open = true; out.set(e.id, { lane: 'branch', role: 'request' }); continue; }
+      if (open && to === 'done') { open = false; out.set(e.id, { lane: 'main', role: 'approve' }); continue; }
+      if (open && to === 'cancelled') { open = false; out.set(e.id, { lane: 'branch', role: 'close' }); continue; }
+      if (open && from === 'review') { out.set(e.id, { lane: 'branch', role: 'sendBack' }); continue; }
+    }
+    out.set(e.id, { lane: open ? 'branch' : 'main' });
+  }
+  return out;
+}
 
 /** Pure. Entries newest first, with each run of two or more details in a
  *  row folded into one item. */
 export function historyLine<E extends Dated>(entries: readonly E[]): HistoryItem<E>[] {
   const { handovers, absorbed } = readHandovers(entries);
+  const { via, absorbed: notes } = readVia(entries);
+  const branches = readBranches(entries);
   const out: HistoryItem<E>[] = [];
   let run: E[] = [];
+  let runLane: Lane = 'main';
   const flush = () => {
     run = settled(run);
-    if (run.length === 1) out.push({ type: 'change', entry: run[0], small: true });
-    else if (run.length > 1) out.push({ type: 'edits', id: `edits:${run[0].id}`, entries: run });
+    if (run.length === 1) {
+      const through = via.get(run[0].id);
+      out.push({ type: 'change', entry: run[0], small: true, lane: runLane, ...(through ? { via: through } : {}) });
+    }
+    else if (run.length > 1) out.push({ type: 'edits', id: `edits:${run[0].id}`, entries: run, lane: runLane });
     run = [];
   };
   for (const e of entries) {
-    if (absorbed.has(e.id)) continue;
+    if (absorbed.has(e.id) || notes.has(e.id)) continue;
     const handover = handovers.get(e.id);
-    if (!handover && isSmallEdit(e.kind)) { run.push(e); continue; }
+    const through = via.get(e.id);
+    const { lane, role } = branches.get(e.id) ?? { lane: 'main' as Lane };
+    if (!handover && !role && isSmallEdit(e.kind)) {
+      if (run.length && runLane !== lane) flush();
+      runLane = lane;
+      run.push(e);
+      continue;
+    }
     flush();
-    out.push(handover ? { type: 'change', entry: e, small: false, handover } : { type: 'change', entry: e, small: false });
+    out.push({ type: 'change', entry: e, small: false, lane, ...(handover ? { handover } : {}), ...(role ? { role } : {}), ...(through ? { via: through } : {}) });
   }
   flush();
   return out;
