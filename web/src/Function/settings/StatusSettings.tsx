@@ -7,19 +7,19 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { ItemIconButton } from '@/Function/shared/itemIcon/IconPicker';
-import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
-import { statusesByStage, stagesOf, type Status, type StatusScope } from '@/Function/shared/workStatus';
-import { useStatusName } from '@/Function/shared/WorkStatusPicker';
+import { statusesByStage, type Status, type StatusScope } from '@/Function/shared/workStatus';
+import { useStatusName } from '@/Function/shared/StatusLook';
 import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
 import type { ElementStatus } from '@/types/database';
 import { createWorkStatus, deleteWorkStatus, saveWorkStatusLook, useElementStatusCounts, useWorkStatusCounts, useWorkStatuses } from '@/hooks/workStatuses';
 
-// Settings › Statuses: the stages an Object or a Strategy (scope 'work') or
-// an Element (scope 'element') goes through, each with its own status and the
-// ones the Space added under it. A stage is fixed — lists, boards, reports
-// and rules go by it — and what the Space sets is how each status reads: its
-// name, its icon and colour, and which more there are. An Element's status
-// without an icon of its own is drawn by its stage's designed mark.
+// Settings › Statuses: the seven stages an Element (scope 'element') or an
+// Object and a Strategy (scope 'work') go through, each with its own status
+// and the ones the Space added under it. A stage is fixed — lists, boards,
+// reports and rules go by it — and what the Space sets is how each status
+// reads: its name, its icon and colour, and which more there are. A status
+// without an icon of its own is drawn by its stage's designed mark. The two
+// pages look alike; only the statuses added under a stage differ.
 
 export function StatusSettings({ scope }: { scope: StatusScope }) {
   const { t } = useI18n();
@@ -39,7 +39,6 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
     work().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   };
   const keyOf = (s: Status) => s.id ?? s.stage;
-  const looks = stagesOf(scope);
   const lookOf = (s: Status) => ({ name: s.name, icon: s.icon, color: s.color });
   const save = (s: Status, patch: { name?: string; icon?: string | null; color?: string | null }) =>
     run(() => saveWorkStatusLook(spaceId, { rowId: s.rowId, scope, stage: s.stage }, lookOf(s), patch));
@@ -66,7 +65,6 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
       </p>
       {error && <p role="alert" className="text-[12px] text-[var(--status-danger)]">{error}</p>}
       {loading ? <div className="text-[13px] text-muted-foreground">{t('Loading…')}</div> : statusesByStage(scope, rows).map((group) => {
-        const stageLook = looks.find((l) => l.stage === group.stage);
         return (
           <section key={group.stage} aria-label={t(group.label)}>
             <div className="flex h-10 items-center rounded-lg bg-muted/60 pl-4 pr-2">
@@ -83,9 +81,7 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
                     <ItemIconButton size={16} label={t('Change icon')}
                       value={{ icon: status.icon, color: status.color }}
                       onChange={(next) => save(status, { icon: next.icon, color: next.color })}
-                      defaultIcon={scope === 'element'
-                        ? <ElementProgressMark status={group.stage as ElementStatus} progress={group.stage === 'in_progress' ? 50 : 0} size={16} />
-                        : <ItemIcon icon={stageLook?.icon} color={stageLook?.color} size={16} />} />
+                      defaultIcon={<ElementProgressMark status={group.stage as ElementStatus} progress={group.stage === 'in_progress' ? 50 : 0} size={16} />} />
                   </span>
                   <div className="min-w-0 flex-1">
                     {renaming === keyOf(status) ? (
