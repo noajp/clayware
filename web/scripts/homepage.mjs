@@ -5,7 +5,7 @@
 //
 // website/ links its images as assets/…; served from /homepage they become
 // /homepage/assets/…. Generated output is not committed (.gitignore).
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,4 +37,5 @@ for (const [dir, ja] of [['', false], ['ja', true]]) {
     writeFileSync(join(out, dir, page), rewrite(readFileSync(join(from, dir, page), 'utf8'), ja));
   }
 }
-for (const file of readdirSync(join(from, 'assets'))) copyFileSync(join(from, 'assets', file), join(out, 'assets', file));
+// Assets keep their folders (assets/logos/…).
+cpSync(join(from, 'assets'), join(out, 'assets'), { recursive: true });
