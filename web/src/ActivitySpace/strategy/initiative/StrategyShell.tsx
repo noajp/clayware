@@ -8,6 +8,7 @@ import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ViewTabs } from '@/Function/shared/ViewTabs';
 import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/boardOrientation';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { FollowButton } from '@/Function/shared/FollowButton';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, FileText, MessageCircle, MoreHorizontal, Plus, Search, X } from '@/ui/icons';
@@ -1001,6 +1002,7 @@ function StrategyDetailView({
         </span>
         {/* Beside the name, as on an Object: move it, or delete it. */}
         <InitiativeActionsButton initiative={strategy} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />
+        <FollowButton kind="strategy" id={strategy.id} />
         {!canEdit && (
           // Said once, where the eye lands first. The Strategy's own
           // structure — name, description, Objects, nested Strategies —
