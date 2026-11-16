@@ -41,6 +41,8 @@ export interface GapReport {
   broken: BrokenBasis[];
   unserved: Intent[];
   unanchored: GapElement[];
+  /** Open Elements bound to at least one intent that still stands. */
+  anchoredIds: Set<string>;
   /** Whether the Strategy has any intent to bind to; without one, unanchored says nothing. */
   hasIntents: boolean;
 }
@@ -86,6 +88,7 @@ export function buildGapReport(input: {
   const seenBroken = new Set<string>();
   const servedBy = new Map<string, number>();
   const anchored = new Set<string>();
+  const anchoredIds = new Set<string>();
   for (const b of elementBindings) {
     const intent = byId.get(b.intent_id)!;
     const element = elements.get(b.target_id);
@@ -93,6 +96,7 @@ export function buildGapReport(input: {
     anchored.add(element.id);
     servedBy.set(intent.id, (servedBy.get(intent.id) ?? 0) + 1);
     const cause = brokenCause(intent);
+    if (!cause && isOpenElement(element)) anchoredIds.add(element.id);
     if (cause && isOpenElement(element) && !seenBroken.has(element.id)) {
       seenBroken.add(element.id);
       broken.push({ element, intent, cause });
@@ -103,7 +107,24 @@ export function buildGapReport(input: {
   const unanchored = intents.length === 0 ? [] : input.elements.filter((e) =>
     input.ownElementIds.has(e.id) && isOpenElement(e) && !anchored.has(e.id));
 
-  return { broken, unserved, unanchored, hasIntents: intents.length > 0 };
+  return { broken, unserved, unanchored, anchoredIds, hasIntents: intents.length > 0 };
+}
+
+/** Where an open Element stands against the Strategy, for the range map:
+ *  outside (a broken basis, or Athena judged it off course or obsolete), on
+ *  the edge (Athena could not tell what it is for), aligned (bound to an
+ *  intent that stands), or unknown (no reason written, nothing found). */
+export type Standing = 'out' | 'edge' | 'aligned' | 'unknown';
+
+export function standingOf(
+  elementId: string,
+  report: Pick<GapReport, 'broken' | 'anchoredIds'>,
+  aiKinds: ReadonlyMap<string, 'off_course' | 'obsolete' | 'unclear'>,
+): Standing {
+  const ai = aiKinds.get(elementId);
+  if (ai === 'off_course' || ai === 'obsolete' || report.broken.some((b) => b.element.id === elementId)) return 'out';
+  if (ai === 'unclear') return 'edge';
+  return report.anchoredIds.has(elementId) ? 'aligned' : 'unknown';
 }
 
 /** Whether Athena's reading was made before the Strategy last changed — its

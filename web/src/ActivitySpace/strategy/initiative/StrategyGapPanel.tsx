@@ -12,7 +12,8 @@ import { useStrategyGapCheck, type GapFinding, type GapFindingKind } from '@/hoo
 import type { ClaywareObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
 import type { Intent } from '@/types/database';
 import { useInitiativeIntentContext } from './InitiativeIntent';
-import { buildGapReport, isCheckStale, type BrokenCause } from './gapModel';
+import { buildGapReport, isCheckStale, standingOf, type BrokenCause } from './gapModel';
+import { StrategyRangeMap, type RangeElement, type RangeObject } from './StrategyRangeMap';
 
 // The Gap section at the top of a Strategy's Evaluation tab: where the work
 // under the Strategy has drifted from what the Strategy says.
@@ -40,12 +41,15 @@ const KIND_WORD: Record<string, string> = { decision: 'Decided', measure: 'Succe
 /** How many unanchored Elements show before the rest fold. */
 const UNANCHORED_SHOWN = 5;
 
-export function StrategyGapPanel({ strategyId, strategyUpdatedAt, objects, ownObjectIds, onOpenObject }: {
+export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, objects, ownObjectIds, via, onOpenObject }: {
   strategyId: string;
+  strategyName: string;
   strategyUpdatedAt: string | null;
   /** The Objects the Strategy reaches, its descendants' included, with their Elements. */
   objects: ClaywareObjectWithChildren[];
   ownObjectIds: readonly string[];
+  /** For an Object held by a Strategy under this one: that Strategy. */
+  via: ReadonlyMap<string, { id: string; name: string }>;
   onOpenObject?: (objectId: string, domainId: string | null) => void;
 }) {
   const { t } = useI18n();
@@ -80,6 +84,33 @@ export function StrategyGapPanel({ strategyId, strategyUpdatedAt, objects, ownOb
     if (obj) onOpenObject?.(obj.id, obj.domain_id ?? null);
   };
 
+  // The range map: each open Element's standing, each Object's, and the
+  // Strategies under this one that hold them.
+  const map = useMemo(() => {
+    const aiKinds = new Map<string, GapFindingKind>();
+    const objectOut = new Set<string>();
+    for (const f of check?.findings ?? []) {
+      if (f.target_type === 'element') aiKinds.set(f.target_id, f.kind);
+      if (f.target_type === 'object' && f.kind !== 'unclear') objectOut.add(f.target_id);
+    }
+    const subs = new Map<string, { id: string; label: string }>();
+    const mapObjects: RangeObject[] = objects.map((o) => {
+      const holder = via.get(o.id);
+      if (holder && !subs.has(holder.id)) subs.set(holder.id, { id: holder.id, label: holder.name });
+      return { id: o.id, label: o.name, holderId: holder?.id ?? null, standing: objectOut.has(o.id) ? 'out' : 'in' };
+    });
+    const homes = new Set(objects.map((o) => o.id));
+    const mapElements: RangeElement[] = elements
+      .filter((e) => e.status !== 'done' && e.status !== 'cancelled')
+      .map((e) => ({
+        id: e.id,
+        label: e.display_id ? `${e.display_id} ${e.title}` : e.title,
+        objectId: e.object_id && homes.has(e.object_id) ? e.object_id : (objects.find((o) => (o.elements ?? []).some((x) => x.id === e.id))?.id ?? null),
+        standing: standingOf(e.id, report, aiKinds),
+      }));
+    return { strategies: [...subs.values()], objects: mapObjects, elements: mapElements };
+  }, [check, objects, via, elements, report]);
+
   const stale = check ? isCheckStale(check.created_at, strategyUpdatedAt, intents) : false;
   const linksClear = report.broken.length === 0 && report.unserved.length === 0 && report.unanchored.length === 0;
   const unanchoredShown = showAllUnanchored ? report.unanchored : report.unanchored.slice(0, UNANCHORED_SHOWN);
@@ -93,6 +124,11 @@ export function StrategyGapPanel({ strategyId, strategyUpdatedAt, objects, ownOb
       <p className="mb-3 text-[12px] text-muted-foreground">
         {t('Where the work under this Strategy no longer matches what it says.')}
       </p>
+
+      <div className="mb-4">
+        <StrategyRangeMap name={strategyName} strategies={map.strategies} objects={map.objects} elements={map.elements}
+          unserved={report.unserved.length} onOpenElement={openElement} onOpenObject={openObject} />
+      </div>
 
       {/* Athena's reading — a record of one moment, shown as such. */}
       <div className="rounded-lg border border-border/60">

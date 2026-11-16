@@ -6,6 +6,12 @@ type Row = [ja: string, ko: string, fr: string, es: string];
 
 const STRATEGY_MESSAGES: Record<string, Row> = {
   // Gap (Evaluation tab)
+  'No Objects under this Strategy yet.': ['この Strategy にはまだ Object がありません。', '이 Strategy에는 아직 Object가 없습니다.', 'Aucun Object sous cette Strategy pour l’instant.', 'Esta Strategy aún no tiene Objects.'],
+  'Outside the reach': ['射程の外', '사정거리 밖', 'Hors de portée', 'Fuera del alcance'],
+  'On the edge': ['縁にいる（要確認）', '경계에 있음(확인 필요)', 'À la limite (à vérifier)', 'En el borde (por revisar)'],
+  'Serves the Strategy': ['目的に沿う', '목적에 부합', 'Sert la Strategy', 'Sirve a la Strategy'],
+  'Range map of {name}': ['{name} の射程', '{name}의 사정거리', 'Portée de {name}', 'Alcance de {name}'],
+  '{n} intents with no work': ['進める仕事がない意図 {n}', '작업이 없는 의도 {n}', '{n} intentions sans travail', '{n} intenciones sin trabajo'],
   'Gap': ['Gap', 'Gap', 'Gap', 'Gap'],
   'Check again with Athena': ['Athena でもう一度確かめる', 'Athena로 다시 확인', 'Revérifier avec Athena', 'Volver a comprobar con Athena'],
   'Check with Athena': ['Athena で確かめる', 'Athena로 확인', 'Vérifier avec Athena', 'Comprobar con Athena'],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGapReport, isCheckStale } from '../src/ActivitySpace/strategy/initiative/gapModel';
+import { buildGapReport, isCheckStale, standingOf } from '../src/ActivitySpace/strategy/initiative/gapModel';
 import type { Intent, IntentBinding } from '../src/types/database';
 
 const brief = await import(new URL('../../supabase/functions/strategy-gap/gapBrief.ts', import.meta.url).pathname) as typeof import('../../supabase/functions/strategy-gap/gapBrief');
@@ -51,6 +51,17 @@ describe('buildGapReport', () => {
     const empty = buildGapReport({ intents: [], bindings: [], elements, ownElementIds: new Set(['e4']) });
     expect(empty.hasIntents).toBe(false);
     expect(empty.unanchored).toEqual([]);
+  });
+});
+
+describe('standingOf', () => {
+  const report = { broken: [{ element: { id: 'b', title: '' }, intent: {} as Intent, cause: 'reversed' as const }], anchoredIds: new Set(['a', 'x']) };
+  it('puts broken bases and Athena’s off-course work outside, its unclear work on the edge', () => {
+    expect(standingOf('b', report, new Map())).toBe('out');
+    expect(standingOf('a', report, new Map([['a', 'off_course' as const]]))).toBe('out');
+    expect(standingOf('x', report, new Map([['x', 'unclear' as const]]))).toBe('edge');
+    expect(standingOf('a', report, new Map())).toBe('aligned');
+    expect(standingOf('z', report, new Map())).toBe('unknown');
   });
 });
 

@@ -1064,8 +1064,8 @@ function StrategyDetailView({
                 from its links and, when asked, by Athena (StrategyGapPanel).
                 The run records' numbers follow. */}
             <div className="space-y-8">
-              <StrategyGapPanel strategyId={strategy.id} strategyUpdatedAt={strategy.updated_at ?? null}
-                objects={boardObjects} ownObjectIds={strategy.objectIds} onOpenObject={onOpenObject} />
+              <StrategyGapPanel strategyId={strategy.id} strategyName={strategy.name} strategyUpdatedAt={strategy.updated_at ?? null}
+                objects={boardObjects} ownObjectIds={strategy.objectIds} via={descendantHolders} onOpenObject={onOpenObject} />
               <StrategyEvaluationPanel objects={missionProps.objects} />
             </div>
           </div>
