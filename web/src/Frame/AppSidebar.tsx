@@ -431,7 +431,7 @@ export function AppSidebar({
 
           {section === 'home' && <>
           {/* Home: the person's own rows, in their order (drag a row to
-              move it), then what they follow. */}
+              move it). */}
           <div className="mt-5">
             {sidebarOrder.map((item) => {
               const row = (() => {
@@ -490,13 +490,6 @@ export function AppSidebar({
             })}
           </div>
 
-          <FollowSection activeObjectId={navigation.objectId ?? null} onOpen={(f) => {
-            if (f.domainId) setActiveDomainId(f.domainId);
-            if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
-            const nav = { objectId: f.objectId, objectDomainId: f.domainId ?? undefined };
-            if (onOpenItem) onOpenItem('objects', nav);
-            else { onNavigate(nav); onViewChange('objects'); }
-          }} />
           </>}
 
           {section === 'strategy' && (
@@ -511,6 +504,13 @@ export function AppSidebar({
 
           {section === 'execution' && <>
           <div className="mt-5" />
+          <FollowSection kinds={['object', 'element']} activeId={activeView === 'objects' ? navigation.objectId ?? null : null} onOpen={(f) => {
+            if (f.domainId) setActiveDomainId(f.domainId);
+            if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
+            const nav = { objectId: f.objectId, objectDomainId: f.domainId ?? undefined };
+            if (onOpenItem) onOpenItem('objects', nav);
+            else { onNavigate(nav); onViewChange('objects'); }
+          }} />
           <SidebarFold id="execution-domains" label={t('Your Execution')}>
 
           {/* All domains — the name opens the overview; the chevron expands the tree.

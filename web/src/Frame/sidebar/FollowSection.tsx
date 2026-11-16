@@ -5,23 +5,33 @@ import { SidebarFold } from '@/Function/shared/SidebarFold';
 import { SidebarRow } from '@/Function/shared/SidebarRow';
 import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
 import { ObjectIcon } from '@/Frame/icons';
-import { useFollows, type Followed } from '@/hooks/followData';
+import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
+import { useFollows, type FollowKind, type Followed } from '@/hooks/followData';
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 
-/** "Follow ▾": the Objects and Elements this person follows (the star beside
- *  an Object's or an Element's "…"); each opens where it lives. Absent until
- *  they follow something. */
-export function FollowSection({ activeObjectId, onOpen }: { activeObjectId: string | null; onOpen: (item: Followed) => void }) {
+/** "Following ▾": what this person starred (the star beside a page's "…"),
+ *  of the kinds this place lists — Strategies in the Strategy place, Objects
+ *  and Elements in Execution; each opens where it lives. Absent until they
+ *  star something. */
+export function FollowSection({ kinds, activeId, onOpen }: {
+  kinds: readonly FollowKind[];
+  /** The open Strategy or Object, to mark its row. */
+  activeId: string | null;
+  onOpen: (item: Followed) => void;
+}) {
   const { t } = useI18n();
   const { follows, loading } = useFollows();
-  if (loading || !follows.length) return null;
+  const shown = follows.filter((f) => kinds.includes(f.kind));
+  if (loading || !shown.length) return null;
   return (
-    <SidebarFold id="execution-follow" label={t('Follow')}>
+    <SidebarFold id={`following-${kinds.join('-')}`} label={t('Following')}>
       <div className="space-y-px">
-        {follows.map((f) => (
+        {shown.map((f) => (
           <SidebarRow key={`${f.kind}:${f.id}`} label={f.label} title={f.label}
-            active={f.kind === 'object' && f.objectId === activeObjectId}
-            icon={f.kind === 'object' ? <ObjectIcon size={16} /> : <ElementProgressMark status={f.status as ElementWithDetails['status']} size={16} />}
+            active={f.kind !== 'element' && f.id === activeId}
+            icon={f.kind === 'strategy' ? <NavStrategyIcon size={16} />
+              : f.kind === 'object' ? <ObjectIcon size={16} />
+              : <ElementProgressMark status={f.status as ElementWithDetails['status']} size={16} />}
             onClick={() => onOpen(f)} />
         ))}
       </div>

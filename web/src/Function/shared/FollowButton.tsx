@@ -7,8 +7,8 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { useFollow, type FollowKind } from '@/hooks/followData';
 
-/** The star beside an Object's or an Element's "…": follow it (it joins
- *  Follow in Execution's sidebar), or stop. Filled while followed. */
+/** The star beside a Strategy's, an Object's or an Element's "…": follow
+ *  it (it joins Following in the sidebar), or stop. Filled while followed. */
 export function FollowButton({ kind, id }: { kind: FollowKind; id: string }) {
   const { t } = useI18n();
   const { following, toggle } = useFollow(kind, id);
