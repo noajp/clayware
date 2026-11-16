@@ -536,7 +536,7 @@ export function ListTable({
     queueMicrotask(() => setViewWidth(el.clientWidth));
     return () => ro.disconnect();
   }, []);
-  // The trailing "+" (which fields show) is one 28px button.
+  // The trailing button (which fields show) is 28px.
   const TRAILING_COL_WIDTH = 40;
   const drawnWidth = (c: DataColumn) => cols.widthFor(c.id);
   const dataWidth = visibleColumns.reduce((sum, c) => sum + drawnWidth(c), 0);
@@ -892,7 +892,7 @@ export function ListTable({
               // and pinned there while the list slides sideways (z-30 above
               // the data column headers scrolling under it).
               <th className="table-cell sticky top-0 right-0 z-30 w-8 px-1 py-2.5 bg-card text-center">
-                {/* Trailing "+": which fields show as columns, and a new
+                {/* Trailing button: which fields show as columns, and a new
                     field where the list has a scope to create one in. */}
                 <div className="flex items-center justify-end">
                   <FieldsMenu allColumns={cols.allColumns} isVisible={cols.isVisible} onToggle={cols.toggleVisible} onCreate={onAddColumn} />

@@ -3,7 +3,7 @@
 import { FieldVisibility } from '@/Function/property/FieldVisibility';
 import { Button } from '@/ui/button';
 import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Pencil, ArrowDown, ArrowUp, EyeOff, Plus, X } from '@/ui/icons';
+import { ArrowLeft, ArrowRight, Pencil, ArrowDown, ArrowUp, EyeOff, FieldSwitches, Plus, X } from '@/ui/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuItem, MenuCheck } from '@/ui/dropdown-menu';
 import { MenuShell, MENU_ROW, MENU_SEPARATOR } from '@/Function/shared/menu';
@@ -189,9 +189,10 @@ export function ResizeHandle({
   );
 }
 
-/** The trailing "+" of the header: which fields show as columns (a switch
+/** The trailing button of the header: which fields show as columns (a switch
  *  each, searchable), and — where the list has a scope to create one in —
- *  a new field. */
+ *  a new field. It is a "+" only where a field can be added; elsewhere it
+ *  shows switches, since all it does is turn fields on and off. */
 export function FieldsMenu({
   allColumns, isVisible, onToggle, onCreate,
 }: {
@@ -205,7 +206,7 @@ export function FieldsMenu({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-      <Button ref={triggerRef} type="button" variant="ghost" size="icon-sm" aria-label={t('Fields')} title={t('Fields')}><Plus size={14} /></Button>
+      <Button ref={triggerRef} type="button" variant="ghost" size="icon-sm" aria-label={t('Fields')} title={t('Fields')}>{onCreate ? <Plus size={14} /> : <FieldSwitches size={14} />}</Button>
     </PopoverTrigger>
     <MenuShell align="end" width="wide">
       <FieldVisibility columns={allColumns} isVisible={isVisible} onToggle={onToggle} />

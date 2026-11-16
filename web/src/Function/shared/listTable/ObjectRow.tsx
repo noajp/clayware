@@ -78,7 +78,7 @@ export const ObjectRow = memo(function ObjectRow({
       }}
       // The Object list never scrolls horizontally (overflow-x-hidden on the
       // wrap), so nothing can slide under the sticky Name cells — the selected
-      // tint safely spans the full rounded band. Without a trailing "+"
+      // tint safely spans the full rounded band. Without a trailing fields button
       // column the band (rounding + tint) runs to the LAST cell (Elements);
       // with one it stops a cell short, mirroring the Element rows.
       className={`group cursor-pointer select-none leading-[1.4] [&>td]:transition-colors ${hasTrailingCol ? ROW_ROUND_BASE : ROW_ROUND_TO_LAST} ${isSelected ? (hasTrailingCol ? selectionSquareClass(selPrev, selNext) : selectionSquareClassToLast(selPrev, selNext)) : ''} ${DROP_LINE_CLASS} ${dropEdge ? DROP_LINE_SQUARE : ''} ${

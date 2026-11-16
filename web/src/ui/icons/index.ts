@@ -13,6 +13,7 @@ export {
   Settings,
   Settings2,
   SlidersHorizontal,
+  FieldSwitches,
   Bell,
   Calendar,
   CalendarIcon,
