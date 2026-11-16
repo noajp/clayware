@@ -190,6 +190,16 @@ export function AppSidebar({
   // a Strategy, Domain or Object from a small menu. Modes with nothing to
   // create show no "+".
   const calendarDay = useCalendarDay();
+  // One row lights for the open screen: the one it was opened from. A
+  // Strategy or an Object opened from Following lights there, and the rows
+  // that reach the same screen (Strategy, the Domain's Objects) stay dark;
+  // once that screen is left, the pick is forgotten.
+  const [followPick, setFollowPick] = useState<{ kind: 'strategy' | 'object' | 'element'; id: string } | null>(null);
+  const followPickOpen = !!followPick && (followPick.kind === 'strategy'
+    ? activeView === 'strategy' && navigation.strategyId === followPick.id
+    : activeView === 'objects' && navigation.objectId === followPick.id);
+  if (followPick && !followPickOpen) setFollowPick(null);
+  const treeView = followPickOpen ? '' : activeView;
   // Slides makes nothing until the Space's decks are loaded; the load would replace it.
   const slidesReady = useSlidesReady();
   // Team makes its units in its own list (owners only), so it has no "+".
@@ -498,10 +508,11 @@ export function AppSidebar({
           <div className="mt-5" />
           {/* Execution: Strategy (the list of Strategies), what this person
               starred, then the Domains. */}
-          <SidebarRow active={activeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
+          <SidebarRow active={treeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
             onClick={() => { onNavigate({ strategyId: null }); onViewChange('strategy'); }} />
           <FollowSection kinds={['strategy', 'object', 'element']}
-            activeId={activeView === 'objects' ? navigation.objectId ?? null : activeView === 'strategy' ? navigation.strategyId ?? null : null} onOpen={(f) => {
+            activeId={followPickOpen ? followPick!.id : null} onOpen={(f) => {
+            if (f.kind !== 'element') setFollowPick({ kind: f.kind, id: f.id });
             if (f.kind === 'strategy') { onNavigate({ strategyId: f.id }); onViewChange('strategy'); return; }
             if (f.domainId) setActiveDomainId(f.domainId);
             if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
@@ -522,7 +533,7 @@ export function AppSidebar({
                   domain={d}
                   isActive={d.id === activeDomain?.id}
                   expanded={expandedDomainIds.has(d.id)}
-                  activeView={activeView}
+                  activeView={treeView}
                   onOpen={() => {
                     setActiveDomainId(d.id);
                     onNavigate({ objectId: null, landOnTab: 'overview' });
@@ -548,7 +559,7 @@ export function AppSidebar({
               the active Space's Domains; a Domain invite never exposes the rest
               of a Space. */}
           {guestDomains.map(d => <DomainNavigationRow key={d.id} name={d.name} mark={<DomainMark domain={d} size={16} />}
-            active={d.id === activeDomain?.id} expanded={expandedDomainIds.has(d.id)} activeView={activeView}
+            active={d.id === activeDomain?.id} expanded={expandedDomainIds.has(d.id)} activeView={treeView}
             onOpen={() => { setActiveDomainId(d.id); onNavigate({ objectId: null, landOnTab: 'overview' }); onViewChange('domain-overview'); }}
             onToggle={() => setExpandedDomainIds(prev => {
               const next = new Set(prev);
