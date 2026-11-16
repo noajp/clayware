@@ -3,7 +3,6 @@
 import { DomainMark } from '@/Function/shared/DomainMark';
 import { SidebarFold } from '@/Function/shared/SidebarFold';
 import { FollowSection } from '@/Frame/sidebar/FollowSection';
-import { MeFooter } from '@/Frame/sidebar/MeFooter';
 import { requestElementDetail, requestObjectPage } from '@/Function/shared/element/elementDetailRequest';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -568,8 +567,6 @@ export function AppSidebar({
           )}
         </nav></ButtonAppearanceProvider>
 
-        {/* Who you are, at the foot; it opens the Profile. */}
-        <MeFooter active={railMode === 'personal'} onOpen={() => onViewChange('profile')} onOpenView={onViewChange} onSettings={onOpenSettings} />
 
 
         {!collapsed && (
