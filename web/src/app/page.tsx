@@ -889,6 +889,7 @@ function WorkspaceContent({
         {/* The ModeRail, an island of its own. On a phone it shows with the
             drawer, above the scrim. */}
         <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
+          activeView={activeTab.activeView} onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
           className={`my-1.5 ml-1.5 ${sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'}`} />
         {/* The sidebar's frame, inside a positioned holder: the frame itself
             is not positioned, so the sidebar's drawer (absolute) escapes its
