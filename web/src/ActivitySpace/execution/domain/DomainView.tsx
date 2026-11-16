@@ -34,6 +34,7 @@ import {
 } from '@/Function/shared/listControls';
 import { DomainOverview } from './DomainOverview';
 import { DomainNote } from './DomainNote';
+import { NEW_DOMAIN_NOTEBOOK } from '@/ActivitySpace/artifacts/notebook/NotebookList';
 import { DomainMembers } from './DomainMembers';
 import { HomeView } from '@/ActivitySpace/home/HomeView';
 import { WidgetActionSlotProvider, WidgetActionSlotTarget } from '@/Function/widget';
@@ -427,6 +428,14 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
         </Button>
       )}
     </div>
+  ) : effectiveActiveType === 'note' ? (
+    // The Note tab makes notebooks, not Objects.
+    <div className="ml-auto flex items-center gap-2">
+      <Button variant="ghost" size="sm" type="button" className="text-muted-foreground"
+        onClick={() => window.dispatchEvent(new CustomEvent(NEW_DOMAIN_NOTEBOOK))}>
+        <Plus size={14} />{t('New notebook')}
+      </Button>
+    </div>
   ) : !isEmptyDomain ? (
     <div className="ml-auto flex items-center gap-2">
       <Button variant="ghost" size="sm" type="button" className="text-muted-foreground" onClick={() => openCreate('object')}>
@@ -622,7 +631,7 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
   }
 
   if (activeType === 'note') {
-    return <DomainNote key={domainId} domainId={domainId ?? null} />;
+    return <DomainNote key={domainId} domainId={domainId ?? null} onNavigate={onNavigate} onViewChange={onViewChange} />;
   }
 
   if (activeType === 'overview') {

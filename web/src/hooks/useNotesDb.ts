@@ -11,6 +11,7 @@ import type {
   NoteNode,
   NoteNodeType,
 } from '@/types/notes';
+import { mergeNoteNodes } from '@/Function/notebook/noteNodes';
 
 // ============================================
 // Types (DB rows)
@@ -24,6 +25,7 @@ interface NoteRow {
   parent_id: string | null;
   order_index: number;
   linked_object_id: string | null;
+  folder_id?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -46,6 +48,7 @@ function rowToNode(r: NoteRow): NoteNode {
     linkedObjectId: r.linked_object_id ?? null,
     createdBy: r.created_by,
     updatedAt: r.updated_at,
+    folderId: r.folder_id ?? null,
   };
 }
 
@@ -229,6 +232,34 @@ function publishNotes(list: NoteNode[]) {
   notesListeners.forEach((fn) => fn(list));
 }
 
+/** Notebooks other people placed in an Artifacts folder, with their sections
+ *  and pages — the notes rules decide which are seen. Best-effort: one's own
+ *  Notes still load if this fails. */
+async function fetchPlacedNotebooks(me: string): Promise<NoteNode[]> {
+  try {
+    const { data: roots, error } = await supabase.from('notes').select('*')
+      .eq('type', 'folder').is('parent_id', null).not('folder_id', 'is', null).neq('created_by', me);
+    if (error) throw error;
+    const out = (roots ?? []) as NoteRow[];
+    // A notebook is two levels deep: its sections, then their pages.
+    let frontier = out.map((r) => r.id);
+    for (let depth = 0; depth < 2 && frontier.length > 0; depth++) {
+      const next: NoteRow[] = [];
+      for (let i = 0; i < frontier.length; i += 200) {
+        const { data, error: e } = await supabase.from('notes').select('*').in('parent_id', frontier.slice(i, i + 200));
+        if (e) throw e;
+        next.push(...((data ?? []) as NoteRow[]));
+      }
+      out.push(...next);
+      frontier = next.map((r) => r.id);
+    }
+    return out.map(rowToNode);
+  } catch (e) {
+    console.error('Failed to load shared notebooks', e);
+    return [];
+  }
+}
+
 export function useNotes() {
   const [nodes, setNodes] = useState<NoteNode[]>(() => notesCache ?? []);
   const [loading, setLoading] = useState(() => notesCache === null);
@@ -238,7 +269,9 @@ export function useNotes() {
     if (notesInflight) return notesInflight;
     notesInflight = (async () => {
       try {
-        // The Notebook is one's own Notes; ones shared through an Element or
+        // The Notebook is one's own Notes, and the notebooks others placed
+        // in an Artifacts folder this person sees (a Domain's or an Object's)
+        // with their sections and pages. Notes shared through an Element or
         // Object open from there, not from this tree.
         const me = await getCurrentUserId();
         notesUser = me ?? null;
@@ -249,7 +282,8 @@ export function useNotes() {
           .eq('created_by', me)
           .order('order_index', { ascending: true });
         if (error) throw error;
-        return (data as NoteRow[]).map(rowToNode);
+        const shared = await fetchPlacedNotebooks(me);
+        return mergeNoteNodes((data as NoteRow[]).map(rowToNode), shared);
       } finally {
         notesInflight = null;
       }
@@ -298,7 +332,7 @@ export function useNotes() {
 
   // --- mutations ---
   const createNode = useCallback(
-    async (type: NoteNodeType, name: string, parentId: string | null, extra?: { color?: string | null }): Promise<NoteNode> => {
+    async (type: NoteNodeType, name: string, parentId: string | null, extra?: { color?: string | null; folderId?: string | null }): Promise<NoteNode> => {
       // DB CHECK: folders sit at the root (parent_id null); sections and
       // files both require a non-null parent. When a caller passes null:
       // - a Section falls back to the first existing root Folder (creating
@@ -337,7 +371,12 @@ export function useNotes() {
 
       const { data, error } = await supabase
         .from('notes')
-        .insert({ type, name, parent_id: resolvedParentId, ...(extra?.color ? { color: extra.color } : {}) })
+        .insert({
+          type, name, parent_id: resolvedParentId,
+          ...(extra?.color ? { color: extra.color } : {}),
+          // Only a notebook sits in an Artifacts folder; what is in it follows it.
+          ...(type === 'folder' && extra?.folderId ? { folder_id: extra.folderId } : {}),
+        })
         .select('*')
         .single();
       if (error) throw error;
