@@ -16,6 +16,8 @@
   --font-display: "Geist", "Noto Sans JP", "Hiragino Sans", ui-sans-serif, system-ui, sans-serif; --font-body: "Geist", "Noto Sans JP", "Hiragino Sans", ui-sans-serif, system-ui, sans-serif; --font-outlier: var(--font-body);
   --radius-card: 10px; --radius-input: 8px; --display-weight: 600; --radius-pill: 999px; --rule-hair: 1px; --shadow-card: none;
   --tracking-display: -0.035em; --nav-h: 64px;
+  /* The app's In Progress green and Blocked red (--element-status-in-progress, --status-danger). */
+  --color-status-progress: oklch(61.7% 0.162 146.4); --color-status-blocked: oklch(55.2% 0.176 25);
   color-scheme: dark;
 }
 
