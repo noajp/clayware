@@ -46,10 +46,10 @@ export interface GapReport {
 }
 
 const CLOSED = new Set(['done', 'cancelled']);
-export const isOpenElement = (e: GapElement) => !CLOSED.has(e.status ?? '');
+const isOpenElement = (e: GapElement) => !CLOSED.has(e.status ?? '');
 
 /** Why an intent can no longer carry work, or null while it still can. */
-export function brokenCause(intent: Intent): BrokenCause | null {
+function brokenCause(intent: Intent): BrokenCause | null {
   if (intent.superseded_by_intent_id) return 'reversed';
   if (intent.kind === 'assumption' && intent.verdict === 'rejected') return 'rejected';
   return null;
