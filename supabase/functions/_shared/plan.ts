@@ -10,7 +10,7 @@
 //     (automations, the heartbeat).
 // Where the work names no Space (a draft before it is filed anywhere), the
 // person's own client is asked whether any Space they belong to has Athena.
-// The plan column itself is in supabase/migrations/20270116090000_space_plans.sql.
+// The plan column itself is in supabase/migrations/20270116092000_space_plans.sql.
 
 export const ATHENA_PLANS = ["team", "enterprise"] as const;
 

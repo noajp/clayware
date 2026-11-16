@@ -1,6 +1,6 @@
 // A Space's plan, as the app reads it. The plan itself is kept on the Space
 // row and moves only through the service; the Domain limit and Athena's gate
-// are enforced there too (supabase/migrations/20270116090000_space_plans.sql,
+// are enforced there too (supabase/migrations/20270116092000_space_plans.sql,
 // supabase/functions/_shared/plan.ts). What is here only says the same rules
 // on screen, so a person learns the limit before they meet the refusal.
 
