@@ -56,6 +56,7 @@ export const SETTINGS_NAV: SettingsNavSection[] = [
     title: 'Elements',
     items: [
       { id: 'element-types', label: 'Types', title: 'Element types', icon: ElementIcon },
+      { id: 'element-statuses', label: 'Statuses', title: 'Element statuses', holds: ['Backlog', 'To Do', 'In Progress', 'In Review', 'Done', 'Blocked', 'Cancelled'], icon: CircleCheck },
       { id: 'element-labels', label: 'Labels', title: 'Element labels', icon: Tag },
       { id: 'element-templates', label: 'Templates', title: 'Element templates', icon: FileText },
     ],

@@ -3298,6 +3298,7 @@ export type Database = {
           start_date: string | null
           start_time: string | null
           status: string | null
+          status_id: string | null
           title: string
           type: string | null
           updated_at: string | null
@@ -3336,6 +3337,7 @@ export type Database = {
           start_date?: string | null
           start_time?: string | null
           status?: string | null
+          status_id?: string | null
           title: string
           type?: string | null
           updated_at?: string | null
@@ -3374,6 +3376,7 @@ export type Database = {
           start_date?: string | null
           start_time?: string | null
           status?: string | null
+          status_id?: string | null
           title?: string
           type?: string | null
           updated_at?: string | null

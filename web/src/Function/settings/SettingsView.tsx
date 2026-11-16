@@ -76,6 +76,7 @@ export function SettingsView() {
       case 'element-templates': return <ElementTemplateSettings />;
       case 'objects': return <TypeSettings kind="object" />;
       case 'work-statuses': return <StatusSettings scope="work" />;
+      case 'element-statuses': return <StatusSettings scope="element" />;
       case 'harnesses': return <HarnessesPanel />;
       case 'connectors': return <ConnectorsSettings />;
       case 'automation': return <AutomationSettings />;

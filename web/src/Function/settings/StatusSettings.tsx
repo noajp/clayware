@@ -10,18 +10,23 @@ import { ItemIconButton } from '@/Function/shared/itemIcon/IconPicker';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { statusesByStage, stagesOf, type Status, type StatusScope } from '@/Function/shared/workStatus';
 import { useStatusName } from '@/Function/shared/WorkStatusPicker';
-import { createWorkStatus, deleteWorkStatus, saveWorkStatusLook, useWorkStatusCounts, useWorkStatuses } from '@/hooks/workStatuses';
+import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
+import type { ElementStatus } from '@/types/database';
+import { createWorkStatus, deleteWorkStatus, saveWorkStatusLook, useElementStatusCounts, useWorkStatusCounts, useWorkStatuses } from '@/hooks/workStatuses';
 
-// Settings › Statuses: the stages an Object or a Strategy goes through, each
-// with its own status and the ones the Space added under it. A stage is
-// fixed — lists and reports go by it — and what the Space sets is how each
-// status reads: its name, its icon and colour, and which more there are.
+// Settings › Statuses: the stages an Object or a Strategy (scope 'work') or
+// an Element (scope 'element') goes through, each with its own status and the
+// ones the Space added under it. A stage is fixed — lists, boards, reports
+// and rules go by it — and what the Space sets is how each status reads: its
+// name, its icon and colour, and which more there are. An Element's status
+// without an icon of its own is drawn by its stage's designed mark.
 
 export function StatusSettings({ scope }: { scope: StatusScope }) {
   const { t } = useI18n();
   const spaceId = useActiveSpaceId();
   const { rows, loading } = useWorkStatuses(spaceId);
   const counts = useWorkStatusCounts(scope === 'work' ? spaceId : null);
+  const elementCounts = useElementStatusCounts(scope === 'element' ? spaceId : null);
   const nameOf = useStatusName();
   const [adding, setAdding] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -40,6 +45,10 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
     run(() => saveWorkStatusLook(spaceId, { rowId: s.rowId, scope, stage: s.stage }, lookOf(s), patch));
 
   const countText = (s: Status) => {
+    if (scope === 'element') {
+      const n = elementCounts[keyOf(s)] ?? 0;
+      return n === 0 ? t('Not in use') : n === 1 ? t('1 Element') : t('{n} Elements', { n });
+    }
     const c = counts[keyOf(s)];
     if (scope !== 'work' || !c || (c.objects === 0 && c.strategies === 0)) return t('Not in use');
     const parts: string[] = [];
@@ -51,7 +60,9 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
   return (
     <div className="space-y-2">
       <p className="-mt-2 pb-2 text-[12px] text-muted-foreground">
-        {t('An Object and a Strategy each stand in one of these stages. Rename a status, change its icon, or add your own under a stage.')}
+        {scope === 'element'
+          ? t('Every Element stands in one of these stages. Rename a status, change its icon, or add your own under a stage.')
+          : t('An Object and a Strategy each stand in one of these stages. Rename a status, change its icon, or add your own under a stage.')}
       </p>
       {error && <p role="alert" className="text-[12px] text-[var(--status-danger)]">{error}</p>}
       {loading ? <div className="text-[13px] text-muted-foreground">{t('Loading…')}</div> : statusesByStage(scope, rows).map((group) => {
@@ -72,7 +83,9 @@ export function StatusSettings({ scope }: { scope: StatusScope }) {
                     <ItemIconButton size={16} label={t('Change icon')}
                       value={{ icon: status.icon, color: status.color }}
                       onChange={(next) => save(status, { icon: next.icon, color: next.color })}
-                      defaultIcon={<ItemIcon icon={stageLook?.icon} color={stageLook?.color} size={16} />} />
+                      defaultIcon={scope === 'element'
+                        ? <ElementProgressMark status={group.stage as ElementStatus} progress={group.stage === 'in_progress' ? 50 : 0} size={16} />
+                        : <ItemIcon icon={stageLook?.icon} color={stageLook?.color} size={16} />} />
                   </span>
                   <div className="min-w-0 flex-1">
                     {renaming === keyOf(status) ? (

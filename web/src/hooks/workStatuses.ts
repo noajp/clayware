@@ -108,3 +108,36 @@ export function useWorkStatusCounts(spaceId: string | null | undefined): Record<
   return query.data ?? NO_COUNTS;
 }
 const NO_COUNTS: Record<string, { objects: number; strategies: number }> = {};
+
+/** How many Elements of the Space stand in each status, keyed `<stage>` for a
+ *  stage's own and `<status id>` for one the Space added. Archived and
+ *  personal Elements are left out. */
+export function useElementStatusCounts(spaceId: string | null | undefined): Record<string, number> {
+  const query = useQuery({
+    queryKey: ['elementStatusCounts', spaceId ?? ''],
+    enabled: !!spaceId,
+    staleTime: 30_000,
+    queryFn: async () => {
+      // An Element belongs to the Space through its Object's Domain.
+      const domains = await supabase.from('domains').select('id').eq('activity_space_id', spaceId!);
+      if (domains.error) throw domains.error;
+      const domainIds = (domains.data ?? []).map((d) => d.id);
+      if (!domainIds.length) return {};
+      const objects = await supabase.from('objects').select('id').in('domain_id', domainIds).is('archived_at', null);
+      if (objects.error) throw objects.error;
+      const objectIds = (objects.data ?? []).map((o) => o.id);
+      const out: Record<string, number> = {};
+      for (let i = 0; i < objectIds.length; i += 200) {
+        const { data, error } = await supabase.from('elements').select('status, status_id').in('object_id', objectIds.slice(i, i + 200));
+        if (error) throw error;
+        for (const row of data ?? []) {
+          const key = row.status_id ?? row.status ?? 'todo';
+          out[key] = (out[key] ?? 0) + 1;
+        }
+      }
+      return out;
+    },
+  });
+  return query.data ?? NO_ELEMENT_COUNTS;
+}
+const NO_ELEMENT_COUNTS: Record<string, number> = {};

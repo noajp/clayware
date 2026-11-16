@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextOrderIndex, stagesOf, statusOf, statusesByStage, type StatusRow } from '@/Function/shared/workStatus';
+import { elementStatusOf, elementStatusWrite, nextOrderIndex, stagesOf, statusOf, statusesByStage, type StatusRow } from '@/Function/shared/workStatus';
 
 const row = (over: Partial<StatusRow>): StatusRow => ({ id: 'x', scope: 'work', stage: 'planned', builtin: false, name: 'X', icon: null, color: null, order_index: 1, ...over });
 
@@ -38,5 +38,24 @@ describe('work statuses', () => {
   it('adds a new status after the last of its stage', () => {
     expect(nextOrderIndex([row({ order_index: 3 }), row({ builtin: true, order_index: 9 }), row({ stage: 'backlog', order_index: 7 })], 'work', 'planned')).toBe(4);
     expect(nextOrderIndex([], 'work', 'planned')).toBe(1);
+  });
+});
+
+describe('Element statuses', () => {
+  const er = (over: Partial<StatusRow>): StatusRow => row({ scope: 'element', stage: 'review', ...over });
+  it('an Element stands in the status named within its stage, else the stage own', () => {
+    const rows = [er({ id: 'legal', name: 'Waiting on legal' })];
+    expect(elementStatusOf(rows, { status: 'review', status_id: 'legal' })).toMatchObject({ id: 'legal', stage: 'review', name: 'Waiting on legal' });
+    expect(elementStatusOf(rows, { status: 'review', status_id: null })).toMatchObject({ id: null, stage: 'review', name: 'In Review' });
+    // A status of another stage does not apply.
+    expect(elementStatusOf(rows, { status: 'done', status_id: 'legal' })).toMatchObject({ id: null, stage: 'done' });
+  });
+  it('an Element stage own status has no icon of its own: its designed mark draws it', () => {
+    expect(elementStatusOf([], { status: 'in_progress' }).icon).toBeNull();
+    expect(elementStatusOf([er({ id: 'x', icon: 'lucide:scale' })], { status: 'review', status_id: 'x' }).icon).toBe('lucide:scale');
+  });
+  it('a move is always written with its stage', () => {
+    expect(elementStatusWrite({ id: 'legal', stage: 'review' })).toEqual({ status: 'review', status_id: 'legal' });
+    expect(elementStatusWrite({ id: null, stage: 'done' })).toEqual({ status: 'done', status_id: null });
   });
 });
