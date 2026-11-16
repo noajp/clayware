@@ -34,7 +34,7 @@ Clayware の画面を作るときの決まり。値の正本はコードにあ�
 
 - **状態の印** — Element の 7 状態は形で見分ける（点線の輪＝Backlog、輪＝Todo、輪＋扇＝In Progress、半分点線＋矢印＝In Review、塗りのチェック＝Done、輪＋棒＝Blocked、輪＋×＝Cancelled）。並び順は Backlog → Todo → In Progress → In Review → Done → Blocked → Cancelled（`STATUS_ORDER`）
 - **進み具合** — Done は 100%。Done から戻すと 75%。メニューの見本は今の値を出す
-- **Object と Strategy の Status** — 同じ 5 段階（Backlog / Planned / In Progress / Completed / Canceled）に、Space が独自の Status を足せる。アイコンは既定から変えられる
+- **Object と Strategy の Status** — Element と同じ 7 段階・同じマーク・同じピッカー（StatusMenu）に、Space が独自の Status を足せる。アイコンは既定から変えられる
 - **Athena** — 自分の印を持たず、名前の文字だけで出す。モデル名（Claude など）を横に出さない。性能は Most capable / Advanced / Standard / Fast と書く
 - **一覧の表**・**進み具合の帯**・**マイルストーンの菱形**・**履歴の線** — 形と寸法は [references/patterns.md](references/patterns.md)
 

@@ -1,60 +1,48 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, MenuCheck } from '@/ui/dropdown-menu';
-import { MenuSectionLabel } from '@/Function/shared/menu';
-import { useI18n } from '@/Function/i18n/I18nProvider';
-import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
-import { statusOf, statusesByStage, type Status, type StatusRow, type StatusScope } from '@/Function/shared/workStatus';
+import { useState, type ReactNode } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
+import { StatusLook } from '@/Function/shared/StatusLook';
+import { StatusMenu } from '@/Function/shared/StatusMenu';
+import { stageOf, statusOf, statusesByStage, type Status, type StatusRow, type StatusScope } from '@/Function/shared/workStatus';
 
-/** A status's mark: its icon in its colour. */
-export function WorkStatusMark({ status, size = 14 }: { status: Status; size?: number }) {
-  return <ItemIcon icon={status.icon} color={status.color} size={size} />;
-}
-
-/** A status's name: the stage's built-in label in the viewer's language, or
- *  the name the Space gave it. */
-export function useStatusName(): (status: Status) => string {
-  const { t } = useI18n();
-  return (status) => (status.nameIsLabel ? t(status.name) : status.name);
+/** An Object's or a Strategy's status as a mark — the same marks an
+ *  Element's status shows. `progress` fills the In Progress pie. */
+export function WorkStatusMark({ status, progress = 0, size = 14 }: { status: Status; progress?: number; size?: number }) {
+  return <StatusLook status={status} progress={progress} size={size} />;
 }
 
 /**
- * Picks the status an Object or a Strategy stands in: every stage with its
- * own status, and the ones the Space added under it. `onChange` gets the
- * stage and the status within it (null for the stage's own).
+ * Picks the status an Object or a Strategy stands in — the same list an
+ * Element's status picker shows (StatusMenu): every stage with its own
+ * status, and the ones the Space added under it. `onChange` gets the stage
+ * and the status within it (null for the stage's own). How far the work has
+ * come is the Elements' (`progress`), not set here.
  */
-export function WorkStatusPicker({ scope, rows, stage, statusId, onChange, children }: {
+export function WorkStatusPicker({ scope, rows, stage, statusId, progress = 0, onChange, children }: {
   scope: StatusScope;
   rows: readonly StatusRow[];
   stage: string | null | undefined;
   statusId: string | null | undefined;
+  /** The share of its work done, for the In Progress pie. */
+  progress?: number;
   onChange: (next: { stage: string; statusId: string | null }) => void;
   /** The trigger: what the row shows for the current status. */
   children: ReactNode;
 }) {
-  const nameOf = useStatusName();
-  const current = statusOf(scope, rows, stage, statusId);
-  const groups = statusesByStage(scope, rows);
+  const [open, setOpen] = useState(false);
+  const current = statusOf(scope, rows, stageOf(stage), statusId);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[200px]">
-        {groups.map((group) => (
-          <div key={group.stage}>
-            {/* A stage with statuses of the Space's own is headed by its name. */}
-            {group.statuses.length > 1 && <MenuSectionLabel>{nameOf({ ...group.statuses[0], name: group.label, nameIsLabel: true })}</MenuSectionLabel>}
-            {group.statuses.map((status) => (
-              <DropdownMenuItem key={status.id ?? status.stage} className="gap-2"
-                onSelect={() => onChange({ stage: status.stage, statusId: status.id })}>
-                <WorkStatusMark status={status} />
-                <span className="flex-1 truncate">{nameOf(status)}</span>
-                {current.stage === status.stage && current.id === status.id && <MenuCheck />}
-              </DropdownMenuItem>
-            ))}
-          </div>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" sideOffset={6} className="w-60 rounded-lg p-1" onClick={(e) => e.stopPropagation()}>
+        <StatusMenu
+          groups={statusesByStage(scope, rows)}
+          isCurrent={(row) => current.stage === row.stage && current.id === row.id}
+          onPick={(row) => { onChange({ stage: row.stage, statusId: row.id }); setOpen(false); }}
+          progressOf={() => progress}
+        />
+      </PopoverContent>
+    </Popover>
   );
 }
