@@ -55,37 +55,30 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="change-title">
   <div class="container">
-    <h1 id="change-title">道具を渡して、終わりにしない。</h1>
-    <p class="lead">エンジニアが、仕事が詰まっている場所から始めます。</p>
+    <h1 id="change-title">業務の進め方を、AIを使う前提で組み直す支援をします。</h1>
+    <p class="lead">エンジニアが御社の現場に入り、業務の洗い出し、成功条件の設定、AIとの接続、試験運用、運用の定着までを一緒に進めます。</p>
   </div>
 </section>
 
 <section class="section section--flush" id="stuck" aria-labelledby="stuck-title">
   <div class="container">
-    <div class="head"><h2 id="stuck-title">まず、詰まっている所から。</h2><p class="lead">どの会社でも、最初の一歩はここから選びます。</p></div><table class="index index--problem"><thead><tr><th scope="col">いまの詰まり</th><th scope="col">最初に手を付けること</th></tr></thead><tbody><tr><td>AIを入れたが、下書きにしか使われていない</td><td>任せる仕事と、人が決めることの線を引き直す</td></tr><tr><td>依頼がメールやチャットに散って、落ちる</td><td>窓口をつなぎ、届いた依頼をすべてElementにする</td></tr><tr><td>誰が判断待ちなのか、分からない</td><td>判断だけを人に回し、ボードで一覧にする</td></tr><tr><td>仕事のやり方が、人の頭の中にしかない</td><td>手順と止める条件を書き出し、AIも読める形にする</td></tr></tbody></table>
+    <div class="head"><h2 id="stuck-title">よくある状況と、最初に行うこと</h2></div><table class="index"><thead><tr><th scope="col">よくある状況</th><th scope="col">最初に行うこと</th></tr></thead><tbody><tr><td>AIを導入したが、文章の下書きにしか使われていない</td><td>AIに任せる作業と、人が判断する作業を業務ごとに分け直す</td></tr><tr><td>依頼がメールやチャットに分かれていて、対応漏れが起きる</td><td>依頼が届くサービスをClaywareに接続し、すべての依頼を担当者と期限つきで記録する</td></tr><tr><td>誰の判断を待っているのかが分からない</td><td>人の判断が要る作業だけを一覧にし、判断を待っている人と期間が分かるようにする</td></tr><tr><td>業務の手順が担当者しか分からない</td><td>手順と、作業を止める条件を文書にし、AIも読める形（ハーネス）にする</td></tr></tbody></table>
   </div>
 </section>
 
-
-<section class="section" id="change" aria-labelledby="change-steps-title">
+<section class="section" id="change" aria-labelledby="change-title">
   <div class="container">
-    <div class="head"><h2 id="change-steps-title">4つの段階で、仕事を組み直す。</h2></div><ol class="steps">
-      <li><h3>現場の仕事を見る</h3><p>何が届き、誰が判断しているかを洗い出す。</p></li>
-      <li><h3>成功条件を決める</h3><p>「一次返信4時間以内」のように数字で決める。</p></li>
-      <li><h3>つないで試し実行</h3><p>書き込みを止めて、操作をすべて確かめる。</p></li>
-      <li><h3>運用して直す</h3><p>毎朝の確認を習慣にし、成功条件と照らす。</p></li>
-    </ol>
-    <div class="switch" data-switch>
-      <div class="switch__label"><h3>任せる範囲は、慣れに合わせて広げる</h3></div>
-      <div class="seg" role="tablist" aria-label="任せる範囲">
+    <div class="head"><h2 id="change-title">4つの段階で進めます</h2></div><ol class="steps"><li><h3>1. 現場の業務を調べる</h3><p>どこから何が届き、誰が何を判断し、どれだけ時間がかかっているかを洗い出し、一覧にします。</p></li><li><h3>2. 成功条件を決める</h3><p>「一次返信を4時間以内」のように、業務がうまくいっているかを数字で決めます。</p></li><li><h3>3. 接続して試験運用する</h3><p>Claywareを使う業務に接続し、外部への書き込みを止めた状態で動かして、AIが行う操作をすべて確認します。</p></li><li><h3>4. 運用しながら直す</h3><p>毎朝、判断待ちの一覧と結果を確認し、成功条件と照らして手順を直します。</p></li></ol><div class="switch" data-switch>
+      <div class="switch__label"><h3>AIに任せる範囲の設定</h3><p>Claywareでは、AIが外部へ書き込む操作を承認なしで実行してよいかを、3段階から選べます。</p></div>
+      <div class="seg" role="tablist" aria-label="AIに任せる範囲">
         <button type="button" role="tab" id="t-ask" aria-controls="p-ask" aria-selected="true">毎回聞く</button>
         <button type="button" role="tab" id="t-auto" aria-controls="p-auto" aria-selected="false" tabindex="-1">自動</button>
         <button type="button" role="tab" id="t-free" aria-controls="p-free" aria-selected="false" tabindex="-1">聞かない</button>
       </div>
       <div class="panels">
-        <div class="panel" role="tabpanel" id="p-ask" aria-labelledby="t-ask" tabindex="0"><b>毎回聞く</b>外部への書き込みは、毎回人の承認を待ちます。</div>
-        <div class="panel" role="tabpanel" id="p-auto" aria-labelledby="t-auto" tabindex="0"><b>自動</b>差し戻しのない操作から、任せる範囲が広がります。</div>
-        <div class="panel" role="tabpanel" id="p-free" aria-labelledby="t-free" tabindex="0"><b>聞かない</b>許可した範囲は承認なしで実行。取り消せない操作は除きます。</div>
+        <div class="panel" role="tabpanel" id="p-ask" aria-labelledby="t-ask" tabindex="0"><b>毎回聞く</b>外部への書き込みは、毎回、人の承認を待ちます。導入した直後はこの設定から始めます。</div>
+        <div class="panel" role="tabpanel" id="p-auto" aria-labelledby="t-auto" tabindex="0"><b>自動</b>差し戻されずに実行できた操作から順に、承認なしで実行できる範囲が広がります。差し戻しや事故があると、範囲は狭まります。</div>
+        <div class="panel" role="tabpanel" id="p-free" aria-labelledby="t-free" tabindex="0"><b>聞かない</b>許可した範囲の操作は、承認なしで実行します。取り消せない操作は、この設定でも承認を待ちます。</div>
       </div>
     </div>
   </div>
@@ -93,13 +86,13 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="section" id="roles" aria-labelledby="roles-title">
   <div class="container">
-    <div class="head"><h2 id="roles-title">一緒に動く3つの役。</h2></div><ol class="rows"><li class="row"><h3>エンジニア<small>現場に入る</small></h3><p>業務を見て、つなぎ、仕事のやり方を書き、試運転と直しを回す。</p></li><li class="row"><h3>現場の担当者<small>毎日の使い手</small></h3><p>頼み、確かめ、差し戻す。困った所をその場で伝える。</p></li><li class="row"><h3>判断する人<small>管理職・責任者</small></h3><p>成功条件を決め、承認の範囲を決め、結果を見て広げる。</p></li></ol>
+    <div class="head"><h2 id="roles-title">支援に関わる3つの役割</h2></div><ol class="rows"><li class="row"><h3>エンジニア<small>支援する側</small></h3><p>業務を調べ、Claywareとサービスを接続し、仕事のやり方の定義（ハーネス）を書き、試験運用と修正を行います。</p></li><li class="row"><h3>現場の担当者<small>業務を行う人</small></h3><p>AIに作業を依頼し、結果を確認し、合わないものを差し戻します。使いにくい点をエンジニアに伝えます。</p></li><li class="row"><h3>管理職・責任者<small>判断する人</small></h3><p>成功条件と、承認が必要な操作の範囲を決め、結果を見て任せる範囲を広げるかを決めます。</p></li></ol>
   </div>
 </section>
 
 <section class="section" id="leaves" aria-labelledby="leaves-title">
   <div class="container">
-    <div class="head"><h2 id="leaves-title">終わったあとに、残るもの。</h2></div><dl class="facts"><div><dt>仕事のやり方</dt><dd>手順、止める条件、成果物の形を書いたハーネス。</dd></div><div><dt>数字の成功条件</dt><dd>「一次返信4時間以内」のように、良し悪しを決める数字。</dd></div><div><dt>判断の記録</dt><dd>誰が何を決め、なぜそうしたかが残る。</dd></div><div><dt>つながった窓口</dt><dd>依頼が一か所に集まる状態。</dd></div><div><dt>任せる範囲</dt><dd>慣れに合わせて広げた、AIに任せる仕事の線。</dd></div><div><dt>自分たちで回す力</dt><dd>教育と一緒に、次の業務を自分たちで載せられる。</dd></div></dl><p class="more"><a href="education.html" class="textlink">教育を見る</a></p>
+    <div class="head"><h2 id="leaves-title">支援が終わったあとに、御社に残るもの</h2></div><dl class="facts"><div><dt>仕事のやり方の定義</dt><dd>手順、止める条件、成果物の形、使うサービスを書いたハーネス。</dd></div><div><dt>数字で決めた成功条件</dt><dd>業務がうまくいっているかを判定するための数字。</dd></div><div><dt>判断の記録</dt><dd>誰が、何を、なぜ決めたかの記録。</dd></div><div><dt>接続したサービス</dt><dd>依頼が届くサービスとClaywareの接続。</dd></div><div><dt>AIに任せる範囲の設定</dt><dd>試験運用の結果をもとに決めた、承認なしで実行してよい操作の範囲。</dd></div><div><dt>社内で続けるための知識</dt><dd>次の業務を社内の担当者が自分で追加できるようにするための教育。</dd></div></dl><p class="more"><a href="education.html" class="textlink">教育について</a></p>
   </div>
 </section>
 

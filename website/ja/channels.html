@@ -55,12 +55,12 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="channels-title">
   <div class="container">
-    <h1 id="channels-title">窓口がいくつあっても、依頼は一か所に。</h1>
-    <p class="lead">メール、チャット、ファイル、開発の場、社内のシステム。Claywareがつながって届いた依頼を拾い、担当と期限のついたElementにします。</p>
+    <h1 id="channels-title">メール・チャット・業務アプリに届く依頼を、Claywareに集めて管理します。</h1>
+    <p class="lead">Claywareは、組織が使っているサービスに接続します。届いた依頼は、担当者と期限を決めたElement（作業の単位）として記録し、一覧とボードで追えるようにします。</p>
   </div>
 </section>
 
-<section class="section section--flush" aria-label="つながり方">
+<section class="section section--flush" aria-label="接続の全体図">
   <div class="container">
     <div class="hub">
       <h3 class="hub__h hub__h--in">つながる窓口</h3>
@@ -82,19 +82,25 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="section" id="connectors" aria-labelledby="connectors-title">
   <div class="container">
-    <div class="head"><h2 id="connectors-title">使っているサービスに、そのままつながる。</h2><p class="lead">それぞれのサービスで、AIにできることを決めてあります。</p></div><ul class="conns"><li class="conn"><img class="logo" src="../assets/logos/gmail.svg" alt="" width="28" height="28"><b>Gmail</b><span>メールを探して読み、スレッドで返信し、ラベルを付ける。送る前に人が確かめるかは、Spaceの承認の設定に従う。メールは消さない。</span></li><li class="conn"><img class="logo" src="../assets/logos/microsoft.svg" alt="" width="28" height="28"><b>Microsoft 365</b><span>職場や学校のアカウントでつなぐ。組織によっては、管理者の承認が先に要る。</span></li><li class="conn"><img class="logo" src="../assets/logos/google-drive.svg" alt="" width="28" height="28"><b>Google Drive</b><span>Claywareが作ったファイルと、選んだファイルだけを探して読み書きする。</span></li><li class="conn"><img class="logo logo--l" src="../assets/logos/github.svg" alt="" width="28" height="28"><img class="logo logo--d" src="../assets/logos/github-dark.svg" alt="" width="28" height="28"><b>GitHub</b><span>プルリクエストをClaywareでレビューしてマージ。AIはリポジトリ、Issue、PRを扱う。</span></li><li class="conn"><img class="logo" src="../assets/logos/slack.svg" alt="" width="28" height="28"><b>Slack</b><span>チャンネルを読み、メッセージを投稿する。</span></li><li class="conn"><img class="logo" src="../assets/logos/linear.svg" alt="" width="28" height="28"><b>Linear</b><span>Issue、プロジェクト、サイクルを調べて更新する。</span></li><li class="conn"><img class="logo" src="../assets/logos/asana.svg" alt="" width="28" height="28"><b>Asana</b><span>プロジェクトとタスクを調べて更新する。</span></li><li class="conn"><img class="logo logo--l" src="../assets/logos/mcp-light.svg" alt="" width="28" height="28"><img class="logo logo--d" src="../assets/logos/mcp-dark.svg" alt="" width="28" height="28"><b>社内システム（MCP・API）</b><span>社内のシステムやフォームを、MCPかHTTPのAPIでつなぐ。</span></li></ul>
+    <div class="head"><h2 id="connectors-title">接続できるサービスと、AIが行う操作</h2><p class="lead">サービスごとに、AIが行える操作を決めています。決めていない操作は実行されません。</p></div><ul class="conns"><li class="conn"><img class="logo" src="../assets/logos/gmail.svg" alt="" width="28" height="28"><b>Gmail</b><span>Googleのアカウントで接続します（OAuth）。AIはメールを検索して読み、スレッドに返信し、ラベルを付け、メールを送ります。送信の前に人の承認を待つかどうかは、Spaceの承認の設定で決めます。メールを削除する操作はありません。</span></li><li class="conn"><img class="logo" src="../assets/logos/microsoft.svg" alt="" width="28" height="28"><b>Microsoft 365</b><span>職場または学校のアカウントで接続します（OAuth）。組織によっては、先に組織の管理者がClaywareを承認する必要があります。現在対応しているのはサインインと管理者の承認までで、メールや予定の操作は対応予定です。</span></li><li class="conn"><img class="logo" src="../assets/logos/google-drive.svg" alt="" width="28" height="28"><b>Google Drive</b><span>Googleのアカウントで接続します（OAuth）。AIが読み書きできるのは、Claywareが作ったファイルと、利用者が選んだファイルだけです。</span></li><li class="conn"><img class="logo logo--l" src="../assets/logos/github.svg" alt="" width="28" height="28"><img class="logo logo--d" src="../assets/logos/github-dark.svg" alt="" width="28" height="28"><b>GitHub</b><span>GitHubのアカウントで接続します（OAuth）。プルリクエストをClaywareの画面でレビューしてマージできます。AIはリポジトリ、Issue、プルリクエストを扱い、隔離した環境でコードを変更してプルリクエストを出します。</span></li><li class="conn"><img class="logo" src="../assets/logos/slack.svg" alt="" width="28" height="28"><b>Slack</b><span>トークンを登録して接続します。AIはチャンネルのメッセージを読み、メッセージを投稿します。</span></li><li class="conn"><img class="logo" src="../assets/logos/linear.svg" alt="" width="28" height="28"><b>Linear</b><span>トークンを登録して接続します（MCP）。AIはIssue、プロジェクト、サイクルを検索し、内容を更新します。</span></li><li class="conn"><img class="logo" src="../assets/logos/asana.svg" alt="" width="28" height="28"><b>Asana</b><span>トークンを登録して接続します。AIはプロジェクトとタスクを検索し、内容を更新します。</span></li><li class="conn"><img class="logo logo--l" src="../assets/logos/mcp-light.svg" alt="" width="28" height="28"><img class="logo logo--d" src="../assets/logos/mcp-dark.svg" alt="" width="28" height="28"><b>社内システム（MCP・API）</b><span>MCPサーバーまたはREST APIのURLと認証情報を登録すると、社内のシステムやフォームにも接続できます。</span></li></ul>
+  </div>
+</section>
+
+<section class="section" id="triggers" aria-labelledby="triggers-title">
+  <div class="container">
+    <div class="head"><h2 id="triggers-title">依頼の受け取り方</h2><p class="lead">人が依頼を入力しなくても、次の3つのきっかけで仕事を自動で始めます。</p></div><table class="index"><thead><tr><th scope="col">きっかけ</th><th scope="col">例</th><th scope="col">起きること</th></tr></thead><tbody><tr><td>決まった時刻</td><td>毎朝9:00、平日8:30（時刻とタイムゾーンを指定）</td><td>指定したObjectにElementを作り、AIの担当者に割り当てて実行を始める</td></tr><tr><td>外からの通知（Webhook）</td><td>フォームの送信、外部システムからの通知</td><td>受け取った内容をElementの説明に入れて、同じように実行を始める</td></tr><tr><td>Claywareの中の変化</td><td>承認された、依存していたElementが終わった、表に行が増えた</td><td>次の仕事を自動で始める</td></tr></tbody><caption>起動するたびに、受け取った内容、作ったElement、実行の結果が記録に残ります。</caption></table>
   </div>
 </section>
 
 <section class="section" id="flow" aria-labelledby="flow-title">
   <div class="container">
-    <div class="head"><h2 id="flow-title">届いてから、片付くまで。</h2></div><ol class="flow" aria-label="依頼の流れ"><li><b>届く</b><span>メール、投稿、Webhook、または決まった時刻に</span></li><li><b>仕分ける</b><span>いつ・何を・なぜ・誰がやるかを決める</span></li><li><b>進める</b><span>人かAIが担当して進める</span></li><li class="you"><b>人が判断する</b><span>送信やマージのような取り消せない操作は、承認を待つ</span></li></ol><figure class="shot shot--wide"><div class="shot__frame"><img class="ol" src="../assets/ja-light-list.jpg" alt="Elementsの一覧。プロジェクトごとに状態の印、ラベル、期限、担当が並ぶ" width="800" height="500" loading="lazy"><img class="od" src="../assets/ja-dark-list.jpg" alt="Elementsの一覧。プロジェクトごとに状態の印、ラベル、期限、担当が並ぶ" width="800" height="500" loading="lazy"></div><figcaption><b>一覧</b>　届いた依頼は、担当と期限のついたElementとして並ぶ。</figcaption></figure>
+    <div class="head"><h2 id="flow-title">依頼を受け取ったあとの流れ</h2></div><ol class="flow" aria-label="依頼を受け取ったあとの流れ"><li><b>記録する</b><span>依頼の内容を分類し、表（Table）に記録する。問い合わせなら受付日時・顧客・分類・緊急度など</span></li><li><b>担当と期限を決める</b><span>仕事のやり方の定義（ハーネス）に書いた決め方で、人かAIを担当にし、期限を付ける</span></li><li><b>進める</b><span>AIが担当の場合は、調査や返信の下書きなどを進める</span></li><li class="you"><b>人が承認する</b><span>メールの送信のように取り消せない操作は、人が承認するまで実行しない</span></li></ol><figure class="shot shot--wide"><div class="shot__frame"><img class="ol" src="../assets/ja-light-list.jpg" alt="Elementsの一覧。プロジェクトごとに状態の印、ラベル、期限、担当が並ぶ" width="800" height="500" loading="lazy"><img class="od" src="../assets/ja-dark-list.jpg" alt="Elementsの一覧。プロジェクトごとに状態の印、ラベル、期限、担当が並ぶ" width="800" height="500" loading="lazy"></div><figcaption><b>Elementの一覧</b>　届いた依頼が、状態・ラベル・期限・担当とともに並びます。</figcaption></figure>
   </div>
 </section>
 
 <section class="section" id="safety" aria-labelledby="safety-title">
   <div class="container">
-    <div class="head"><h2 id="safety-title">つなぐほど、守りが要る。</h2></div><dl class="facts"><div><dt>認証情報はAIに見せない</dt><dd>ログイン情報は保管庫に置き、AIからは見えない。</dd></div><div><dt>送信先を決めておく</dt><dd>決めた宛先の外には送らない。</dd></div><div><dt>承認は中身に結び付く</dt><dd>承認したのと同じ内容だけが実行される。</dd></div><div><dt>Spaceごとに分かれる</dt><dd>組織のデータは、Spaceの外から見えない。</dd></div><div><dt>管理者の同意</dt><dd>Microsoft 365などは、組織の管理者の承認を経てつなぐ。</dd></div><div><dt>すべて記録に残る</dt><dd>誰がいつ何を動かしたかが残る。</dd></div></dl>
+    <div class="head"><h2 id="safety-title">接続したサービスを安全に使うための仕組み</h2></div><dl class="facts"><div><dt>認証情報をAIに渡さない</dt><dd>接続に使うパスワードやトークンは暗号化して保管し、AIが読む文章にも、道具に渡す値にも含めません。登録した送信先へのリクエストにだけ付けます。</dd></div><div><dt>送信先を制限する</dt><dd>外部への通信はhttpsだけで、登録したURLの外や、社内ネットワーク・ローカルのアドレスには送りません。</dd></div><div><dt>承認した内容だけを実行する</dt><dd>承認は、実行する入力そのものに結び付けます。承認したあとに内容が変わった操作は実行しません。</dd></div><div><dt>組織ごとにデータを分ける</dt><dd>データはSpace（組織）ごとに分かれ、見られる範囲をデータベースの権限で決めます。AIも、仕事を始めた人が見られる範囲だけを読み書きします。</dd></div><div><dt>自動で止まる</dt><dd>同じ対象への連続した書き込み、エラーの増加、初めての送信先への送信を検知すると、実行を止めて人に回します。</dd></div><div><dt>操作の記録</dt><dd>AIが行った操作、承認を待っている操作、自動で始まった仕事を、Elementごとの記録で確認できます。</dd></div></dl>
   </div>
 </section>
 

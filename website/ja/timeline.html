@@ -55,7 +55,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="timeline-title">
   <div class="container">
-    <h1 id="timeline-title">日程のぶつかりを、起きる前に見る。</h1>
+    <h1 id="timeline-title">プロジェクトの日程と依存関係を並べ、日程の重なりを赤で示します。</h1>
     <p class="lead">部署ごとのプロジェクトを1本の日程に並べ、そのあいだの依存関係を線で描きます。</p>
   </div>
 </section>
@@ -64,10 +64,10 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
   <div class="container">
     <figure class="shot shot--wide">
       <div class="shot__frame"><img class="ol" src="../assets/ja-light-timeline-close.jpg" alt="Timelineの拡大。プロジェクトの帯を青い依存の線がつなぎ、日付が重なる依存だけ赤で示している" width="800" height="533"><img class="od" src="../assets/ja-dark-timeline-close.jpg" alt="Timelineの拡大。プロジェクトの帯を青い依存の線がつなぎ、日付が重なる依存だけ赤で示している" width="800" height="533"></div>
-      <figcaption><b>拡大</b>　依存するプロジェクトを青い線がつなぐ。日付が重なる所だけ、線が赤くなる。</figcaption>
+      <figcaption><b>拡大表示</b>　依存関係のあるプロジェクトを青い線で結びます。日付が重なる依存関係だけ、線が赤くなります。</figcaption>
     </figure>
     <div class="safety">
-      <h2>タイムラインで分かること</h2>
+      <h2>タイムラインで確認できること</h2>
       <dl class="facts facts--4">
         <div><dt>依存関係を線で</dt><dd>どのプロジェクトが何を待っているかが、一目で分かる。</dd></div>
         <div><dt>ぶつかりは赤で</dt><dd>日付が重なる依存だけ、色が変わる。</dd></div>
@@ -89,7 +89,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="section" id="pace" aria-labelledby="pace-title">
   <div class="container">
-    <div class="head"><h2 id="pace-title">日程と進み具合を、同じ線の上で。</h2></div><dl class="facts facts--4"><div><dt>マイルストーン</dt><dd>ひし形が、期日までに終えるべき作業の進み具合で塗られていく。</dd></div><div><dt>進み具合の色</dt><dd>余裕があれば青、余裕が減ると先端から赤、遅れれば赤。</dd></div><div><dt>今日の線</dt><dd>今日がどこかが、縦の線で分かる。</dd></div><div><dt>見る範囲を決める</dt><dd>何か月前から何か月先までを並べるかを、自分で決める。</dd></div></dl>
+    <div class="head"><h2 id="pace-title">日程と進み具合を、同じ画面で確認する</h2></div><dl class="facts facts--4"><div><dt>マイルストーン</dt><dd>Objectに置いた日付つきの印です。その日までに期限が来るElementのうち、完了した割合に応じて、ひし形が時計回りに塗られます。</dd></div><div><dt>進み具合の色</dt><dd>期日までの残りに対して進み具合が十分なら青、余裕が少なくなると帯の先端から赤、遅れると全体が赤になります。</dd></div><div><dt>今日の線</dt><dd>今日の日付の位置に縦の線を引きます。</dd></div><div><dt>表示する範囲</dt><dd>何か月前から何か月先までを表示するかを、設定で決めます。</dd></div></dl>
   </div>
 </section>
 

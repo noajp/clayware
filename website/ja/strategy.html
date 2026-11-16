@@ -55,26 +55,26 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="strategy-title">
   <div class="container">
-    <h1 id="strategy-title">目標を決めたら、最後の一歩まで追える。</h1>
-    <p class="lead">Strategyで目指す姿と成功条件を決めると、AIが前提を確かめながらObjectとElementの計画に分けます。人が確かめてから動き出します。</p>
+    <h1 id="strategy-title">目標を書くと、AIが作業の計画を作ります。計画は人が確認してから実行します。</h1>
+    <p class="lead">Strategyに目的と成功条件を書くと、AIが足りない前提を会話で確かめ、Object（プロジェクトにあたる単位）とElement（作業の最小単位）に分けた計画を作ります。</p>
   </div>
 </section>
 
 <section class="section section--flush" aria-label="目標から実行まで">
   <div class="container">
-    <ol class="flow" aria-label="目標から実行まで"><li><b>Strategyを書く</b><span>目的、前提、決めたこと、成功条件</span></li><li><b>計画にする</b><span>AIが会話で前提を確かめ、ObjectとElementに分ける</span></li><li class="you"><b>人が確かめる</b><span>計画は、確かめてから動き出す</span></li><li><b>最後まで追う</b><span>進み具合と期日、Strategyとのずれ</span></li></ol><figure class="shot shot--wide"><div class="shot__frame"><img class="ol" src="../assets/ja-light-board.jpg" alt="Board。バックログからレビュー中までの列に、プロジェクトとタスクのカードが並ぶ" width="800" height="500"><img class="od" src="../assets/ja-dark-board.jpg" alt="Board。バックログからレビュー中までの列に、プロジェクトとタスクのカードが並ぶ" width="800" height="500"></div><figcaption><b>ボード</b>　計画したElementが、状態ごとに並ぶ。</figcaption></figure>
+    <ol class="flow" aria-label="目標から実行まで"><li><b>Strategyを書く</b><span>目的、前提、決めたこと、成功条件を書く</span></li><li><b>AIが計画を作る</b><span>足りない前提を質問し、ObjectとElementに分ける。依存関係が循環していないか、存在しないものを参照していないかを自動で確認する</span></li><li class="you"><b>人が確認する</b><span>計画を見て、直してから作成する。確認するまで作業は始まらない</span></li><li><b>進み具合を確かめる</b><span>Elementの完了数と成功条件の達成を、別々に表示する</span></li></ol><figure class="shot shot--wide"><div class="shot__frame"><img class="ol" src="../assets/ja-light-board.jpg" alt="Board。バックログからレビュー中までの列に、プロジェクトとタスクのカードが並ぶ" width="800" height="500"><img class="od" src="../assets/ja-dark-board.jpg" alt="Board。バックログからレビュー中までの列に、プロジェクトとタスクのカードが並ぶ" width="800" height="500"></div><figcaption><b>ボード</b>　Elementを状態ごとの列に並べます。</figcaption></figure>
   </div>
 </section>
 
 <section class="section" id="layers" aria-labelledby="layers-title">
   <div class="container">
-    <div class="head"><h2 id="layers-title">3つの層で、目標と行動をつなぐ。</h2><p class="lead">どのElementも、何のためにあるかをたどれます。</p></div><ol class="rows"><li class="row"><h3>Strategy<small>何を達成し、どう勝つか</small></h3><p>目的、前提、決めたこと、成功条件。入れ子にでき、最上位がSpaceの目指す姿になる。</p></li><li class="row"><h3>Object<small>Elementをまとめる持ち場</small></h3><p>プロジェクトに近い単位。期限、リーダー、進み具合、マイルストーンを持つ。</p></li><li class="row"><h3>Element<small>行動の最小単位</small></h3><p>「調べる」「作る」「承認する」のように動詞を持つ。判断・決定・承認・回答は人だけが担う。</p></li></ol>
+    <div class="head"><h2 id="layers-title">Strategy・Object・Elementの3つの単位</h2><p class="lead">すべてのElementは、どのStrategyのためにあるかをたどれます。</p></div><ol class="rows"><li class="row"><h3>Strategy<small>何を達成するか</small></h3><p>目的、前提、決めたこと、成功条件（何をもって達成とするか）を書きます。Strategyの中にStrategyを作れ、いちばん上が組織全体の目標になります。担当者と進み具合は持ちません。</p></li><li class="row"><h3>Object<small>作業をまとめる単位</small></h3><p>プロジェクトにあたる単位です。期限、リーダー、進み具合、マイルストーン、Status（段階）を持ちます。</p></li><li class="row"><h3>Element<small>作業の最小単位</small></h3><p>担当者、期限、進み具合、ほかのElementとの依存関係、作業の種類（調査・作成・承認など13種類）を持ちます。判断・決定・承認・回答の4種類は、人だけが担当できます。</p></li></ol>
   </div>
 </section>
 
 <section class="section" id="progress" aria-labelledby="progress-title">
   <div class="container">
-    <div class="head"><h2 id="progress-title">途中で、いまどこにいるかが見える。</h2></div><dl class="facts"><div><dt>進み具合の帯</dt><dd>期日に対して余裕が減ると、帯の先端から赤くなる。</dd></div><div><dt>履歴の線</dt><dd>承認待ちの作業は枝になり、承認されると本線に戻る。</dd></div><div><dt>マイルストーン</dt><dd>ひし形が、期日までの作業の進み具合で塗られていく。</dd></div><div><dt>Status</dt><dd>ObjectとStrategyは5つの段階のどこにあるかを持ち、段階ごとに独自のStatusを足せる。</dd></div><div><dt>なぜやるか</dt><dd>Elementから、根拠になった成功条件や決めたことに戻れる。</dd></div><div><dt>ずれを知らせる</dt><dd>Strategyが変わると、影響を受けるElementが分かる。</dd></div></dl>
+    <div class="head"><h2 id="progress-title">計画を進める途中で確認できること</h2></div><dl class="facts"><div><dt>担当者の決め方</dt><dd>AIが計画を作るとき、Spaceのメンバーから、仕事のやり方の定義（ハーネス）に書いた規則で担当者を選びます。</dd></div><div><dt>作業の理由</dt><dd>Elementのページから、そのElementの根拠になった成功条件、前提、決めたことを開けます。</dd></div><div><dt>Strategyの変更の影響</dt><dd>Strategyの成功条件や前提が変わると、それを根拠にしているElementが分かります。</dd></div><div><dt>判断待ち</dt><dd>人の判断が要るElementと、承認や回答を待っている実行は、Inboxの先頭に並びます。</dd></div><div><dt>進み具合の帯</dt><dd>期日までの日数に対して進み具合が遅れると、帯の先端から赤くなります。BlockedのElementや期限切れのElementがあるときも赤くなります。</dd></div><div><dt>変更の記録</dt><dd>状態の変化、担当者の交代、承認の依頼と承認を、時系列の線で表示します。承認を待っている間の作業は線から分かれて表示されます。</dd></div><div><dt>マイルストーン</dt><dd>Objectに日付つきのマイルストーンを置けます。その日までに期限が来るElementのうち、完了した割合に応じて、ひし形の印が塗られます。</dd></div><div><dt>Status</dt><dd>ObjectとStrategyは、Backlog・Planned・In Progress・Completed・Canceledのどれかの段階にあります。段階の下に、組織ごとのStatusを追加できます。</dd></div></dl>
   </div>
 </section>
 

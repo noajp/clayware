@@ -55,35 +55,42 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="athena-title">
   <div class="container">
-    <h1 id="athena-title">頼めば、Athenaが状況を集めて進める。</h1>
-    <p class="lead">チームの誰かに頼むように伝えるだけ。Athenaが計画を立て、調べ、記録し、下書きします。判断と承認は人に残します。</p>
+    <h1 id="athena-title">Athenaは、Claywareに組み込まれたAIです。依頼を受けて、調査・記録・下書きを行います。</h1>
+    <p class="lead">チームの誰かに頼むように、やってほしいことを文章で伝えます。Athenaは計画を立て、Webで調べ、表に記録し、文書を下書きします。判断と承認は人が行います。</p>
   </div>
 </section>
 
-<section class="section section--flush" aria-label="Athenaにできること">
+<section class="section section--flush" aria-label="Athenaが行うこと">
   <div class="container">
     <figure class="run" role="img" aria-label="Athenaへの依頼と、その進み具合の例">
       <div class="run__ask"><span class="run__who">あなた</span><p>来週の展示会の出展社を調べて、うちと競合する会社を表にまとめて。気になる会社には挨拶メールを下書きしておいて。</p></div>
-      <div class="run__body"><span class="run__who run__who--ai"><span class="core__dot"></span>Athena</span><ol><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>出展社の一覧を集めた</b><span>142社 · 公式サイトから</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>競合する会社を表にした</b><span>18社 · 出どころつき</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>挨拶メールを下書きした</b><span>5通</span></li><li class="run__step run__step--wait"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 4.5V8l2.2 1.4"/></svg><b>送るかどうか、判断待ち</b><span>送信はあなたの承認を待つ</span></li></ol></div>
-    </figure><dl class="facts"><div><dt>Webで調べる</dt><dd>必要な情報を集め、出どころと一緒に残す。</dd></div><div><dt>表に記録する</dt><dd>顧客や候補、問い合わせを表の行として残す。</dd></div><div><dt>文書を作る</dt><dd>報告やメールを下書きする。</dd></div><div><dt>ブラウザを操作する</dt><dd>登録したマシンでは、画面の操作もする。</dd></div><div><dt>Elementに落とす</dt><dd>集めた状況から、やるべきことをElementにする。</dd></div><div><dt>ずれを確かめる</dt><dd>進んでいる仕事がStrategyから外れていないかを見る。</dd></div></dl>
+      <div class="run__body"><span class="run__who run__who--ai"><span class="core__dot"></span>Athena</span><ol><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>出展社の一覧を集めた</b><span>出典：展示会の公式サイト</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>競合する会社を表にした</b><span>各行に出典と取得日時を付けた</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>挨拶メールを下書きした</b><span>送信はしていない</span></li><li class="run__step run__step--wait"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 4.5V8l2.2 1.4"/></svg><b>送信するかどうかの判断待ち</b><span>メールの送信は、人の承認まで実行しない</span></li></ol></div>
+      <figcaption class="run__cap">依頼と進み具合の表示例です。</figcaption>
+    </figure><dl class="facts"><div><dt>Webで調べる</dt><dd>必要な情報をWebで集めます。主張には出典と取得日時を付け、確認できなかった点は別の欄に書きます。</dd></div><div><dt>表に記録する</dt><dd>顧客、候補者、問い合わせなどを、表（Table）の行として記録します。</dd></div><div><dt>文書を作る</dt><dd>報告書やメールの返信を下書きします。</dd></div><div><dt>ブラウザを操作する</dt><dd>登録したパソコンでは、ブラウザを開いてフォームに入力するといった操作も行います。</dd></div><div><dt>作業に分ける</dt><dd>集めた情報から、やるべき作業をElementとして作ります。</dd></div><div><dt>目標とのずれを確かめる</dt><dd>進んでいる作業が、Strategyの成功条件に合っているかを確かめます。</dd></div></dl>
   </div>
 </section>
 
 <section class="section" id="split" aria-labelledby="split-title">
   <div class="container">
-    <div class="head"><h2 id="split-title">調べるのはAI、決めるのは人。</h2><p class="lead">調査・下書き・集計・分析はAthenaが、判断・承認・対外的な約束は人が担います。</p></div><table class="index"><thead><tr><th scope="col">業務</th><th scope="col">Athenaがやること</th><th scope="col">人が決めること</th></tr></thead><tbody><tr><td>問い合わせの受付</td><td>分類して記録し、返信を下書き</td><td>送るかどうか</td></tr><tr><td>朝のまとめ</td><td>未対応と高リスクを先頭に並べる</td><td>どれから手を付けるか</td></tr><tr><td>クレームの分析</td><td>原因を分類し、改善案を出す</td><td>どの案を採るか</td></tr><tr><td>営業のフォロー</td><td>商談後の連絡を下書き</td><td>何を送るか</td></tr><tr><td>開発</td><td>隔離した環境で変更し、PRを出す</td><td>マージするかどうか</td></tr></tbody></table>
+    <div class="head"><h2 id="split-title">AIが行う作業と、人が決めること</h2><p class="lead">調査・下書き・集計・分析はAthenaが行い、判断・承認・社外への約束は人が行います。</p></div><table class="index"><thead><tr><th scope="col">業務</th><th scope="col">Athenaが行うこと</th><th scope="col">人が決めること</th></tr></thead><tbody><tr><td>問い合わせの受付</td><td>問い合わせを分類して表に記録し、返信を下書きする</td><td>返信を送るかどうか</td></tr><tr><td>朝のまとめ</td><td>前日分を集計し、未対応と高リスクのものを先頭に並べる</td><td>どれから対応するか</td></tr><tr><td>クレームの分析</td><td>原因を分類し、改善案を出す</td><td>どの案を採用するか</td></tr><tr><td>営業のフォロー</td><td>商談のあとの連絡を下書きする</td><td>何を送るか</td></tr><tr><td>開発</td><td>隔離した環境でコードを変更し、テストを通してからプルリクエストを出す</td><td>マージするかどうか</td></tr></tbody></table>
+  </div>
+</section>
+
+<section class="section" id="harness" aria-labelledby="harness-title">
+  <div class="container">
+    <div class="head"><h2 id="harness-title">仕事のやり方を定義する（ハーネス）</h2><p class="lead">Athenaは、仕事ごとに書いた「ハーネス」に従って作業します。</p></div><table class="index"><thead><tr><th scope="col">書いておくこと</th><th scope="col">内容</th></tr></thead><tbody><tr><td>いつ使うか</td><td>名前、1行の説明、使う場面と使わない場面</td></tr><tr><td>入力</td><td>必要な入力と、その形。そろうまで実行しない</td></tr><tr><td>手順</td><td>使う操作の順番と分岐。機械で判定する条件と、AIに判断させる所を分けて書く</td></tr><tr><td>決まり</td><td>使える操作、読み取りと書き込みの扱い、承認が要る条件、回数の上限、送信してよい宛先、担当者の決め方</td></tr><tr><td>完了と失敗</td><td>完了の条件、してはいけないこと、失敗したときの扱い</td></tr></tbody><caption>ハーネスは保存したときに検査します。用意済みのハーネス：問い合わせの受付と振り分け、問い合わせの朝のまとめ、クレームの分析と改善提案、営業のフォロー。</caption></table>
   </div>
 </section>
 
 <section class="section" id="runs" aria-labelledby="runs-title">
   <div class="container">
-    <div class="head"><h2 id="runs-title">画面を閉じても、仕事は続く。</h2></div><ol class="flow" aria-label="閉じても続く仕事"><li><b>始まる</b><span>決まった時刻か、何かが届いたときに</span></li><li><b>任せた人の権限で動く</b><span>始めた人ができることだけをする</span></li><li><b>止まっても続く</b><span>止まった所から、続きを再開する</span></li><li class="you"><b>判断待ちに回す</b><span>AIで決められないことは、人に聞く</span></li></ol>
+    <div class="head"><h2 id="runs-title">アプリを閉じている間も、仕事は進みます</h2></div><ol class="flow" aria-label="アプリを閉じても続く仕事"><li><b>自動で始まる</b><span>決まった時刻か、外からの通知（Webhook）で始まる</span></li><li><b>始めた人の権限で動く</b><span>仕事を始めた人が見られる範囲だけを読み書きする</span></li><li><b>途中から再開する</b><span>承認待ちや時間の上限で止まっても、最後の記録から続ける</span></li><li class="you"><b>足りない情報は人に聞く</b><span>選択肢つきの質問をInboxに置き、回答が来たら再開する</span></li></ol>
   </div>
 </section>
 
 <section class="section" id="safety" aria-labelledby="safety-title">
   <div class="container">
-    <div class="head"><h2 id="safety-title">止まるべきところで、止まる。</h2></div><dl class="facts"><div><dt>承認は中身に結び付く</dt><dd>実行する入力そのものに結び付く。AIは自分で承認できない。</dd></div><div><dt>検証役</dt><dd>別のAIが成果物を確かめる。</dd></div><div><dt>自動で止まる</dt><dd>連続した書き込み、エラー、初めての送信先で止まる。</dd></div><div><dt>費用の上限</dt><dd>月の予算を超えて動かない。</dd></div><div><dt>モデルを選べる</dt><dd>仕事に合わせて、速さか深さかを選ぶ。</dd></div><div><dt>すべて記録に残る</dt><dd>実行はすべて記録される。</dd></div></dl>
+    <div class="head"><h2 id="safety-title">AIを安全に使うための仕組み</h2></div><dl class="facts"><div><dt>承認した内容だけを実行する</dt><dd>承認は実行する入力そのものに結び付けます。AIが自分で承認することはできません。</dd></div><div><dt>別のAIが確認する</dt><dd>成果物は、作ったAIとは別の文脈のAIが確認してから完了になります。確認できなかったものには「未検証」の印が付きます。</dd></div><div><dt>自動で止まる</dt><dd>同じ対象への連続した書き込み、エラーの増加、初めての送信先への送信で止まり、人に回します。</dd></div><div><dt>費用の上限</dt><dd>Spaceの月の予算と、実行ごとの上限を超えると止まります。</dd></div><div><dt>任せる範囲を選ぶ</dt><dd>操作のたびに確認するか、任せるかを、組織が選びます（毎回聞く・自動・聞かない）。</dd></div><div><dt>使うAIのモデルを選ぶ</dt><dd>処理の速さか精度かに合わせて、モデルを切り替えられます。</dd></div></dl>
   </div>
 </section>
 

@@ -55,37 +55,30 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="change-title">
   <div class="container">
-    <h1 id="change-title">We don’t hand over a tool and leave.</h1>
-    <p class="lead">Engineers start where the work gets stuck.</p>
+    <h1 id="change-title">We help you rework how the job is done, on the assumption that AI is part of it.</h1>
+    <p class="lead">Our engineers work on site with your team, from mapping the work, setting success criteria and connecting AI, through trial runs, to settling the new way into daily operations.</p>
   </div>
 </section>
 
 <section class="section section--flush" id="stuck" aria-labelledby="stuck-title">
   <div class="container">
-    <div class="head"><h2 id="stuck-title">Start where the work is stuck.</h2><p class="lead">Every company’s first step comes from here.</p></div><table class="index index--problem"><thead><tr><th scope="col">Where it’s stuck today</th><th scope="col">What we start with</th></tr></thead><tbody><tr><td>AI is in, but only used for drafts</td><td>Redraw the line between work AI takes and what people decide</td></tr><tr><td>Requests scatter across mail and chat, and get dropped</td><td>Connect the channels and turn every request into an Element</td></tr><tr><td>No one knows who’s waiting on a decision</td><td>Send only decisions to people, listed on one board</td></tr><tr><td>How the work gets done lives in people’s heads</td><td>Write down the steps and stop conditions, in a form AI can read too</td></tr></tbody></table>
+    <div class="head"><h2 id="stuck-title">Common situations, and what we do first</h2></div><table class="index"><thead><tr><th scope="col">A common situation</th><th scope="col">What we do first</th></tr></thead><tbody><tr><td>AI was introduced but is used only to draft text</td><td>Re-divide the work, process by process, into what AI does and what people judge</td></tr><tr><td>Requests are split across mail and chat, and some are missed</td><td>Connect the services requests arrive in to Clayware, and record every request with an owner and a deadline</td></tr><tr><td>No one can tell whose decision the work is waiting on</td><td>List only the work that needs a person’s judgment, with who it waits on and for how long</td></tr><tr><td>Only the person doing the job knows the steps</td><td>Write the steps and the conditions to stop into a document AI can also read (a harness)</td></tr></tbody></table>
   </div>
 </section>
 
-
-<section class="section" id="change" aria-labelledby="change-steps-title">
+<section class="section" id="change" aria-labelledby="change-title">
   <div class="container">
-    <div class="head"><h2 id="change-steps-title">Four stages to rework the job.</h2></div><ol class="steps">
-      <li><h3>Watch the work</h3><p>Map what arrives and who decides.</p></li>
-      <li><h3>Set the bar</h3><p>Agree a number, like a four-hour first reply.</p></li>
-      <li><h3>Connect and dry-run</h3><p>Writes off. Check every action.</p></li>
-      <li><h3>Run and adjust</h3><p>A morning review, tuned to the bar.</p></li>
-    </ol>
-    <div class="switch" data-switch>
-      <div class="switch__label"><h3>Hand over more as trust builds</h3></div>
-      <div class="seg" role="tablist" aria-label="How much to hand over">
-        <button type="button" role="tab" id="t-ask" aria-controls="p-ask" aria-selected="true">Ask every time</button>
-        <button type="button" role="tab" id="t-auto" aria-controls="p-auto" aria-selected="false" tabindex="-1">Auto</button>
+    <div class="head"><h2 id="change-title">Four stages</h2></div><ol class="steps"><li><h3>1. Study the work on site</h3><p>List where requests come from, who decides what, and how long each part takes.</p></li><li><h3>2. Set success criteria</h3><p>Decide in numbers whether the work is going well, such as “first reply within 4 hours”.</p></li><li><h3>3. Connect and run a trial</h3><p>Connect Clayware to the work and run it with writes to outside services stopped, checking every operation AI performs.</p></li><li><h3>4. Fix while operating</h3><p>Each morning, check the list of decisions waiting and the results, and fix the steps against the success criteria.</p></li></ol><div class="switch" data-switch>
+      <div class="switch__label"><h3>How much is handed to AI</h3><p>In Clayware you choose, from three levels, whether AI may run operations that write to outside services without approval.</p></div>
+      <div class="seg" role="tablist" aria-label="How much is handed to AI">
+        <button type="button" role="tab" id="t-ask" aria-controls="p-ask" aria-selected="true">Always ask</button>
+        <button type="button" role="tab" id="t-auto" aria-controls="p-auto" aria-selected="false" tabindex="-1">Automatic</button>
         <button type="button" role="tab" id="t-free" aria-controls="p-free" aria-selected="false" tabindex="-1">Don’t ask</button>
       </div>
       <div class="panels">
-        <div class="panel" role="tabpanel" id="p-ask" aria-labelledby="t-ask" tabindex="0"><b>Ask every time</b>Every outside write waits for a person.</div>
-        <div class="panel" role="tabpanel" id="p-auto" aria-labelledby="t-auto" tabindex="0"><b>Auto</b>Clean approval runs are handed over first.</div>
-        <div class="panel" role="tabpanel" id="p-free" aria-labelledby="t-free" tabindex="0"><b>Don’t ask</b>Runs freely inside your limits. Nothing irreversible.</div>
+        <div class="panel" role="tabpanel" id="p-ask" aria-labelledby="t-ask" tabindex="0"><b>Always ask</b>Every write to an outside service waits for a person’s approval. This is where you start after introduction.</div>
+        <div class="panel" role="tabpanel" id="p-auto" aria-labelledby="t-auto" tabindex="0"><b>Automatic</b>Operations that ran without being sent back are allowed without approval, one by one. A send-back or an incident narrows the range again.</div>
+        <div class="panel" role="tabpanel" id="p-free" aria-labelledby="t-free" tabindex="0"><b>Don’t ask</b>Operations within the allowed range run without approval. Operations that can’t be undone still wait for approval.</div>
       </div>
     </div>
   </div>
@@ -93,13 +86,13 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="section" id="roles" aria-labelledby="roles-title">
   <div class="container">
-    <div class="head"><h2 id="roles-title">Three roles, working together.</h2></div><ol class="rows"><li class="row"><h3>Engineers<small>On site with you</small></h3><p>Look at the work, connect it, write down how it’s done, then run trials and fix.</p></li><li class="row"><h3>The people doing the work<small>Everyday users</small></h3><p>Ask, check and send back. Say what’s in the way, right then.</p></li><li class="row"><h3>The people who decide<small>Managers and owners</small></h3><p>Set the success criteria and what needs approval, then widen it as results come in.</p></li></ol>
+    <div class="head"><h2 id="roles-title">Three roles in the engagement</h2></div><ol class="rows"><li class="row"><h3>Engineers<small>Our side</small></h3><p>Study the work, connect Clayware to your services, write the harnesses, and run trials and fixes.</p></li><li class="row"><h3>People doing the work<small>Your side</small></h3><p>Ask AI for work, check the results and send back what doesn’t fit. Tell the engineers what is hard to use.</p></li><li class="row"><h3>Managers and owners<small>Who decides</small></h3><p>Set the success criteria and which operations need approval, and decide from the results whether to hand over more.</p></li></ol>
   </div>
 </section>
 
 <section class="section" id="leaves" aria-labelledby="leaves-title">
   <div class="container">
-    <div class="head"><h2 id="leaves-title">What stays when we leave.</h2></div><dl class="facts"><div><dt>How the work is done</dt><dd>A harness with the steps, stop conditions and the shape of the result.</dd></div><div><dt>Success in numbers</dt><dd>A number that decides good or bad, like “first reply within 4 hours”.</dd></div><div><dt>A record of decisions</dt><dd>Who decided what, and why, is kept.</dd></div><div><dt>Connected channels</dt><dd>Requests arrive in one place.</dd></div><div><dt>What AI may take</dt><dd>The line of work handed to AI, widened as you get used to it.</dd></div><div><dt>Running it yourselves</dt><dd>With education, you put the next process on yourselves.</dd></div></dl><p class="more"><a href="education.html" class="textlink">See education</a></p>
+    <div class="head"><h2 id="leaves-title">What stays with you after the engagement</h2></div><dl class="facts"><div><dt>Definitions of how the work is done</dt><dd>Harnesses with the steps, stop conditions, the shape of results and the services used.</dd></div><div><dt>Success criteria in numbers</dt><dd>Numbers that tell whether the work is going well.</dd></div><div><dt>A record of decisions</dt><dd>Who decided what, and why.</dd></div><div><dt>Connected services</dt><dd>Connections between Clayware and the services requests arrive in.</dd></div><div><dt>What AI may do without approval</dt><dd>The range of operations allowed without approval, set from the trial results.</dd></div><div><dt>Knowledge to continue in-house</dt><dd>Training so your staff can add the next process themselves.</dd></div></dl><p class="more"><a href="education.html" class="textlink">About education</a></p>
   </div>
 </section>
 
