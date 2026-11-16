@@ -39,6 +39,7 @@ import type {
 import type { ElementImportResult, ElementImportRow } from '@/Function/shared/element/intakeModel'
 import type { DeploymentGrant, GrantOperation } from '@/Function/audit/auditModel'
 import type { DefaultPlacement } from '@/Function/widget/boardModel'
+import type { SpaceNouns } from '@/Function/i18n/spaceNouns'
 import type { WidgetParams, WidgetSize } from '@/Function/widget/types'
 
 type WorkerType = 'human' | 'ai_agent' | 'robot'
@@ -47,7 +48,8 @@ type AssigneeRole = 'assignee' | 'reviewer' | 'collaborator'
 
 /** Column overrides per table, applied to Row, Insert and Update alike. */
 interface ColumnOverrides {
-  activity_spaces: { approval_mode: 'ask' | 'auto' | 'free' }
+  // CHECK space_nouns_valid(nouns)
+  activity_spaces: { approval_mode: 'ask' | 'auto' | 'free'; nouns: SpaceNouns }
   space_approval_mode_changes: { from_mode: 'ask' | 'auto' | 'free' | null; to_mode: 'ask' | 'auto' | 'free' }
   // The chat transcript; readers check Array.isArray before use.
   ai_sessions: { messages: unknown[] }

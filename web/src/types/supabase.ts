@@ -69,6 +69,7 @@ export type Database = {
           logo: string | null
           memory_auto_capture: boolean
           name: string
+          nouns: Json
           order_index: number
           scope: string
           updated_at: string
@@ -96,6 +97,7 @@ export type Database = {
           logo?: string | null
           memory_auto_capture?: boolean
           name: string
+          nouns?: Json
           order_index?: number
           scope?: string
           updated_at?: string
@@ -123,6 +125,7 @@ export type Database = {
           logo?: string | null
           memory_auto_capture?: boolean
           name?: string
+          nouns?: Json
           order_index?: number
           scope?: string
           updated_at?: string

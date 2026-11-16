@@ -1,4 +1,5 @@
 import type { ListControlsState } from '@/Function/shared/listControls/types'
+import type { SpaceNouns } from '@/Function/i18n/spaceNouns'
 
 // The schema itself is generated (./supabase.ts) and narrowed in ./db.ts;
 // the types here are the domain views of those rows the app works with.
@@ -192,6 +193,9 @@ export interface ActivitySpace {
    *  approval matter); the owner or any member's screen may flip it
    *  only where the column grant and the screen allow. */
   memory_auto_capture?: boolean
+  /** What this Space calls Strategy, Object and Element (Function/i18n/spaceNouns.ts).
+   *  A name left out is the built-in one. Owner only. */
+  nouns?: SpaceNouns
 }
 
 export interface ActivitySpaceInsert {
@@ -209,6 +213,7 @@ export interface ActivitySpaceUpdate {
   color?: string | null
   logo?: string | null
   order_index?: number
+  nouns?: SpaceNouns
 }
 
 export interface ActivitySpaceMember {
