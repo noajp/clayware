@@ -1,37 +1,26 @@
 // The statuses a Space defines for itself (work_statuses).
 //
-// An Object and a Strategy each stand in one of five stages, and that stage
-// is what lists and reports go by. Within a stage a Space can add statuses
-// of its own, and give the stage's own status another name, icon or colour.
-// Objects and Strategies share one set (scope 'work'); Elements have their
-// own stages, the seven their status has always had (scope 'element').
+// An Element, an Object and a Strategy each stand in one of the same seven
+// stages — Backlog, To Do, In Progress, In Review, Done, Blocked, Cancelled —
+// and that stage is what lists, boards and reports go by. Within a stage a
+// Space can add statuses of its own, and give the stage's own status another
+// name, icon or colour. Objects and Strategies share one set (scope 'work');
+// Elements have theirs (scope 'element'): the stages are the same, the
+// statuses a Space adds under them are not.
 //
 // Pure: what the rows a Space saved mean, and what a stage looks like when
 // it saved nothing.
 
 export type StatusScope = 'work' | 'element';
 
-type WorkStage = 'backlog' | 'planned' | 'in_progress' | 'completed' | 'canceled';
-
 /** How a stage's own status looks until the Space gives it another look.
- *  An Element's stages have no icon of their own here (`icon` null, `color`
- *  null): each is drawn by its designed mark (ElementProgressMark), the same
- *  mark every list shows. */
+ *  No stage has an icon of its own here (`icon` null, `color` null): each is
+ *  drawn by its designed mark (ElementProgressMark), the same mark every
+ *  list shows. */
 interface StageLook { stage: string; label: string; icon: string | null; color: string | null }
 
-/** The stages of an Object or a Strategy, in the order they are listed, each
- *  with the look of its own status until the Space gives it another. */
-const WORK_STAGES: readonly StageLook[] = [
-  { stage: 'backlog', label: 'Backlog', icon: 'lucide:circle-dashed', color: 'orange' },
-  { stage: 'planned', label: 'Planned', icon: 'lucide:circle', color: 'grey' },
-  { stage: 'in_progress', label: 'In Progress', icon: 'lucide:circle-dot', color: 'yellow' },
-  { stage: 'completed', label: 'Completed', icon: 'lucide:circle-check', color: 'purple' },
-  { stage: 'canceled', label: 'Canceled', icon: 'lucide:circle-x', color: 'darkgrey' },
-];
-
-/** The stages of an Element: its status keys, in the order they are listed
- *  (STATUS_ORDER). Each is drawn by its designed mark. */
-const ELEMENT_STAGES: readonly StageLook[] = [
+/** The stages, in the order they are listed (STATUS_ORDER). */
+const STAGES: readonly StageLook[] = [
   { stage: 'backlog', label: 'Backlog', icon: null, color: null },
   { stage: 'todo', label: 'To Do', icon: null, color: null },
   { stage: 'in_progress', label: 'In Progress', icon: null, color: null },
@@ -41,8 +30,11 @@ const ELEMENT_STAGES: readonly StageLook[] = [
   { stage: 'cancelled', label: 'Cancelled', icon: null, color: null },
 ];
 
-export function stagesOf(scope: StatusScope): readonly StageLook[] {
-  return scope === 'work' ? WORK_STAGES : ELEMENT_STAGES;
+/** Pure. The stage a saved stage name stands for: the earlier names of an
+ *  Object's and a Strategy's stages are read as the stage they became. */
+export function stageOf(stage: string | null | undefined): string | null {
+  if (!stage) return null;
+  return ({ planned: 'todo', completed: 'done', canceled: 'cancelled' } as Record<string, string>)[stage] ?? stage;
 }
 
 /** A saved row of work_statuses, as far as its meaning goes. */
@@ -78,8 +70,8 @@ export interface StageStatuses { stage: string; label: string; statuses: Status[
  *  Space re-dressed it, or as it comes — then the ones the Space added, in
  *  their order. Rows of another scope or of no known stage are left out. */
 export function statusesByStage(scope: StatusScope, rows: readonly StatusRow[]): StageStatuses[] {
-  return stagesOf(scope).map((look) => {
-    const mine = rows.filter((r) => r.scope === scope && r.stage === look.stage);
+  return STAGES.map((look) => {
+    const mine = rows.filter((r) => r.scope === scope && stageOf(r.stage) === look.stage);
     const own = mine.find((r) => r.builtin);
     const added = mine.filter((r) => !r.builtin).sort((a, b) => a.order_index - b.order_index || a.name.localeCompare(b.name));
     return {
@@ -104,13 +96,13 @@ export function statusesByStage(scope: StatusScope, rows: readonly StatusRow[]):
  *  one of its stage's, else the stage's own. */
 export function statusOf(scope: StatusScope, rows: readonly StatusRow[], stage: string | null | undefined, statusId: string | null | undefined): Status {
   const all = statusesByStage(scope, rows);
-  const group = all.find((g) => g.stage === stage) ?? all[0];
+  const group = all.find((g) => g.stage === stageOf(stage)) ?? all[0];
   return group.statuses.find((s) => s.id !== null && s.id === statusId) ?? group.statuses[0];
 }
 
 /** Pure. Where a new status goes: after the last one the Space added to that stage. */
 export function nextOrderIndex(rows: readonly StatusRow[], scope: StatusScope, stage: string): number {
-  return rows.filter((r) => r.scope === scope && r.stage === stage && !r.builtin)
+  return rows.filter((r) => r.scope === scope && stageOf(r.stage) === stage && !r.builtin)
     .reduce((max, r) => Math.max(max, r.order_index), 0) + 1;
 }
 
