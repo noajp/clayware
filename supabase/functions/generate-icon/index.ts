@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.2';
+import { athenaAllowed, PLAN_REFUSAL } from '../_shared/plan.ts';
 
 // Draws icons from words, when someone asks in the icon picker. Returns a few
 // drafts to choose from; nothing is saved here. The web app reads every
@@ -60,6 +61,7 @@ Deno.serve(async (req) => {
     const input = JSON.parse(text);
     const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
     if (!prompt || prompt.length > 300) return reply({ error: 'Describe the icon in a few words.' }, 400);
+    if (!(await athenaAllowed(client, input.spaceId))) return reply(PLAN_REFUSAL, 403);
     const key = Deno.env.get('ANTHROPIC_API_KEY');
     if (!key) return reply({ error: 'AI generation is not configured.' }, 503);
 

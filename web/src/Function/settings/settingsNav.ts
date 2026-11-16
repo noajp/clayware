@@ -3,7 +3,7 @@
 import { openInApp } from '@/Function/shared/appNavigation';
 import type React from 'react';
 import { useSyncExternalStore } from 'react';
-import { SlidersHorizontal, User, Bell, KeyRound, Plug, Globe, Users, Sparkles, Link2, Tag, FileText, Boxes, CircleCheck } from '@/ui/icons';
+import { SlidersHorizontal, User, Bell, KeyRound, Plug, Globe, Users, Sparkles, Link2, Tag, FileText, Boxes, CircleCheck, CreditCard } from '@/ui/icons';
 import { DomainIcon, ObjectIcon, ElementIcon } from '@/Function/shared/conceptIcons';
 import { NavStrategyIcon, NavAutomationIcon } from '@/Frame/sidebar/NavIcons';
 
@@ -84,6 +84,7 @@ export const SETTINGS_NAV: SettingsNavSection[] = [
       { id: 'domain', label: 'Domains', icon: DomainIcon },
       { id: 'api', label: 'API', icon: Link2 },
       { id: 'assets', label: 'Connected assets', icon: Boxes },
+      { id: 'plans', label: 'Plans', holds: ['Free', 'Team', 'Enterprise', 'Billing'], icon: CreditCard },
     ],
   },
 ];
@@ -146,5 +147,11 @@ export function useSettingsRevealNonce(): number {
 /** Opens Settings at the model connections, where an AI's API key is set. */
 export function openModelKeySettings(): void {
   setActiveSettingsSection('connectors');
+  openInApp('settings');
+}
+
+/** Opens Settings at the Space's plan. */
+export function openPlanSettings(): void {
+  setActiveSettingsSection('plans');
   openInApp('settings');
 }

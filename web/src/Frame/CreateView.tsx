@@ -7,7 +7,10 @@ import { Button } from '@/ui/button';
 import { ChoiceCard } from '@/ui/choice-card';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { createDomain } from '@/hooks/useSupabase';
-import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
+import { getActiveSpaceId, useActiveSpaceId } from '@/Function/space/activeSpaceStore';
+import { canAddDomain, isDomainLimitError } from '@/Function/space/spacePlan';
+import { useSpacePlan } from '@/hooks/spacePlanData';
+import { openPlanSettings } from '@/Function/settings/settingsNav';
 import { suggestObjectPrefix } from '@/Function/shared/objectPrefix';
 import { Globe, Lock } from '@/ui/icons';
 import { DomainIcon } from '@/Function/shared/conceptIcons';
@@ -42,6 +45,9 @@ function CreateDomainView({ onCancel, onCreated }: { onCancel: () => void; onCre
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const creatingRef = useRef(false);
+  // A free Space holds two Domains; the server keeps the limit, this says it first.
+  const { plan, domainCount } = useSpacePlan(useActiveSpaceId());
+  const atLimit = !!plan && !canAddDomain(plan, domainCount);
 
   const handleNameChange = (v: string) => {
     setName(v);
@@ -68,7 +74,9 @@ function CreateDomainView({ onCancel, onCreated }: { onCancel: () => void; onCre
       onCreated({ type: 'domain', id: domain.id });
     } catch (err) {
       console.error('Failed to create domain:', err);
-      setError(err instanceof Error ? err.message : t('Failed to create Domain'));
+      setError(isDomainLimitError(err)
+        ? t('The Free plan holds up to 2 Domains. Move this Space to Team to add more.')
+        : err instanceof Error ? err.message : t('Failed to create Domain'));
     } finally {
       creatingRef.current = false;
       setCreating(false);
@@ -115,11 +123,17 @@ function CreateDomainView({ onCancel, onCreated }: { onCancel: () => void; onCre
           </Field>
         </div>
 
+        {atLimit && !error && (
+          <div role="status" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-foreground/[0.04] px-4 py-3">
+            <p className="text-[13px] text-foreground">{t('Free plan: up to 2 Domains.')}</p>
+            <Button variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
+          </div>
+        )}
         {error && <p className="mt-6 text-[12px] text-destructive">{error}</p>}
 
         <div className="flex items-center justify-end gap-2 mt-10">
           <Button variant="secondary" size="md" onClick={onCancel} disabled={creating}>{t('Cancel')}</Button>
-          <Button variant="primary" size="md" onClick={handleCreate} disabled={!name.trim() || creating}>
+          <Button variant="primary" size="md" onClick={handleCreate} disabled={!name.trim() || creating || atLimit}>
             {creating ? t('Creating…') : t('Create Domain')}
           </Button>
         </div>

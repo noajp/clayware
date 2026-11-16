@@ -6,11 +6,12 @@
 
 import { supabase } from '@/lib/supabase';
 import { getAthenaSettings } from '@/Function/shared/athenaSettings';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 
 export interface IconDraft { name: string; svg: string }
 
 export async function generateIconDrafts(prompt: string): Promise<IconDraft[]> {
-  const { data, error } = await supabase.functions.invoke('generate-icon', { body: { prompt, ...getAthenaSettings() } });
+  const { data, error } = await supabase.functions.invoke('generate-icon', { body: { prompt, spaceId: getActiveSpaceId(), ...getAthenaSettings() } });
   if (error) {
     // The function's own message, when it sent one, says what went wrong.
     const context = (error as { context?: Response }).context;

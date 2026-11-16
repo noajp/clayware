@@ -1,6 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.2';
 import { parseAppSource } from './model.ts';
+import { athenaAllowed, PLAN_REFUSAL } from '../_shared/plan.ts';
 
 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json' };
 const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
@@ -27,6 +28,7 @@ Deno.serve(async req => {
     const input = JSON.parse(text);
     if (input.runtimeVersion !== 3) return reply({ error: 'Reload Clayware before generating an app with the current runtime.' }, 409);
     if (typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000 || typeof input.widgetId !== 'string') return reply({ error: 'An app and request are required.' }, 400);
+    if (!(await athenaAllowed(client, input.spaceId))) return reply(PLAN_REFUSAL, 403);
     // Every read is the caller's own: a widget they cannot see is not found.
     const { data: widget, error } = await client.from('widgets').select('id,kind,origin_kind,origin_id').eq('id', input.widgetId).single();
     if (error || !widget || widget.kind !== 'generated-app') return reply({ error: 'App not found or access denied.' }, 404);

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import type { Brief } from '@/types/notes';
 
 export type ObjectDraftElementPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -25,6 +26,7 @@ export async function draftObjectFromBrief(brief: Brief): Promise<ObjectDraft> {
     summary: brief.summary,
     decisions: brief.structured?.decisions,
     action_items: brief.structured?.action_items,
+    spaceId: getActiveSpaceId(),
   };
   const { data, error } = await supabase.functions.invoke('draft-object', { body });
   if (error) throw error;

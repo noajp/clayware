@@ -71,6 +71,7 @@ export type Database = {
           name: string
           nouns: Json
           order_index: number
+          plan: string
           scope: string
           updated_at: string
         }
@@ -99,6 +100,7 @@ export type Database = {
           name: string
           nouns?: Json
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }
@@ -127,6 +129,7 @@ export type Database = {
           name?: string
           nouns?: Json
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }

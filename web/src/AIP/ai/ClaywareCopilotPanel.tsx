@@ -18,6 +18,9 @@ import { useIsSpaceOwner } from '@/AIP/connectors/data';
 import { toDateOnlyString } from '@/Function/shared/dateUtils';
 import { getActiveDomainId } from '@/Function/space/domainsStore';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { useSpacePlan } from '@/hooks/spacePlanData';
+import { planHasAthena } from '@/Function/space/spacePlan';
+import { openPlanSettings } from '@/Function/settings/settingsNav';
 
 const SlidesAssistant = dynamic(() => import('@/ActivitySpace/artifacts/slides/SlidesAssistant').then((m) => m.SlidesAssistant), { ssr: false });
 
@@ -101,6 +104,9 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
   const { messages, streaming, error, send, cancel, newConversation, retry, truncate, decideApproval, setChartColors } = useCopilotConversation();
   // A standing approval on an approval card is the Space owner's to give.
   const canRememberApproval = useIsSpaceOwner(useActiveSpaceId()) === true;
+  // A Space whose plan has no Athena: the screen says so instead of letting a message fail.
+  const { plan } = useSpacePlan(useActiveSpaceId());
+  const noAthena = !!plan && !planHasAthena(plan);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLElement>(null);
@@ -237,7 +243,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
 
   const submit = () => {
     const text = input.trim();
-    if ((!text && files.length === 0) || streaming) return;
+    if ((!text && files.length === 0) || streaming || noAthena) return;
     setInput('');
     const attachments = files;
     if (inputRef.current) { inputRef.current.style.height = ''; inputRef.current.style.overflowY = ''; }
@@ -348,7 +354,13 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
         <div className={column}>
           <CredentialChatHint requestIds={credentialRequestIds} />
         </div>
-        {messages.length === 0 && !streaming && (
+        {noAthena && (
+          <div role="status" className={`mb-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-foreground/[0.04] px-4 py-3 ${column}`}>
+            <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
+            <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
+          </div>
+        )}
+        {messages.length === 0 && !streaming && !noAthena && (
           // Places to start, while nothing has been said: picking one writes
           // it into the box, for the person to send or change.
           <div className={`mb-2 flex flex-wrap gap-1.5 ${column}`}>
@@ -389,6 +401,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
               }
             }}
             rows={1}
+            disabled={noAthena}
             placeholder={t('Ask Athena anything')}
             aria-label={t('Message AI')}
             className={`max-h-48 min-h-6 w-full resize-none overflow-hidden bg-transparent px-1 leading-6 disabled:opacity-60 ${page ? 'text-[14px]' : 'text-[13px]'}`}
@@ -411,7 +424,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
                 <Square size={13} />
               </Button>
             ) : (
-              <Button size="xs" type="submit" disabled={!input.trim() && files.length === 0} title={t('Send (Enter)')} aria-label={t('Send')} variant="primary" className="rounded-md px-2">
+              <Button size="xs" type="submit" disabled={noAthena || (!input.trim() && files.length === 0)} title={t('Send (Enter)')} aria-label={t('Send')} variant="primary" className="rounded-md px-2">
                 <SendIcon size={13} />
               </Button>
             )}

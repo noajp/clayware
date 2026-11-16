@@ -11,6 +11,7 @@
 // Uses Claude tool_use for schema-guaranteed JSON output.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { athenaAllowed, callerClient, PLAN_REFUSAL } from "../_shared/plan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,6 +140,10 @@ Deno.serve(async (req: Request) => {
     if (!plainText && !title) {
       return jsonResponse({ error: "title or plainText is required" }, 400);
     }
+
+    const caller = await callerClient(req);
+    if (!caller) return jsonResponse({ error: "Sign in to use AI." }, 401);
+    if (!(await athenaAllowed(caller, (body as { spaceId?: unknown }).spaceId))) return jsonResponse(PLAN_REFUSAL, 403);
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) {

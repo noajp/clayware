@@ -4,6 +4,7 @@ import { looksLikeDocument, respondLocally } from "@/ActivitySpace/artifacts/sli
 import { intakeDocument, looksLikeLongDocument } from "@/ActivitySpace/artifacts/slides/kata/model/intake";
 import { useKata } from "@/ActivitySpace/artifacts/slides/kata/store/useKata";
 import { supabase } from "@/lib/supabase";
+import { getActiveSpaceId } from "@/Function/space/activeSpaceStore";
 import { buildContent, normalizeSlide } from "@/ActivitySpace/artifacts/slides/kata/model/layouts";
 import type { LayoutId, Slide, StorylineId } from "@/ActivitySpace/artifacts/slides/kata/model/types";
 import { getLang } from "@/ActivitySpace/artifacts/slides/kata/i18n";
@@ -15,7 +16,7 @@ type AiReply = { reply?: string; storyline?: StorylineId; slides?: AiSlide[]; cu
 /** Claude through Clayware's slides-chat function; null when it is unavailable, so the local planner answers. */
 async function askClaude(body: Record<string, unknown>): Promise<AiReply | null> {
   try {
-    const { data, error } = await supabase.functions.invoke('slides-chat', { body });
+    const { data, error } = await supabase.functions.invoke('slides-chat', { body: { ...body, spaceId: getActiveSpaceId() } });
     if (error || !data || (data as AiReply).error) return null;
     return data as AiReply;
   } catch {

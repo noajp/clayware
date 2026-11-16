@@ -27,6 +27,7 @@ vi.mock('@/AIP/connectors/IntegrationsSettings', () => ({ ConnectorsSettings: ()
 vi.mock('@/AIP/harness/HarnessesPanel', () => ({ HarnessesPanel: () => 'Harnesses panel' }));
 vi.mock('@/AIP/connectors/ClaywareConnectPanel', () => ({ ClaywareConnectPanel: () => 'API panel' }));
 vi.mock('@/AIP/connectors/AssetRelayPanel', () => ({ AssetRelayPanel: () => 'Assets panel' }));
+vi.mock('@/Function/settings/PlanSettings', () => ({ PlanSettings: () => 'Plans panel' }));
 vi.mock('@/Function/settings/useUserPreferences', () => ({
   useUserPreferences: () => ({
     preferences: {
