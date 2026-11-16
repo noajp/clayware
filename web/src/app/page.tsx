@@ -892,8 +892,12 @@ function WorkspaceContent({
           className={`my-1.5 ml-1.5 ${sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'}`} />
         {/* The sidebar's frame, inside a positioned holder: the frame itself
             is not positioned, so the sidebar's drawer (absolute) escapes its
-            clipping and opens from the holder, right of the rail. */}
-        <div className="relative flex shrink-0">
+            clipping and opens from the holder, right of the rail. Hidden, the
+            drawer slides left by its own width, which from here would leave
+            its right edge over the rail; the holder clips everything left of
+            itself, so it slides in and out from behind the rail. Open as a
+            drawer, the holder rises over the scrim. */}
+        <div className={`relative flex shrink-0 [clip-path:inset(-100vh_-100vw_-100vh_0)] ${sidebarCollapsed && sidebarOverlay ? 'z-50' : ''}`}>
         {/* Hidden, it keeps only the gap to the rail: no frame of its own. */}
         <div className={`my-1.5 ml-1.5 flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'mr-1.5 rounded-lg gloss-island'}`}>
         <AppSidebar
