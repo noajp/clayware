@@ -14,8 +14,6 @@ import type { Intent } from '@/types/database';
 import { useInitiativeIntentContext } from './InitiativeIntent';
 import { buildGapReport, isCheckStale, standingOf, type BrokenCause } from './gapModel';
 import { StrategyRangeMap, type RangeElement, type RangeObject } from './StrategyRangeMap';
-import { StrategyGapTimeline } from './StrategyGapTimeline';
-import type { TimedElement } from './gapTimeModel';
 
 // The Gap section at the top of a Strategy's Evaluation tab: where the work
 // under the Strategy has drifted from what the Strategy says.
@@ -58,7 +56,6 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
   const intent = useInitiativeIntentContext();
   const { check, loading, error, run, running, runError } = useStrategyGapCheck(strategyId);
   const [showAllUnanchored, setShowAllUnanchored] = useState(false);
-  const [view, setView] = useState<'reach' | 'time'>('reach');
 
   const intents = useMemo<Intent[]>(() => intent?.data?.subs ?? [], [intent?.data]);
   const elements = useMemo(() => {
@@ -110,15 +107,11 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
         label: e.display_id ? `${e.display_id} ${e.title}` : e.title,
         objectId: e.object_id && homes.has(e.object_id) ? e.object_id : (objects.find((o) => (o.elements ?? []).some((x) => x.id === e.id))?.id ?? null),
         standing: standingOf(e.id, report, aiKinds),
+        createdAt: e.created_at ?? null,
+        updatedAt: e.updated_at ?? null,
       }));
     return { strategies: [...subs.values()], objects: mapObjects, elements: mapElements };
   }, [check, objects, via, elements, report]);
-
-  // The same Elements with the two dates the time view measures from.
-  const timed = useMemo<TimedElement[]>(() => map.elements.map((e) => {
-    const el = elementById.get(e.id);
-    return { id: e.id, label: e.label, standing: e.standing, created_at: el?.created_at ?? null, updated_at: el?.updated_at ?? null };
-  }), [map.elements, elementById]);
 
   const stale = check ? isCheckStale(check.created_at, strategyUpdatedAt, intents) : false;
   const linksClear = report.broken.length === 0 && report.unserved.length === 0 && report.unanchored.length === 0;
@@ -135,20 +128,8 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
       </p>
 
       <div className="mb-4">
-        <div className="mb-2 inline-flex items-center gap-0.5 rounded-md border border-border/60 p-0.5" role="group" aria-label={t('Gap view')}>
-          {(['reach', 'time'] as const).map((v) => (
-            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}
-              className={`h-6 rounded px-2.5 text-[12px] font-medium transition-colors ${view === v ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-              {v === 'reach' ? t('Reach') : t('Over time')}
-            </button>
-          ))}
-        </div>
-        {view === 'reach' ? (
-          <StrategyRangeMap name={strategyName} strategies={map.strategies} objects={map.objects} elements={map.elements}
-            unserved={report.unserved.length} onOpenElement={openElement} onOpenObject={openObject} />
-        ) : (
-          <StrategyGapTimeline elements={timed} onOpenElement={openElement} />
-        )}
+        <StrategyRangeMap name={strategyName} strategies={map.strategies} objects={map.objects} elements={map.elements}
+          unserved={report.unserved.length} onOpenElement={openElement} onOpenObject={openObject} />
       </div>
 
       {/* Athena's reading — a record of one moment, shown as such. */}

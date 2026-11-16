@@ -6,15 +6,8 @@ type Row = [ja: string, ko: string, fr: string, es: string];
 
 const STRATEGY_MESSAGES: Record<string, Row> = {
   // Gap (Evaluation tab)
-  'Measure': ['測るもの', '측정 항목', 'Mesure', 'Medida'],
-  'Gap view': ['Gap の表示', 'Gap 보기', 'Vue de l’écart', 'Vista de Gap'],
-  'Reach': ['射程', '사정거리', 'Portée', 'Alcance'],
-  'Over time': ['推移', '추이', 'Dans le temps', 'En el tiempo'],
-  'Days open': ['経過日数', '경과 일수', 'Jours ouverts', 'Días abierto'],
-  'Days since last update': ['放置日数', '마지막 업데이트 후 일수', 'Jours depuis la dernière mise à jour', 'Días desde la última actualización'],
-  '{measure} of each open Element, by the day it was made': ['未完了の各 Element の{measure}（横軸は作成日）', '미완료 Element별 {measure}(가로축은 생성일)', '{measure} de chaque Element ouvert, selon sa date de création', '{measure} de cada Element abierto, según el día en que se creó'],
-  'No open Elements under this Strategy.': ['この Strategy の下に未完了の Element はありません。', '이 Strategy 아래에 미완료 Element가 없습니다.', 'Aucun Element ouvert sous cette Strategy.', 'No hay Elements abiertos bajo esta Strategy.'],
-  'Median': ['中央値', '중앙값', 'Médiane', 'Mediana'],
+  'Edge': ['縁', '경계', 'Limite', 'Borde'],
+  'Median idle {d}': ['放置の中央値 {d}', '방치 중앙값 {d}', 'Inactivité médiane {d}', 'Inactividad mediana {d}'],
   'No Objects under this Strategy yet.': ['この Strategy にはまだ Object がありません。', '이 Strategy에는 아직 Object가 없습니다.', 'Aucun Object sous cette Strategy pour l’instant.', 'Esta Strategy aún no tiene Objects.'],
   'Outside the reach': ['射程の外', '사정거리 밖', 'Hors de portée', 'Fuera del alcance'],
   'On the edge': ['縁にいる（要確認）', '경계에 있음(확인 필요)', 'À la limite (à vérifier)', 'En el borde (por revisar)'],
