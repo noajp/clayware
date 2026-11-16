@@ -22,7 +22,8 @@ describe('Object field editor', () => {
   it('does not submit when adding or reordering choices', () => {
     const save = vi.fn();
     render(<ObjectFieldDialog onSave={save} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('Field type'), { target: { value: 'multi_select' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Multi-select' }));
+    expect(screen.getByRole('radio', { name: 'Multi-select' }).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Add option' }));
     fireEvent.change(screen.getByLabelText('Option 1'), { target: { value: 'Ready' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add option' }));
