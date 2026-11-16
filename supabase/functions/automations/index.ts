@@ -79,6 +79,7 @@ import { collectOutcomes } from "../_shared/outcomeCollector.ts";
 import { evaluateCalibration } from "../_shared/verifierCalibration.ts";
 import { evaluateAutonomy } from "../_shared/autonomy.ts";
 import { deriveConstraintDrafts, evaluateConstraintEffects, type ConstraintCluster } from "../_shared/constraintDrafts.ts";
+import { ATHENA_PLANS, PLAN_REFUSAL } from "../_shared/plan.ts";
 import { claimExpiredQuestionTickets, settleRunBlockedByQuestions, type QuestionTicketRow } from "../_shared/questionTickets.ts";
 import { reapWorkspaces } from "../_shared/workspaceLifecycle.ts";
 import { routeCodingEvents } from "../_shared/codingIteration.ts";
@@ -134,6 +135,15 @@ const CONSTRAINT_PHRASE_MODEL = "claude-haiku-5-5";
  * drafts this tick: the clusters re-derive next tick, and silence
  * costs nothing.
  */
+/** Only a Space whose plan has Athena gets its constraints phrased by a model. */
+async function phraseInAthenaSpaces(admin: SupabaseClient, clusters: ConstraintCluster[]): Promise<Map<string, string>> {
+  const ids = [...new Set(clusters.map((c) => c.spaceId))];
+  if (!ids.length) return new Map();
+  const { data } = await admin.from("activity_spaces").select("id").in("id", ids).in("plan", ATHENA_PLANS as unknown as string[]);
+  const allowed = new Set(((data ?? []) as { id: string }[]).map((s) => s.id));
+  return phraseConstraintClusters(clusters.filter((c) => allowed.has(c.spaceId)));
+}
+
 async function phraseConstraintClusters(clusters: ConstraintCluster[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!clusters.length) return out;
@@ -727,7 +737,7 @@ async function tick(env: Env): Promise<Record<string, number>> {
   // never retires.
   let constraintsDrafted = 0, constraintEffectsEvaluated = 0;
   try {
-    const derived = await deriveConstraintDrafts(env.admin, now, phraseConstraintClusters);
+    const derived = await deriveConstraintDrafts(env.admin, now, (clusters) => phraseInAthenaSpaces(env.admin, clusters));
     constraintsDrafted = derived.drafted;
   } catch (e) {
     console.error("automations: constraint derivation failed", e instanceof Error ? e.message : e);
@@ -797,6 +807,8 @@ async function tick(env: Env): Promise<Record<string, number>> {
   const { data: dueSpaces } = await env.admin.from("activity_spaces")
     .select("id, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
     .eq("heartbeat_enabled", true).not("heartbeat_next_at", "is", null).lte("heartbeat_next_at", now.toISOString())
+    // The heartbeat is Athena's: a Space whose plan has none is not woken.
+    .in("plan", ATHENA_PLANS as unknown as string[])
     .order("heartbeat_next_at").limit(HEARTBEATS_PER_TICK);
   for (const s of (dueSpaces ?? []) as unknown as HeartbeatSpace[]) {
     if (!s.heartbeat_owner_id || !s.heartbeat_next_at) continue;
@@ -882,11 +894,12 @@ Deno.serve(async (req) => {
   // is an extra wake, not a moved one.
   if (body.heartbeat) {
     const { data: space } = await env.admin.from("activity_spaces")
-      .select("id, heartbeat_enabled, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
+      .select("id, plan, heartbeat_enabled, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
       .eq("id", body.heartbeat).maybeSingle();
     if (!space?.heartbeat_enabled || !space.heartbeat_owner_id) {
       return json({ error: "この Space のハートビートは有効になっていません。" }, 409);
     }
+    if (!(ATHENA_PLANS as readonly string[]).includes(space.plan ?? "")) return json(PLAN_REFUSAL, 403);
     const { data: me } = await userDb.from("activity_space_members").select("role")
       .eq("activity_space_id", body.heartbeat).eq("user_id", user.id).maybeSingle();
     if (me?.role !== "owner") return json({ error: "ハートビートを起こせるのは Space のオーナーだけです。" }, 403);

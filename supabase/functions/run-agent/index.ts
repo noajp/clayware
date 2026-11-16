@@ -55,6 +55,7 @@
 // pauses until the person opens it again.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { athenaAllowed, PLAN_REFUSAL, PLAN_REFUSAL_JA } from "../_shared/plan.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { resolveElementIdTraced, runBoardTool, updateElementById, errorMessage, type BoardActor, type ToolDef } from "../_shared/boardTools.ts";
@@ -597,6 +598,14 @@ Deno.serve(async (req: Request) => {
   } else claim = admin.from("agent_runs").update({ status: "running", error: null, started_at: new Date().toISOString() }).eq("id", runId).eq("status", claimFor("start").from[0]);
   const { data: claimed } = await claim.select("id").maybeSingle();
   if (!claimed) return json({ error: `この実行は今その操作を受け付けません（${run.status}）。` }, 409);
+
+  // Athena works only in a Space whose plan has it — every kind of run
+  // stops here, before any model is called. A run outside any Space goes by
+  // the Spaces its starter belongs to.
+  if (!(await athenaAllowed(run.activity_space_id ? admin : userDb, run.activity_space_id))) {
+    await failRun(admin, run, PLAN_REFUSAL_JA);
+    return json(PLAN_REFUSAL, 403);
+  }
 
   // The run's approval mode: the snapshot it started under wins — a mode
   // changed mid-run reaches the next run, not into this one, and never

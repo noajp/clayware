@@ -30,6 +30,7 @@ import { LanguageSelect } from '@/Function/i18n/LanguageSelect';
 import { SettingsIsland, SettingRow, SelectRow, SegmentedRow, ToggleRow } from './SettingsControls';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { StrategySettings } from './StrategySettings';
+import { PlanSettings } from './PlanSettings';
 
 // =============================================================
 // SettingsView — content pane only. The settings NAV lives in
@@ -85,6 +86,7 @@ export function SettingsView() {
       case 'domain': return <TeamSettings />;
       case 'api': return <ClaywareConnectPanel />;
       case 'assets': return <AssetRelayPanel />;
+      case 'plans': return <PlanSettings />;
       default: return null;
     }
   };

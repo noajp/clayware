@@ -3,6 +3,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import { betaZodOutputFormat } from 'npm:@anthropic-ai/sdk@0.135.0/helpers/beta/zod';
 import { z } from 'npm:zod@4.6.7';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.2';
+import { athenaAllowed, PLAN_REFUSAL } from '../_shared/plan.ts';
 
 // The Design widget's AI path (ADR 0043): Claude draws one artboard in
 // static HTML, CSS and SVG and returns it as JSON. The web app checks it again
@@ -64,6 +65,7 @@ Deno.serve(async req => {
     if (typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000 || typeof input.widgetId !== 'string') {
       return reply({ error: 'A design request is required.' }, 400);
     }
+    if (!(await athenaAllowed(client, input.spaceId))) return reply(PLAN_REFUSAL, 403);
     // Every read is the caller's own: a widget they cannot see is not found.
     const { data: widget, error } = await client.from('widgets').select('id,kind').eq('id', input.widgetId).single();
     if (error || !widget || widget.kind !== 'design') return reply({ error: 'Design not found or access denied.' }, 404);

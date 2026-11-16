@@ -26,6 +26,7 @@
 // who wrote it in Clayware.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { athenaAllowed, PLAN_REFUSAL } from "../_shared/plan.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { DEFAULT_AGENT_MODEL, costOf } from "../_shared/aiPricing.ts";
 import {
@@ -115,6 +116,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (action === "guide") {
+    if (!(await athenaAllowed(row.activity_space_id ? admin : userDb, row.activity_space_id))) return json(PLAN_REFUSAL, 403);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
     let files: GithubFile[];
@@ -143,6 +145,7 @@ Deno.serve(async (req: Request) => {
   if (action === "merge") return await merge(admin, user.id, row, ref, tokens, body);
 
   if (action === "check") {
+    if (!(await athenaAllowed(row.activity_space_id ? admin : userDb, row.activity_space_id))) return json(PLAN_REFUSAL, 403);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY not configured" }, 500);
     let files: GithubFile[];

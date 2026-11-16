@@ -33,6 +33,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import type { Msg } from "../_shared/agentLoop.ts";
 import { requestContent, type Attachment } from "../_shared/attachments.ts";
 import { DEFAULT_AGENT_MODEL } from "../_shared/aiPricing.ts";
+import { athenaAllowed, callerClient, PLAN_REFUSAL } from "../_shared/plan.ts";
 
 const MODEL = DEFAULT_AGENT_MODEL;
 // Room for one answer that files a batch of Elements with descriptions.
@@ -63,6 +64,7 @@ Deno.serve(async (req: Request) => {
   let body: {
     messages: Array<{ role: "user" | "assistant"; content: string; attachments?: Attachment[] }>;
     mode?: "json" | "probe";
+    spaceId?: string;
   };
   try {
     body = await req.json();
@@ -81,6 +83,9 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     return jsonResponse({ error: e instanceof Error ? e.message : String(e) }, 400);
   }
+
+  const caller = await callerClient(req);
+  if (!caller || !(await athenaAllowed(caller, body.spaceId))) return jsonResponse(PLAN_REFUSAL, 403);
 
   const client = new Anthropic({ apiKey: anthropicKey });
   const stream = new ReadableStream({

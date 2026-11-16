@@ -70,6 +70,7 @@ export type Database = {
           memory_auto_capture: boolean
           name: string
           order_index: number
+          plan: string
           scope: string
           updated_at: string
         }
@@ -97,6 +98,7 @@ export type Database = {
           memory_auto_capture?: boolean
           name: string
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }
@@ -124,6 +126,7 @@ export type Database = {
           memory_auto_capture?: boolean
           name?: string
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }

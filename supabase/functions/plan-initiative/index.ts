@@ -37,6 +37,7 @@
 // from, not instructions to follow.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { athenaAllowed, PLAN_REFUSAL } from "../_shared/plan.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseDefinition } from "../_shared/definition.ts";
 import { resolveDefinition, type DefinitionCandidate } from "../_shared/definitionResolution.ts";
@@ -261,6 +262,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: initiative } = await db.from("strategies").select("id, name, description, activity_space_id, definition_id").eq("id", initiativeId).maybeSingle();
   if (!initiative) return json({ error: "Strategy not found" }, 404);
+  if (!(await athenaAllowed(db, initiative.activity_space_id))) return json(PLAN_REFUSAL, 403);
 
   const [intentsRes, linksRes] = await Promise.all([
     db.from("intents").select("id, kind, title, subtitle, target_value, actual_value, unit, direction, status, verdict")
