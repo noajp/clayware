@@ -31,12 +31,13 @@ import { CustomColumnCell, CellText, EmptyCellMark, CELL_TRIGGER_BASE, CELL_TRIG
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { PriorityPicker } from '@/Function/shared/PriorityPicker';
 import { StatusPicker } from '@/Function/shared/StatusPicker';
+import { useElementStatusName } from '@/Function/shared/ElementStatusMark';
 import { type DataColumn } from '@/Function/shared/listTable/useListColumns';
 import { type ElementUpdate, formatDateShort } from './shared';
 import { completionOf } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldDisplayLabel } from '@/Function/property/fieldModel';
-import { PRIORITY, statusLabel } from '@/shared/designTokens';
+import { PRIORITY } from '@/shared/designTokens';
 
 const PRIORITY_LABELS: Record<string, string> = Object.fromEntries(Object.entries(PRIORITY).map(([key, value]) => [key, value.label]));
 
@@ -421,7 +422,8 @@ export function ElementCell({
 }) {
   // The dataset.gripVertical class isn't strictly used — kept for a future
   // header tooltip hook. Visible cell styling is handled per-branch below.
-  const { t, locale } = useI18n();
+  const { locale } = useI18n();
+  const statusName = useElementStatusName();
   if (column.kind === 'custom' && column.custom) {
     const col = column.custom;
     const cellValue = col.values?.[el.id]?.value ?? null;
@@ -449,7 +451,7 @@ export function ElementCell({
     return <td className="table-cell px-2 py-1" onClick={(e) => e.stopPropagation()}><PriorityCell element={el} onElementUpdate={canUpdate ? onElementUpdate : undefined} /></td>;
   }
   if (column.id === 'status') {
-    return <td className="table-cell px-2 py-1" onClick={(e) => e.stopPropagation()}>{canUpdate ? <StatusPicker element={el} onChanged={() => { void onRefresh?.(); }} trigger={<Button variant="ghost" size="xs">{t(statusLabel(el.status ?? 'todo'))}</Button>} /> : t(statusLabel(el.status ?? 'todo'))}</td>;
+    return <td className="table-cell px-2 py-1" onClick={(e) => e.stopPropagation()}>{canUpdate ? <StatusPicker element={el} onChanged={() => { void onRefresh?.(); }} trigger={<Button variant="ghost" size="xs">{statusName(el)}</Button>} /> : statusName(el)}</td>;
   }
   if (column.id === 'type') {
     return (

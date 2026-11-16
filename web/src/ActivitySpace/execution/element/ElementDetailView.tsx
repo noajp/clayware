@@ -12,7 +12,7 @@ import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { ElementDependencies } from './ElementDependencies';
 import { CheckInDialog } from './checkIn/CheckInDialog';
-import { STATUS, PRIORITY, FONT } from '@/shared/designTokens';
+import { PRIORITY, FONT } from '@/shared/designTokens';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Calendar, User, Link2, Plus, Tag, Timer, ChevronRight, ChevronLeft, Check } from '@/ui/icons';
 import {
@@ -58,7 +58,8 @@ import {
 } from '@/hooks/elementDetailQueries';
 import { CustomColumnCell } from '@/Function/property/CustomColumnCell';
 import type { Json } from '@/types/database';
-import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { ElementStatusMark, useElementStatusName } from '@/Function/shared/ElementStatusMark';
 import { WorkerAvatarStack } from '@/Function/shared/WorkerAvatar';
 import { workerTriggerLabel } from '@/Function/shared/workerReach';
 import { AssigneeMenuContent } from '@/Function/shared/AssigneeMenu';
@@ -457,7 +458,7 @@ function ElementDetailBody({
 
   // Active left tab
 
-  const currentStatus = STATUS[(element.status ?? 'todo') as keyof typeof STATUS] ?? STATUS.todo;
+  const statusName = useElementStatusName();
   const currentPriority = priorityOptions.find(p => p.priority === element.priority) || priorityOptions[2];
 
   // Sync with prop changes
@@ -783,7 +784,7 @@ function ElementDetailBody({
             {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
               {/* Status and Priority as chips, in the Label chips' own form. */}
               <StatusPicker element={element} onChanged={handleStatusChange} trigger={
-                <button type="button" className={TITLE_CHIP}><ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={11} />{t(currentStatus.label)}</button>
+                <button type="button" className={TITLE_CHIP}><ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={11} />{statusName(element)}</button>
               } />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.8]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
@@ -1034,9 +1035,9 @@ function ElementDetailBody({
                 trigger={
                   <button className="w-full">
                     <RailRow
-                      icon={<ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={14} />}
+                      icon={<ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={14} />}
                       name={t('Status')}
-                      label={t(currentStatus.label)}
+                      label={statusName(element)}
                       dense
                     />
                   </button>

@@ -513,6 +513,8 @@ export interface Element {
   display_id: string | null       // e.g. "ELE_PH1-001"
   seq_number: number | null
   status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'blocked' | 'cancelled' | null
+  /** The status within the stage (`status`) the Space added (work_statuses, scope 'element'); null for the stage's own. Write it with its stage (elementStatusWrite). */
+  status_id?: string | null
   priority: 'low' | 'medium' | 'high' | 'urgent' | null
   start_date: string | null  // ガントチャート用の開始日
   start_time: string | null  // 'HH:MM:SS' format (TIME column)
@@ -583,6 +585,7 @@ export interface ElementUpdate {
   labels?: string[]
   owner_id?: string | null
   status?: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'blocked' | 'cancelled' | null
+  status_id?: string | null
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null
   start_date?: string | null
   start_time?: string | null

@@ -13,7 +13,11 @@ export type StatusScope = 'work' | 'element';
 
 type WorkStage = 'backlog' | 'planned' | 'in_progress' | 'completed' | 'canceled';
 
-interface StageLook { stage: string; label: string; icon: string; color: string }
+/** How a stage's own status looks until the Space gives it another look.
+ *  An Element's stages have no icon of their own here (`icon` null, `color`
+ *  null): each is drawn by its designed mark (ElementProgressMark), the same
+ *  mark every list shows. */
+interface StageLook { stage: string; label: string; icon: string | null; color: string | null }
 
 /** The stages of an Object or a Strategy, in the order they are listed, each
  *  with the look of its own status until the Space gives it another. */
@@ -25,15 +29,16 @@ const WORK_STAGES: readonly StageLook[] = [
   { stage: 'canceled', label: 'Canceled', icon: 'lucide:circle-x', color: 'darkgrey' },
 ];
 
-/** The stages of an Element: its status keys, in the order they are listed. */
+/** The stages of an Element: its status keys, in the order they are listed
+ *  (STATUS_ORDER). Each is drawn by its designed mark. */
 const ELEMENT_STAGES: readonly StageLook[] = [
-  { stage: 'backlog', label: 'Backlog', icon: 'lucide:circle-dashed', color: 'grey' },
-  { stage: 'todo', label: 'To Do', icon: 'lucide:circle', color: 'grey' },
-  { stage: 'in_progress', label: 'In Progress', icon: 'lucide:circle-dot', color: 'green' },
-  { stage: 'review', label: 'In Review', icon: 'lucide:circle-arrow-right', color: 'yellow' },
-  { stage: 'done', label: 'Done', icon: 'lucide:circle-check', color: 'purple' },
-  { stage: 'blocked', label: 'Blocked', icon: 'lucide:circle-minus', color: 'red' },
-  { stage: 'cancelled', label: 'Cancelled', icon: 'lucide:circle-x', color: 'darkgrey' },
+  { stage: 'backlog', label: 'Backlog', icon: null, color: null },
+  { stage: 'todo', label: 'To Do', icon: null, color: null },
+  { stage: 'in_progress', label: 'In Progress', icon: null, color: null },
+  { stage: 'review', label: 'In Review', icon: null, color: null },
+  { stage: 'done', label: 'Done', icon: null, color: null },
+  { stage: 'blocked', label: 'Blocked', icon: null, color: null },
+  { stage: 'cancelled', label: 'Cancelled', icon: null, color: null },
 ];
 
 export function stagesOf(scope: StatusScope): readonly StageLook[] {
@@ -62,7 +67,8 @@ export interface Status {
   name: string;
   /** True when `name` is the stage's built-in English label, to be translated. */
   nameIsLabel: boolean;
-  icon: string;
+  /** Null for an Element status the Space gave no icon: its stage's designed mark. */
+  icon: string | null;
   color: string | null;
 }
 
@@ -106,4 +112,17 @@ export function statusOf(scope: StatusScope, rows: readonly StatusRow[], stage: 
 export function nextOrderIndex(rows: readonly StatusRow[], scope: StatusScope, stage: string): number {
   return rows.filter((r) => r.scope === scope && r.stage === stage && !r.builtin)
     .reduce((max, r) => Math.max(max, r.order_index), 0) + 1;
+}
+
+/** Pure. The status an Element stands in, from its stage (`status`) and the
+ *  status within it (`status_id`). */
+export function elementStatusOf(rows: readonly StatusRow[], element: { status?: string | null; status_id?: string | null }): Status {
+  return statusOf('element', rows, element.status ?? 'todo', element.status_id);
+}
+
+/** Pure. What to write to move an Element to `status`: always its stage with
+ *  it, so the database's rules on a stage change (history, notices, the
+ *  reopened progress) run even when only the status within the stage moved. */
+export function elementStatusWrite(status: Pick<Status, 'id' | 'stage'>): { status: string; status_id: string | null } {
+  return { status: status.stage, status_id: status.id };
 }

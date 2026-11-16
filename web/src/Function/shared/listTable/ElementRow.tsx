@@ -15,6 +15,7 @@ import { notifyError } from '@/Function/shared/toastStore';
 import type { Json } from '@/types/database';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { ElementStatusMark, useElementStatusName } from '@/Function/shared/ElementStatusMark';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent } from '@/ui/context-menu';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '@/shared/designTokens';
@@ -28,7 +29,6 @@ import { type ElementUpdate, DROP_LINE_CLASS, DROP_LINE_SQUARE, dropLineVar, ROW
 import { ElementCell, LabelChip } from './cells';
 import { toDateOnlyString } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { statusLabel } from '@/shared/designTokens';
 import { isOverdue } from '@/Function/shared/dateUtils';
 import { MenuCheck } from '@/ui/dropdown-menu';
 
@@ -86,6 +86,7 @@ export const ElementRow = memo(function ElementRow({
   allCustomColumns, blockers, ariaRowIndex,
 }: ElementRowProps) {
   const { t, locale } = useI18n();
+  const statusName = useElementStatusName();
   const labelsShown = rowLabels(el.labels);
   const overdue = isOverdue(el.due_date, el.status === 'done');
   const showsActivityColumn = visibleColumns.some((c) => c.id === 'activity');
@@ -187,15 +188,15 @@ export const ElementRow = memo(function ElementRow({
               trigger={
                 <button
                   type="button"
-                  title={t('Status: {value}', { value: t(statusLabel(el.status ?? 'todo')) })}
+                  title={t('Status: {value}', { value: statusName(el) })}
                   className="flex size-4 items-center justify-center rounded-md transition-colors hover:bg-muted/40"
                 >
-                  <ElementProgressMark status={el.status} progress={getElementProgress(el, allCustomColumns)} size={16} />
+                  <ElementStatusMark status={el.status} statusId={el.status_id} progress={getElementProgress(el, allCustomColumns)} size={16} />
                 </button>
               }
             />
           ) : (
-            <ElementProgressMark status={el.status} progress={getElementProgress(el, allCustomColumns)} size={16} />
+            <ElementStatusMark status={el.status} statusId={el.status_id} progress={getElementProgress(el, allCustomColumns)} size={16} />
           )}
         </span>
       </td>
