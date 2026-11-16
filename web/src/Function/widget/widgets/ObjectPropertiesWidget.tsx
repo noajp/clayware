@@ -22,7 +22,8 @@ import { RailRow } from '@/Function/shared/RailRow';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
 import { useWorkStatuses } from '@/hooks/workStatuses';
 import { statusOf } from '@/Function/shared/workStatus';
-import { WorkStatusMark, WorkStatusPicker, useStatusName } from '@/Function/shared/WorkStatusPicker';
+import { WorkStatusMark, WorkStatusPicker } from '@/Function/shared/WorkStatusPicker';
+import { useStatusName } from '@/Function/shared/StatusLook';
 import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { outlook, withStates } from '@/Function/shared/pace';
 import { ReachHint, WorkerAvatar } from '@/Function/shared/WorkerAvatar';
@@ -183,10 +184,10 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
       )}
 
       {/* The stage it stands in, and the Space's own status within it. */}
-      <WorkStatusPicker scope="work" rows={statusRows} stage={object.work_stage} statusId={object.work_status_id}
+      <WorkStatusPicker scope="work" rows={statusRows} stage={object.work_stage} statusId={object.work_status_id} progress={stats.progress}
         onChange={(next) => handleFieldSave({ work_stage: next.stage, work_status_id: next.statusId })}>
         <button type="button" className="w-full text-left">
-          <RailRow name={t('Status')} icon={<WorkStatusMark status={status} />} label={nameOf(status)} />
+          <RailRow name={t('Status')} icon={<WorkStatusMark status={status} progress={stats.progress} />} label={nameOf(status)} />
         </button>
       </WorkStatusPicker>
 

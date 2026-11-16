@@ -1,27 +1,24 @@
 'use client';
 
-import { Fragment, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, ChevronUp } from '@/ui/icons';
+import { useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp } from '@/ui/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
 import { getElementProgress } from '@/Function/shared/ElementProgressMark';
-import { ElementStatusLook, ElementStatusMark, useElementStatusRows } from '@/Function/shared/ElementStatusMark';
-import { useStatusName } from '@/Function/shared/WorkStatusPicker';
+import { ElementStatusMark, useElementStatusRows } from '@/Function/shared/ElementStatusMark';
+import { StatusMenu } from '@/Function/shared/StatusMenu';
 import { elementStatusWrite, statusesByStage, type Status } from '@/Function/shared/workStatus';
 import { updateElement } from '@/hooks/useSupabase';
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 import type { ElementStatus } from '@/types/database';
-import { cn } from '@/lib/utils';
 import { stepProgress } from '@/Function/shared/progressStep';
 import { progressForStatus } from '@/Function/shared/statusProgress';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { notifyError } from '@/Function/shared/toastStore';
 
-// Linear-style status picker — opens from the progress ○ mark. Each row's
-// icon is the same mark the list shows, so the preview matches the eventual
-// state. Every stage lists its own status first, then the ones the Space
-// added under it (Settings › Elements › Statuses), headed by the stage's name
-// when it has any. The In Progress row also exposes a 0–100 number field that
-// writes directly to elements.progress; reaching 100% flips the element to Done.
+// An Element's status picker — opens from the progress ○ mark. The list is
+// StatusMenu, the same an Object and a Strategy use; the Element's In
+// Progress row also exposes a 0–100 number field that writes directly to
+// elements.progress; reaching 100% flips the element to Done.
 
 interface StatusPickerProps {
   element: ElementWithDetails;
@@ -43,7 +40,6 @@ export function StatusPicker({ element, size = 16, progress: progressOverride, t
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const rows = useElementStatusRows();
-  const nameOf = useStatusName();
   const groups = statusesByStage('element', rows);
 
   // Local draft for the number input so typing feels instant. Initialised
@@ -155,105 +151,64 @@ export function StatusPicker({ element, size = 16, progress: progressOverride, t
         className="w-60 rounded-lg p-1"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-2 py-1.5 text-[11.5px] text-muted-foreground">{t('Change status…')}</div>
-        <div className="h-px bg-border mx-1 mb-1" />
-        {groups.map((group) => (
-          <Fragment key={group.stage}>
-          {group.statuses.length > 1 && (
-            <div className="px-2 pb-0.5 pt-1.5 text-[11px] text-muted-foreground">{t(group.label)}</div>
-          )}
-          {group.statuses.map((row) => {
-          const isCurrent = element.status === row.stage && (element.status_id ?? null) === row.id;
-          // The number field sits on In Progress's own row only.
-          const hasProgressField = row.stage === 'in_progress' && row.builtin;
-          // Use a div with role="button" instead of a <button> so the
-          // In Progress row can nest a real <input> for the % field —
-          // <input> inside <button> is invalid HTML and browsers swallow
-          // the input's clicks back into the button's onClick, which was
-          // making the % field essentially un-clickable.
-          return (
-            <div
-              key={row.id ?? row.stage}
-              role="button"
-              tabIndex={0}
-              onClick={() => applyStatus(row)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  applyStatus(row);
-                }
-              }}
-              className={cn(
-                'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors cursor-pointer select-none',
-                isCurrent ? 'bg-accent/60 text-foreground' : 'text-foreground hover:bg-accent/40 focus-visible:bg-accent/40',
-              )}
+        <StatusMenu
+          groups={groups}
+          isCurrent={(row) => element.status === row.stage && (element.status_id ?? null) === row.id}
+          onPick={(row) => { void applyStatus(row); }}
+          progressOf={() => draftProgress}
+          // The number field sits on In Progress's own row only. No box: the
+          // number is typed in place, and the arrows beside the % (or ↑/↓ in
+          // the field) step it — 5% up to 80%, then 2%, then 1% from 90%
+          // (stepProgress). Its events stay its own, off the row.
+          extra={(row) => row.stage === 'in_progress' && row.builtin ? (
+            <span
+              className="inline-flex items-center"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              <span className="flex items-center justify-center w-[18px] h-[18px] shrink-0">
-                <ElementStatusLook status={row} progress={row.stage === 'in_progress' ? draftProgress : 0} size={17} />
+              <input
+                type="number"
+                aria-label={t('Progress')}
+                min={0}
+                max={100}
+                value={progressDraft}
+                placeholder="0"
+                onChange={(e) => setProgressDraft(e.target.value)}
+                onBlur={(e) => commitProgress(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, e.key === 'ArrowUp' ? 1 : -1)));
+                    return;
+                  }
+                  // Enter commits and keeps the menu open: the mark and the
+                  // trigger update in place, and the person can keep
+                  // adjusting or pick another status.
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitProgress((e.target as HTMLInputElement).value);
+                  }
+                }}
+                className="w-8 rounded text-[11.5px] tabular-nums bg-transparent text-right outline-none transition-colors hover:bg-muted/40 focus:bg-muted/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-[11.5px] text-muted-foreground ml-0.5">%</span>
+              <span className="ml-1 flex flex-col">
+                <button type="button" aria-label={t('Increase progress')} tabIndex={-1}
+                  onClick={() => { void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, 1))); }}
+                  className="flex h-2.5 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                  <ChevronUp size={10} strokeWidth={2.5} />
+                </button>
+                <button type="button" aria-label={t('Decrease progress')} tabIndex={-1}
+                  onClick={() => { void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, -1))); }}
+                  className="flex h-2.5 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                  <ChevronDown size={10} strokeWidth={2.5} />
+                </button>
               </span>
-              <span className="min-w-0 flex-1 truncate text-left">{nameOf(row)}</span>
-              {hasProgressField && (
-                // Stop bubbling on the whole input cluster so clicks /
-                // pointer events inside don't trigger applyStatus on the
-                // surrounding row.
-                // No box: the number is typed in place, and the arrows beside
-                // the % (or ↑/↓ in the field) step it — 5% up to 80%, then 2%,
-                // then 1% from 90% (stepProgress).
-                <span
-                  className="inline-flex items-center"
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="number"
-                    aria-label={t('Progress')}
-                    min={0}
-                    max={100}
-                    value={progressDraft}
-                    placeholder="0"
-                    onChange={(e) => setProgressDraft(e.target.value)}
-                    onBlur={(e) => commitProgress(e.target.value)}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, e.key === 'ArrowUp' ? 1 : -1)));
-                        return;
-                      }
-                      // Enter commits and keeps the menu open: the mark
-                      // and the trigger update in place, and the person
-                      // can keep adjusting or pick another status.
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        commitProgress((e.target as HTMLInputElement).value);
-                      }
-                    }}
-                    className="w-8 rounded text-[11.5px] tabular-nums bg-transparent text-right outline-none transition-colors hover:bg-muted/40 focus:bg-muted/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <span className="text-[11.5px] text-muted-foreground ml-0.5">%</span>
-                  <span className="ml-1 flex flex-col">
-                    <button type="button" aria-label={t('Increase progress')} tabIndex={-1}
-                      onClick={() => { void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, 1))); }}
-                      className="flex h-2.5 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-                      <ChevronUp size={10} strokeWidth={2.5} />
-                    </button>
-                    <button type="button" aria-label={t('Decrease progress')} tabIndex={-1}
-                      onClick={() => { void commitProgress(String(stepProgress(parseInt(progressDraft, 10) || 0, -1))); }}
-                      className="flex h-2.5 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-                      <ChevronDown size={10} strokeWidth={2.5} />
-                    </button>
-                  </span>
-                </span>
-              )}
-              {isCurrent && !hasProgressField && (
-                <Check size={13} className="text-foreground/80" />
-              )}
-            </div>
-          );
-        })}
-          </Fragment>
-        ))}
+            </span>
+          ) : null}
+        />
       </PopoverContent>
     </Popover>
   );

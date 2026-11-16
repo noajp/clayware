@@ -65,7 +65,7 @@ export const SETTINGS_NAV: SettingsNavSection[] = [
     title: 'Objects',
     items: [
       { id: 'objects', label: 'Types', title: 'Object types', icon: ObjectIcon },
-      { id: 'work-statuses', label: 'Statuses', title: 'Object and Strategy statuses', holds: ['Backlog', 'Planned', 'In Progress', 'Completed', 'Canceled'], icon: CircleCheck },
+      { id: 'work-statuses', label: 'Statuses', title: 'Object and Strategy statuses', holds: ['Backlog', 'To Do', 'In Progress', 'In Review', 'Done', 'Blocked', 'Cancelled'], icon: CircleCheck },
     ],
   },
   {

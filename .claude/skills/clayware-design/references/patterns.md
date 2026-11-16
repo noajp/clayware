@@ -13,9 +13,9 @@
 
 Urgent（赤）/ High（橙）/ Medium / Low（灰の濃淡）/ 未設定。`PRIORITY_ORDER` の順。
 
-## Status — `workStatus.ts`・`WorkStatusPicker.tsx`・`StatusPicker.tsx`・`ElementStatusMark.tsx`・`settings/StatusSettings.tsx`
+## Status — `workStatus.ts`・`StatusLook.tsx`・`StatusMenu.tsx`・`WorkStatusPicker.tsx`・`StatusPicker.tsx`・`ElementStatusMark.tsx`・`settings/StatusSettings.tsx`
 
-- Object と Strategy は 5 段階 Backlog / Planned / In Progress / Completed / Canceled（設定 › Objects › Statuses）。Element は上の 7 段階（設定 › Elements › Statuses）。どちらも Space が段階ごとに Status を足せる
+- Object と Strategy も Element と同じ 7 段階・同じマーク・同じピッカー（StatusMenu）（設定 › Objects › Statuses）。Element は設定 › Elements › Statuses。どちらも Space が段階ごとに Status を足せる（足した Status は別々）
 - Element の Status は段階（`status`）と、その中の Status（`status_id`）の組。書くときは必ず段階と一緒に書く（`elementStatusWrite`）。アイコンを選んでいない Element の Status は、その段階の印（`ElementProgressMark`）で描く。表示は `ElementStatusMark` と `useElementStatusName` を通す
 - 一つの Status は「段階・名前・アイコン・色」。アイコンは共通の `itemIcon/IconPicker` で選ぶ：製品のアイコン、絵文字、Custom（SVG のアップロードと、Athena に言葉で頼んで描かせた下書き）。色はラベルの 9 色。アイコンを選ぶ場所を部品ごとに作らない
 - アップロードや生成の SVG は `itemIcon/svgIcon.ts` が図形だけに絞り、色をすべて `currentColor` にしてから保存する。描くときも同じ規則で読み直し、React の要素で描く（innerHTML にしない）
