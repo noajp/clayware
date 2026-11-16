@@ -20,6 +20,9 @@ export interface NoteNode {
   createdBy?: string;
   /** Last change, ISO — the Note list's Recent orders by it. */
   updatedAt?: string;
+  /** A notebook's Artifacts folder: whoever sees that folder (a Domain's or
+   *  an Object's people) sees the notebook. Null keeps it its creator's. */
+  folderId?: string | null;
 }
 
 export interface Brief {
