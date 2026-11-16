@@ -12,7 +12,6 @@ import { DomainAgentSettings } from '@/ActivitySpace/execution/domain/DomainAgen
 import { SettingsModal } from '@/Function/settings/SettingsModal';
 import { SegmentedControl, SettingField } from '@/Function/settings/SettingsControls';
 import { NavCalendarIcon, NavInboxIcon, NavMyTasksIcon, NavStrategyIcon } from './sidebar/NavIcons';
-import { StrategyList } from './sidebar/StrategyList';
 import { TeamList } from './sidebar/TeamList';
 import { railSectionOf, type RailSection } from '@/Frame/railSections';
 import { loadSidebarOrder, moveSidebarItem, saveSidebarOrder, type SidebarItem } from './sidebarOrder';
@@ -195,13 +194,11 @@ export function AppSidebar({
   const slidesReady = useSlidesReady();
   // Team makes its units in its own list (owners only), so it has no "+".
   const createLabel = section === 'team' ? undefined
-    : section === 'strategy' ? 'New Strategy'
     : ({
       notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
       calendar: 'Add schedule', workspace: 'Create new',
     } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
   const openCreateMenu = () => {
-    if (section === 'strategy') { onNavigate({ strategyId: null, strategyCreate: true }); onViewChange('strategy'); return; }
     if (railMode === 'tables') { openCreate('table'); return; }
     if (railMode === 'notebook') { openCreate('notebook'); return; }
     if (railMode === 'calendar') {
@@ -407,7 +404,7 @@ export function AppSidebar({
               <Button variant="ghost" size="icon-xs" className="text-muted-foreground"
                 ref={createBtnRef}
                 type="button"
-                aria-haspopup={section === 'strategy' || railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
+                aria-haspopup={railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
                 aria-expanded={createMenuOpen || undefined}
                 onClick={openCreateMenu}
                 title={t(createLabel)}
@@ -491,11 +488,6 @@ export function AppSidebar({
           </div>
 
           </>}
-
-          {section === 'strategy' && (
-            <StrategyList activeStrategyId={activeView === 'strategy' ? navigation.strategyId ?? null : undefined}
-              onOpen={(id) => { onNavigate({ strategyId: id }); onViewChange('strategy'); }} />
-          )}
 
           {section === 'team' && (
             <TeamList navigation={activeView === 'team' || activeView === 'workload' ? navigation : undefined}
