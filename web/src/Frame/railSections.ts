@@ -5,7 +5,8 @@ import { NavDomainIcon, NavHomeIcon, NavStrategyIcon, NavTeamsIcon } from '@/Fra
 
 // The ModeRail's four places, left of the sidebar. Each picks what the
 // sidebar lists: Home (what is yours — Inbox, the Agent, your Elements,
-// your Calendar), Strategy (the Strategies), Execution (the Domains) and
+// your Calendar), Strategy (the Strategies), Execution (the Strategies,
+// what you starred, and the Domains) and
 // Team (the organisation's units and who is in them). A unit says who
 // someone answers to and a Domain where they work, so Team and Execution
 // are two places, not one.

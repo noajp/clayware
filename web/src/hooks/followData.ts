@@ -5,10 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { useCurrentUserId } from '@/providers/authContext';
 
 // Follow: the Strategies, Objects and Elements a person keeps at hand —
-// listed under "Following" in the sidebar (Strategies in the Strategy place,
-// Objects and Elements in Execution), toggled by the star beside a page's
-// "…". Kept per person in home_pins (each sees only their own, RLS); one
-// that was deleted or that they can no longer see drops out.
+// listed under "Following" in Execution's sidebar, toggled by the star
+// beside a page's "…". Kept per person in home_pins (each sees only their
+// own, RLS); one that was deleted or that they can no longer see drops out.
 
 export type FollowKind = 'strategy' | 'object' | 'element';
 export interface Followed {
