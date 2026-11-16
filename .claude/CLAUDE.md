@@ -94,4 +94,4 @@ root の `vercel.json` は本番デプロイ設定、root の `package.json` は
 
 ## 完了したら
 
-確認まで済んだらコミットして Push し、PR の CI が通ってからマージする。作業と無関係な変更は含めない。Clayware の Element を取って開発するとき、架空の案件で試すとき、PR をレビューするときは [clayware スキル](./skills/clayware/SKILL.md) を読む。
+確認まで済んだらコミットして Push し、PR の CI が通ってからマージする。作業と無関係な変更は含めない。Clayware の Element を取って開発するとき、架空の案件で試すとき、PR をレビューするときは [clayware スキル](./skills/clayware/SKILL.md) を読む。画面や紹介ページの見た目・部品・文言に触るときは [clayware-design スキル](./skills/clayware-design/SKILL.md) を読む。
