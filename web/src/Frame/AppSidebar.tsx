@@ -504,7 +504,13 @@ export function AppSidebar({
 
           {section === 'execution' && <>
           <div className="mt-5" />
-          <FollowSection kinds={['object', 'element']} activeId={activeView === 'objects' ? navigation.objectId ?? null : null} onOpen={(f) => {
+          {/* Execution: Strategy (the list of Strategies), what this person
+              starred, then the Domains. */}
+          <SidebarRow active={activeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
+            onClick={() => { onNavigate({ strategyId: null }); onViewChange('strategy'); }} />
+          <FollowSection kinds={['strategy', 'object', 'element']}
+            activeId={activeView === 'objects' ? navigation.objectId ?? null : activeView === 'strategy' ? navigation.strategyId ?? null : null} onOpen={(f) => {
+            if (f.kind === 'strategy') { onNavigate({ strategyId: f.id }); onViewChange('strategy'); return; }
             if (f.domainId) setActiveDomainId(f.domainId);
             if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
             const nav = { objectId: f.objectId, objectDomainId: f.domainId ?? undefined };

@@ -9,10 +9,9 @@ import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
 import { useFollows, type FollowKind, type Followed } from '@/hooks/followData';
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 
-/** "Following ▾": what this person starred (the star beside a page's "…"),
- *  of the kinds this place lists — Strategies in the Strategy place, Objects
- *  and Elements in Execution; each opens where it lives. Absent until they
- *  star something. */
+/** "Following ▾", in Execution's sidebar: what this person starred (the
+ *  star beside a page's "…"), of the kinds given; each opens where it lives.
+ *  Absent until they star something. */
 export function FollowSection({ kinds, activeId, onOpen }: {
   kinds: readonly FollowKind[];
   /** The open Strategy or Object, to mark its row. */
