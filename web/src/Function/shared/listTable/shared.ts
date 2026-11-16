@@ -112,7 +112,7 @@ export const LEAD_CELL = "before:pointer-events-none before:absolute before:inse
 export const LEAD_CELL_HOVER = 'group-hover:before:bg-foreground/[0.06]';
 export const LEAD_CELL_SELECTED = 'before:bg-[var(--accent-default)]/15 dark:before:bg-[var(--accent-default)]/20 group-hover:before:bg-[var(--accent-default)]/20 dark:group-hover:before:bg-[var(--accent-default)]/25';
 
-// Object rows on the Objects list carry no trailing "+" column, so the pill
+// Object rows on the Objects list carry no trailing fields column, so the pill
 // runs all the way to the LAST cell (Elements) instead of stopping one short.
 export const ROW_ROUND_TO_LAST = '[&>td:last-child]:rounded-r-lg';
 

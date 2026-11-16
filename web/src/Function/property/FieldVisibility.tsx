@@ -6,7 +6,7 @@ import type { DataColumn } from '@/Function/shared/listTable/useListColumns';
 import { MenuSectionLabel } from '@/Function/shared/menu';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 
-/** The list header's field switches (its trailing "+"). Hiding never deletes data. */
+/** The list header's field switches (its trailing button). Hiding never deletes data. */
 export function FieldVisibility({ columns, isVisible, onToggle }: {
   columns: DataColumn[];
   isVisible: (id: string) => boolean;

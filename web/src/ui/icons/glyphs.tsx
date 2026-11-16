@@ -36,6 +36,12 @@ const SLIDERS = {
 export const Settings2 = glyph('Settings2', SLIDERS);
 export const SlidersHorizontal = glyph('SlidersHorizontal', SLIDERS);
 
+/** Two switches, one on and one off: which fields show (where no field can be added). */
+export const FieldSwitches = glyph('FieldSwitches', {
+  line: <path d="M2.5 5H9M7 11h6.5" />,
+  solid: <><circle cx="11.5" cy="5" r="2" /><circle cx="4.5" cy="11" r="2" /></>,
+});
+
 export const Bell = glyph('Bell', {
   solid: <>
     <path d="M8 1.9a.9.9 0 0 1 .9.9v.4c1.85.42 3.15 2.05 3.15 3.95v2.4l.95 1.5a.6.6 0 0 1-.5.92H3.5a.6.6 0 0 1-.5-.92l.95-1.5v-2.4c0-1.9 1.3-3.53 3.15-3.95v-.4a.9.9 0 0 1 .9-.9Z" />
