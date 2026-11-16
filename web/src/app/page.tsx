@@ -49,6 +49,8 @@ import { useModelKeyCheck } from '@/Function/team/useModelKeyCheck';
 import { clearPendingDeepLink, parseDeepLink, setPendingDeepLink, stripDeepLink, usePendingDeepLink } from '@/lib/deepLink';
 import { resolveDeepLink } from '@/hooks/deepLinkTarget';
 import { notifyError } from '@/Function/shared/toastStore';
+import { ModeRail } from '@/Frame/ModeRail';
+import { railSectionOf, type RailSection } from '@/Frame/railSections';
 
 export default function Home() {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
@@ -74,7 +76,8 @@ export default function Home() {
 function AppShellSkeleton() {
   return (
     <div className="h-dvh flex overflow-hidden bg-[var(--content-bg)]" aria-hidden>
-      {/* Sidebar silhouette */}
+      {/* Rail and sidebar silhouettes */}
+      <div className="max-md:hidden my-1.5 ml-1.5 w-12 shrink-0 rounded-lg gloss-island" />
       <div className="w-[260px] shrink-0 flex flex-col gap-4 p-3 animate-pulse">
         <div className="h-7 w-32 rounded-md bg-muted/70" />
         <div className="flex flex-col gap-1.5 mt-1">
@@ -525,6 +528,18 @@ function WorkspaceContent({
   const setActiveView = (view: string) => updateTab(activeTab.id, { activeView: view });
   const setActiveNavigation = (nav: Partial<NavigationState>) => updateTabNavigation(activeTab.id, nav);
 
+  // The ModeRail: a place opens on its first screen; the place already open
+  // keeps whatever is open in it. Unlike a sidebar row it leaves the phone's
+  // drawer open, so the place's list can be chosen from next.
+  const handleRailSelect = (section: RailSection) => {
+    if (railSectionOf(activeTab.activeView) === section) return;
+    if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
+    if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('strategy'); return; }
+    if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
+    setActiveNavigation({ workerId: null, unitId: null });
+    setActiveView('team');
+  };
+
   // Item opens get a tab of their own (tabState.ts): a followed Object,
   // a searched Element, an Automation's Strategy — the tab already
   // showing the item is focused, a new one is opened otherwise, and the
@@ -871,9 +886,16 @@ function WorkspaceContent({
       }}
     >
       <div className="relative flex-1 flex overflow-hidden">
-        {/* The sidebar's frame. Not positioned, so the sidebar's drawer
-            (absolute, measured from the row) escapes its clipping. */}
-        <div className="my-1.5 ml-1 mr-1.5 flex shrink-0 overflow-hidden rounded-lg gloss-island">
+        {/* The ModeRail, an island of its own. On a phone it shows with the
+            drawer, above the scrim. */}
+        <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
+          className={`my-1.5 ml-1.5 ${sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'}`} />
+        {/* The sidebar's frame, inside a positioned holder: the frame itself
+            is not positioned, so the sidebar's drawer (absolute) escapes its
+            clipping and opens from the holder, right of the rail. */}
+        <div className="relative flex shrink-0">
+        {/* Hidden, it keeps only the gap to the rail: no frame of its own. */}
+        <div className={`my-1.5 ml-1.5 flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'mr-1.5 rounded-lg gloss-island'}`}>
         <AppSidebar
           onToggleSidebar={handleSidebarToggle}
           navigation={activeTab.navigation}
@@ -890,6 +912,7 @@ function WorkspaceContent({
           onCreateNew={handleSidebarCreateNew}
           onSearch={() => setDiscoverOpen(true)}
         />
+        </div>
         </div>
 
         {sidebarCollapsed && sidebarOverlay && (

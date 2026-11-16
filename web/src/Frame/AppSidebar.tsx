@@ -12,7 +12,10 @@ import { FONT } from '@/shared/designTokens';
 import { DomainAgentSettings } from '@/ActivitySpace/execution/domain/DomainAgentSettings';
 import { SettingsModal } from '@/Function/settings/SettingsModal';
 import { SegmentedControl, SettingField } from '@/Function/settings/SettingsControls';
-import { NavInboxIcon, NavStrategyIcon } from './sidebar/NavIcons';
+import { NavCalendarIcon, NavInboxIcon, NavMyTasksIcon, NavStrategyIcon } from './sidebar/NavIcons';
+import { StrategyList } from './sidebar/StrategyList';
+import { TeamList } from './sidebar/TeamList';
+import { railSectionOf, type RailSection } from '@/Frame/railSections';
 import { loadSidebarOrder, moveSidebarItem, saveSidebarOrder, type SidebarItem } from './sidebarOrder';
 import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
@@ -89,11 +92,11 @@ interface AppSidebarProps {
 const SIDEBAR_CLOSE_PULL = 72;
 
 
-// Workspace — Strategy and Execution in one sidebar, a section each.
-// Strategy is what we're trying to achieve and how we intend to win: one
-// row opens the Strategies (view id 'strategy'), which nest without limit.
-// Phase is reached from a Strategy or a Domain, not from here. Execution is the fighting:
-// the Domain tree, whose rows carry the D/O/E surfaces below.
+// The sidebar lists what the ModeRail's place holds: Home (Inbox, the
+// Agent, your Elements and Calendar, what you follow), Strategy (the
+// Strategies), Execution (the Domain tree, whose rows carry the D/O/E
+// surfaces) or Team (the units and who is in them). A screen under none
+// of them (Settings, a tool) keeps the place last chosen.
 
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 360;
@@ -159,6 +162,11 @@ export function AppSidebar({
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const railMode = railModeOf(activeView);
+  // The rail's place: the open screen's, else the last one shown.
+  const viewSection = railSectionOf(activeView);
+  const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'home');
+  if (viewSection && viewSection !== lastSection) setLastSection(viewSection);
+  const section = viewSection ?? lastSection;
   const { label: aiLabel, icon: AiIcon } = MODE_META.ai;
   const [draggingDomain, setDraggingDomain] = useState<Domain | null>(null);
   const [width, setWidth] = useState<number>(() => {
@@ -186,11 +194,15 @@ export function AppSidebar({
   const calendarDay = useCalendarDay();
   // Slides makes nothing until the Space's decks are loaded; the load would replace it.
   const slidesReady = useSlidesReady();
-  const createLabel = ({
-    notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
-    calendar: 'Add schedule', workspace: 'Create new',
-  } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
+  // Team makes its units in its own list (owners only), so it has no "+".
+  const createLabel = section === 'team' ? undefined
+    : section === 'strategy' ? 'New Strategy'
+    : ({
+      notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
+      calendar: 'Add schedule', workspace: 'Create new',
+    } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
   const openCreateMenu = () => {
+    if (section === 'strategy') { onNavigate({ strategyId: null, strategyCreate: true }); onViewChange('strategy'); return; }
     if (railMode === 'tables') { openCreate('table'); return; }
     if (railMode === 'notebook') { openCreate('notebook'); return; }
     if (railMode === 'calendar') {
@@ -396,7 +408,7 @@ export function AppSidebar({
               <Button variant="ghost" size="icon-xs" className="text-muted-foreground"
                 ref={createBtnRef}
                 type="button"
-                aria-haspopup={railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
+                aria-haspopup={section === 'strategy' || railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
                 aria-expanded={createMenuOpen || undefined}
                 onClick={openCreateMenu}
                 title={t(createLabel)}
@@ -418,13 +430,9 @@ export function AppSidebar({
           <>
 
 
-          {/* ── Workspace ── Strategy first (what we aim for: the Strategies,
-              a list in the main island where their nesting shows), then
-              Execution (the Domains, where
-              the work is done). */}
-          {/* The fixed top of every sidebar, in the person's order (drag a
-              row to move it). What sits under it is the open surface's own
-              list — the Domains for the Workspace, and so on. */}
+          {section === 'home' && <>
+          {/* Home: the person's own rows, in their order (drag a row to
+              move it), then what they follow. */}
           <div className="mt-5">
             {sidebarOrder.map((item) => {
               const row = (() => {
@@ -436,9 +444,12 @@ export function AppSidebar({
                     return <SidebarRow active={activeView === 'inbox'} icon={<NavInboxIcon size={16} />} label={t('Inbox')}
                       meta={unreadCount > 0 ? unreadCount : undefined}
                       onClick={() => onViewChange('inbox')} />;
-                  case 'strategy':
-                    return <SidebarRow active={activeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
-                      onClick={() => { onNavigate({ strategyId: null }); onViewChange('strategy'); }} />;
+                  case 'my-elements':
+                    return <SidebarRow active={activeView === 'my-elements'} icon={<NavMyTasksIcon size={16} />} label={t('My Elements')}
+                      onClick={() => onViewChange('my-elements')} />;
+                  case 'calendar':
+                    return <SidebarRow active={activeView === 'calendar' || activeView === 'schedule'} icon={<NavCalendarIcon size={16} />} label={t('Calendar')}
+                      onClick={() => onViewChange('calendar')} />;
                 }
               })();
               const over = rowDrop?.item === item && draggedRow !== null && draggedRow !== item ? rowDrop.place : null;
@@ -480,9 +491,6 @@ export function AppSidebar({
             })}
           </div>
 
-          {/* Under it, always the Workspace: what you follow, then the
-              Domains. Each tool's own list is in the main pane. */}
-          <>
           <FollowSection activeObjectId={navigation.objectId ?? null} onOpen={(f) => {
             if (f.domainId) setActiveDomainId(f.domainId);
             if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
@@ -490,7 +498,20 @@ export function AppSidebar({
             if (onOpenItem) onOpenItem('objects', nav);
             else { onNavigate(nav); onViewChange('objects'); }
           }} />
+          </>}
 
+          {section === 'strategy' && (
+            <StrategyList activeStrategyId={activeView === 'strategy' ? navigation.strategyId ?? null : undefined}
+              onOpen={(id) => { onNavigate({ strategyId: id }); onViewChange('strategy'); }} />
+          )}
+
+          {section === 'team' && (
+            <TeamList navigation={activeView === 'team' || activeView === 'workload' ? navigation : undefined}
+              onOpen={(nav) => { onNavigate(nav); onViewChange('team'); }} />
+          )}
+
+          {section === 'execution' && <>
+          <div className="mt-5" />
           <SidebarFold id="execution-domains" label={t('Your Execution')}>
 
           {/* All domains — the name opens the overview; the chevron expands the tree.
@@ -541,8 +562,7 @@ export function AppSidebar({
             onSettings={() => setSettingsDomain(d)}
           />)}
           </SidebarFold>
-
-          </>
+          </>}
 
           </>
           )}
