@@ -11,7 +11,8 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useStrategies, useWorkers, updateStrategy } from '@/hooks/useSupabase';
 import { useWorkStatuses } from '@/hooks/workStatuses';
 import { statusOf } from '@/Function/shared/workStatus';
-import { WorkStatusMark, WorkStatusPicker, useStatusName } from '@/Function/shared/WorkStatusPicker';
+import { WorkStatusMark, WorkStatusPicker } from '@/Function/shared/WorkStatusPicker';
+import { useStatusName } from '@/Function/shared/StatusLook';
 import type { WidgetHost } from '../types';
 
 // =============================================================
@@ -36,12 +37,12 @@ export function StrategyPropertiesWidget({ host }: { host: WidgetHost }) {
 
   // The stage it stands in, and the Space's own status within it.
   const status = statusOf('work', statusRows, strategy.work_stage, strategy.work_status_id);
-  const statusRow = <RailRow name={t('Status')} icon={<WorkStatusMark status={status} />} label={nameOf(status)} />;
+  const statusRow = <RailRow name={t('Status')} icon={<WorkStatusMark status={status} progress={progress.pct} />} label={nameOf(status)} />;
 
   return (
     <div className="py-1">
       {host.readOnly ? statusRow : (
-        <WorkStatusPicker scope="work" rows={statusRows} stage={strategy.work_stage} statusId={strategy.work_status_id}
+        <WorkStatusPicker scope="work" rows={statusRows} stage={strategy.work_stage} statusId={strategy.work_status_id} progress={progress.pct}
           onChange={(next) => {
             void updateStrategy(strategy.id, { work_stage: next.stage, work_status_id: next.statusId })
               .then(() => refetch())

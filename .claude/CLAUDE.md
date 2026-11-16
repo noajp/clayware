@@ -36,7 +36,7 @@ Clayware を、課題を解決できる道具にすること。そのために�
 | **Execution** | 実際に行動する | Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位） |
 | **Sustainment** | 活動を続ける道具 | Artifacts / Team / Table / Calendar |
 
-Strategy は目的・前提・意思決定・成功条件と、今どの段階にあるか（Status）を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Object と Strategy の Status は同じ 5 段階（Backlog / Planned / In Progress / Completed / Canceled）で、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
+Strategy は目的・前提・意思決定・成功条件と、今どの段階にあるか（Status）を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Element・Object・Strategy の Status は同じ 7 段階（Backlog / To Do / In Progress / In Review / Done / Blocked / Cancelled）で、同じマークで描き、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
 
 ## コマンド
 
