@@ -27,7 +27,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
         <a class="menu__link dd__link" href="product.html" aria-haspopup="true" aria-current="page">Product</a>
         <div class="mega">
           <div class="mega__panel">
-            <div class="mega__grid"><a class="mega__item" href="index.html#hub"><b>Multichannel integration</b><span>Mail, chat, apps and your own systems, joined by API in one place</span></a><a class="mega__item" href="product.html"><b>From goals to execution</b><span>Set the goal in Strategy, then follow each Element through to done</span></a><a class="mega__item" href="product.html#integrations"><b>Athena AI</b><span>Gathers what’s happening into Elements and checks it against Strategy</span></a><a class="mega__item" href="timeline.html"><b>Timeline</b><span>Deadlines and dependencies on one schedule, with collisions in red</span></a></div>
+            <div class="mega__grid"><a class="mega__item" href="channels.html"><b>Multichannel integration</b><span>Mail, chat, apps and your own systems, joined by API in one place</span></a><a class="mega__item" href="strategy.html"><b>From goals to execution</b><span>Set the goal in Strategy, then follow each Element through to done</span></a><a class="mega__item" href="athena.html"><b>Athena AI</b><span>Gathers what’s happening into Elements and checks it against Strategy</span></a><a class="mega__item" href="timeline.html"><b>Timeline</b><span>Deadlines and dependencies on one schedule, with collisions in red</span></a></div>
           </div>
         </div>
       </div>
@@ -37,12 +37,15 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
       <a class="menu__link" href="#contact">Contact</a>
     </nav>
     <div class="nav__end">
-      <button type="button" class="icon-btn" id="theme" aria-label="Switch between dark and light">
-        <svg class="mode-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-        <svg class="mode-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
-      <a href="ja/product.html" class="navlink lang" hreflang="ja" lang="ja">日本語</a>
-      <a href="/login" class="btn btn--small">Log in</a>
+      <div class="prefs" role="group" aria-label="Display">
+        <a href="ja/product.html" class="prefs__lang" hreflang="ja" aria-label="日本語に切り替える"><span class="on" aria-hidden="true">EN</span><span aria-hidden="true">JA</span></a>
+        <span class="prefs__sep" aria-hidden="true"></span>
+        <button type="button" class="prefs__mode" id="theme" aria-label="Switch between dark and light">
+          <svg class="mode-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="mode-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+      <a href="/login" class="btn btn--small btn--pill">Log in</a>
       <button type="button" class="icon-btn burger" id="burger" aria-label="Open menu" aria-controls="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
@@ -52,8 +55,8 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 
 <section class="phero" aria-labelledby="product-title">
   <div class="container">
-    <h1 id="product-title">Every request becomes an owned task.</h1>
-    <p class="lead">Anything you cannot undo waits for your approval.</p>
+    <h1 id="product-title">Manage every incoming request as work with an owner and a deadline.</h1>
+    <p class="lead">AI does the research, record-keeping and drafting; operations that can’t be undone, such as sending mail, wait for a person’s approval.</p>
   </div>
 </section>
 
@@ -75,7 +78,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
 <section class="section" id="integrations" aria-labelledby="agents-title">
   <div class="container">
     <div class="head">
-      <h2 id="agents-title">Five agents. You sign off on each.</h2>
+      <h2 id="agents-title">Five ready-made processes, and what people decide</h2>
       
     </div>
     <table class="index">
@@ -90,7 +93,7 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
       </tbody>
     </table>
     <div class="safety" id="product-safety">
-      <h2>Stops where it should.</h2>
+      <h2>How AI is used safely</h2>
       <dl class="facts">
         <div><dt>Approval</dt><dd>Tied to the exact input. Never self-approved.</dd></div>
         <div><dt>Verifier</dt><dd>A second AI checks every result.</dd></div>
@@ -100,6 +103,12 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
         <div><dt>Full record</dt><dd>Every run is logged.</dd></div>
       </dl>
     </div>
+  </div>
+</section>
+
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="head"><h2 id="features-title">Each feature</h2></div><ol class="rows"><li class="row"><h3>Multichannel integration<small>Taking in requests</small></h3><p>Connects to Gmail, Google Drive, GitHub, Slack and more, and records each request with an owner and a deadline.</p><a href="channels.html" class="textlink">Learn more</a></li><li class="row"><h3>From goals to execution<small>Strategy, Object, Element</small></h3><p>From the purpose and success criteria, AI drafts the plan of work; it runs after a person checks it.</p><a href="strategy.html" class="textlink">Learn more</a></li><li class="row"><h3>Athena AI<small>The AI built into Clayware</small></h3><p>Takes requests and does the research, record-keeping and drafting. Judgment and approval are done by people.</p><a href="athena.html" class="textlink">Learn more</a></li><li class="row"><h3>Timeline<small>Schedule and dependencies</small></h3><p>Lays out project schedules and dependencies, and shows overlapping dates in red.</p><a href="timeline.html" class="textlink">Learn more</a></li></ol>
   </div>
 </section>
 
