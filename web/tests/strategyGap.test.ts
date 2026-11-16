@@ -111,3 +111,28 @@ describe('strategy-gap brief', () => {
     expect(answer.uncovered.map((u) => u.intent_id)).toEqual(['I-a', null]);
   });
 });
+
+describe('gap over time', async () => {
+  const { timePoints, standingTable, percentile, dayTicks } = await import('../src/ActivitySpace/strategy/initiative/gapTimeModel');
+  const now = Date.parse('2026-11-16T00:00:00Z');
+  const els = [
+    { id: 'a', label: 'a', standing: 'aligned' as const, created_at: '2026-11-15T00:00:00Z', updated_at: '2026-11-15T12:00:00Z' },
+    { id: 'b', label: 'b', standing: 'unknown' as const, created_at: '2026-11-06T00:00:00Z', updated_at: null },
+    { id: 'c', label: 'c', standing: 'unknown' as const, created_at: null, updated_at: '2026-11-10T00:00:00Z' },
+  ];
+  it('measures age from creation and idle from the last update, skipping undated work', () => {
+    expect(timePoints(els, 'age', now).map((p) => [p.id, p.days])).toEqual([['a', 1], ['b', 10]]);
+    expect(timePoints(els, 'idle', now).map((p) => [p.id, p.days])).toEqual([['a', 0.5], ['b', 10]]);
+  });
+  it('reads percentiles by nearest rank and tables them by standing', () => {
+    expect(percentile([1, 2, 3, 4], 50)).toBe(2);
+    expect(percentile([], 50)).toBeNull();
+    const rows = standingTable(timePoints(els, 'age', now));
+    expect(rows.find((r) => r.standing === 'unknown')).toMatchObject({ n: 1, p50: 10 });
+    expect(rows.find((r) => r.standing === 'out')).toMatchObject({ n: 0, p50: null });
+  });
+  it('rounds the day axis up to a tick past the largest value', () => {
+    expect(dayTicks(2.4)).toEqual([0, 1, 2, 3]);
+    expect(dayTicks(23).at(-1)).toBeGreaterThanOrEqual(23);
+  });
+});
