@@ -35,6 +35,7 @@ import { getCachedHomeViewId } from '@/Function/settings/preferencesStore';
 import { setActiveSettingsSection, useActiveSettingsSection } from '@/Function/settings/settingsNav';
 import { readOpenScreen, writeOpenScreen, type OpenScreen } from '@/Frame/openScreen';
 import { VIEW_REGISTRY } from '@/Frame/viewRegistry';
+import { useSpaceNounsSync } from '@/hooks/spaceNouns';
 import { completeOAuthReturn, readOAuthReturn, stripOAuthReturn, takeOAuthReturnSettingsPage } from '@/AIP/connectors/oauthReturn';
 import { finishIntegrationOAuth } from '@/AIP/connectors/data';
 import { useWorkspaceDeltaStream } from '@/Function/sync/deltaStream';
@@ -170,6 +171,8 @@ function AppContent() {
     [activeSpaceId, spaces],
   );
   const effectiveActiveSpaceId = activeSpaceExists && activeSpaceId ? activeSpaceId : (spaces[0]?.id ?? '');
+  // What this Space calls Strategy, Object and Element, for every label.
+  useSpaceNounsSync(effectiveActiveSpaceId || null);
 
   useEffect(() => {
     if (spacesLoading || !spaces.length) return;

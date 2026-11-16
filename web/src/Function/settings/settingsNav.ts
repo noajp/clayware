@@ -79,7 +79,7 @@ export const SETTINGS_NAV: SettingsNavSection[] = [
   {
     title: 'Administration',
     items: [
-      { id: 'workspace', label: 'Activity space', icon: Globe },
+      { id: 'workspace', label: 'Activity space', holds: ['Names'], icon: Globe },
       { id: 'members', label: 'Members', icon: Users },
       { id: 'domain', label: 'Domains', icon: DomainIcon },
       { id: 'api', label: 'API', icon: Link2 },

@@ -9,6 +9,8 @@ import {
   resolveLocale,
   type Locale,
 } from './locales';
+import { renameNouns } from './spaceNouns';
+import { getNounTable, subscribeNounTable } from './spaceNounsStore';
 
 const LOCALE_CHANGE_EVENT = 'clayware:locale-change';
 
@@ -26,7 +28,8 @@ function readLocale(): Locale {
 /** The viewer's language outside React (data-layer notices); `t` inside it. */
 export function translate(message: string, values?: Record<string, string | number>): string {
   const locale = readLocale();
-  return interpolate(locale === 'en' ? message : (MESSAGES[locale][message] ?? message), values);
+  const translated = locale === 'en' ? message : (MESSAGES[locale][message] ?? message);
+  return interpolate(renameNouns(translated, getNounTable(), locale), values);
 }
 
 function subscribe(listener: () => void): () => void {
@@ -50,12 +53,15 @@ interface I18nContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: Translate;
+  /** `t` with the built-in nouns kept — for the page where a Space names them. */
+  tBuiltIn: Translate;
 }
 
 const defaultValue: I18nContextValue = {
   locale: DEFAULT_LOCALE,
   setLocale: () => undefined,
   t: (message, values) => interpolate(message, values),
+  tBuiltIn: (message, values) => interpolate(message, values),
 };
 
 // The English fallback also keeps independently rendered components (tests,
@@ -76,12 +82,19 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const t = useCallback<Translate>((message, values) => {
+  // The Space's names for Strategy, Object and Element go into the message
+  // text before its values (spaceNouns.ts): a name someone typed stays as typed.
+  const nouns = useSyncExternalStore(subscribeNounTable, getNounTable, () => null);
+  const tBuiltIn = useCallback<Translate>((message, values) => {
     const translated = locale === 'en' ? message : (MESSAGES[locale][message] ?? message);
     return interpolate(translated, values);
   }, [locale]);
+  const t = useCallback<Translate>((message, values) => {
+    const translated = locale === 'en' ? message : (MESSAGES[locale][message] ?? message);
+    return interpolate(renameNouns(translated, nouns, locale), values);
+  }, [locale, nouns]);
 
-  const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const value = useMemo(() => ({ locale, setLocale, t, tBuiltIn }), [locale, setLocale, t, tBuiltIn]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
