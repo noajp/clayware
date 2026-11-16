@@ -133,6 +133,13 @@ const SHARED_MESSAGES: Record<string, Row> = {
   // Type cell
   'Add type': ['種類を追加', '유형 추가', 'Ajouter un type', 'Añadir tipo'],
   'New type…': ['新しい種類…', '새 유형…', 'Nouveau type…', 'Nuevo tipo…'],
+  'Find or create a type…': ['種類を検索・作成…', '유형 검색 또는 만들기…', 'Chercher ou créer un type…', 'Buscar o crear un tipo…'],
+  'Find a type…': ['種類を検索…', '유형 검색…', 'Chercher un type…', 'Buscar un tipo…'],
+  'No matching type': ['一致する種類はありません', '일치하는 유형이 없습니다', 'Aucun type correspondant', 'Ningún tipo coincide'],
+  'Create “{name}”': ['「{name}」を作成', '“{name}” 만들기', 'Créer « {name} »', 'Crear “{name}”'],
+  'Remove type': ['種類を外す', '유형 해제', 'Retirer le type', 'Quitar el tipo'],
+  'Suggested': ['おすすめ', '추천', 'Suggestions', 'Sugerencias'],
+  'All of these are in use.': ['すべて使用中です。', '모두 사용 중입니다.', 'Tous sont déjà utilisés.', 'Todos ya están en uso.'],
   'Edit types': ['種類を編集', '유형 편집', 'Modifier les types', 'Editar tipos'],
   'Delete “{name}”': ['「{name}」を削除', '"{name}" 삭제', 'Supprimer « {name} »', 'Eliminar «{name}»'],
   'Project Office': ['プロジェクト管理', '프로젝트 관리', 'Bureau de projet', 'Oficina de proyectos'],

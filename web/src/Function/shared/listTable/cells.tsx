@@ -9,7 +9,7 @@ import { ActivitySignal } from '@/Function/shared/element/ActivitySignal';
 import { Button } from '@/ui/button';
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { DateRange } from 'react-day-picker';
-import { Plus, ChevronLeft, ChevronRight, Tag, X } from '@/ui/icons';
+import { Plus, ChevronLeft, ChevronRight, Search, Tag, X } from '@/ui/icons';
 import { TypeMark, useTypeIcons } from '@/Function/shared/elementTypeIcon';
 import type { ClaywareObjectWithChildren, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { addElementAssignee, removeElementAssignee, fetchAssignableWorkers, useWorkerById, noticeAssignmentFailed } from '@/hooks/useSupabase';
@@ -120,11 +120,13 @@ function TabStrip({ children }: { children: ReactNode }) {
   );
 }
 
-/** The Type cell and its picker: a list of the Domain's types, each with its
- *  icon and a check on the current one; the first row is the plain kind
- *  itself (no type). "Create type" adds a name to the Domain and assigns it;
- *  Edit turns the checks into removes. Each type wears the icon the Domain
- *  gave it in Settings. */
+/** The Type cell and its picker. A type is an optional kind the Domain
+ *  names (Task, Issue, Lead…) — the Element or Object itself is not one of
+ *  them, so "no type" is not a row: the current type is taken off with
+ *  "Remove type". One field at the top searches the Domain's types and the
+ *  suggestions, and Enter picks the match or creates the name typed. Edit
+ *  turns the list into removes. Each type wears the icon the Domain gave it
+ *  in Settings. */
 export function TypeCell({
   value, types, onChange, onAddType, onRemoveType, kind = 'element',
 }: {
@@ -140,18 +142,10 @@ export function TypeCell({
   const icons = useTypeIcons(kind);
   const current = value ?? null;
   const [open, setOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [query, setQuery] = useState('');
   const [presetTab, setPresetTab] = useState(0);
   const canEdit = !!onChange;
-  // A suggested name is registered on the Domain (if new) and assigned, both
-  // at once: the menu closing is the click's receipt, not the write's.
-  const pickPreset = (name: string) => {
-    if (onAddType && !types.some((x) => x.toLowerCase() === name.toLowerCase())) void onAddType(name);
-    void onChange?.(name);
-    setOpen(false);
-  };
 
   const trigger = (
     <button
@@ -165,108 +159,138 @@ export function TypeCell({
   // Read-only (no editor) when there's nothing to pick and no way to add.
   if (!canEdit || (types.length === 0 && !onAddType)) return trigger;
 
-  const submitNew = () => {
-    const name = draft.trim();
-    setAdding(false);
-    setDraft('');
-    if (!name) return;
-    if (onAddType) void onAddType(name);
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const q = query.trim();
+  const matches = (name: string) => !q || name.toLowerCase().includes(q.toLowerCase());
+  // The current type is listed even when the Domain's list no longer has it.
+  const listed = current && !types.some((x) => same(x, current)) ? [current, ...types] : types;
+  const shown = listed.filter(matches);
+  // Suggestions leave out what the Domain already has. While searching they
+  // come from every field at once; otherwise from the field chosen.
+  const suggestions = (q
+    ? [...new Set(TYPE_PRESETS.flatMap((p) => p.types))].filter(matches)
+    : TYPE_PRESETS[presetTab].types
+  ).filter((name) => !listed.some((x) => same(x, name)));
+  const canCreate = !!onAddType && !!q && !listed.some((x) => same(x, q)) && !suggestions.some((x) => same(x, q));
+
+  const close = () => setOpen(false);
+  const pick = (next: string | null) => { void onChange?.(next); close(); };
+  // A new name is registered on the Domain and assigned, both at once: the
+  // menu closing is the click's receipt, not the write's.
+  const adopt = (name: string) => {
     const normalized = name.charAt(0).toUpperCase() + name.slice(1);
-    void onChange?.(normalized);
-    setOpen(false);
+    if (onAddType && !types.some((x) => same(x, normalized))) void onAddType(normalized);
+    pick(normalized);
   };
-  const pick = (next: string | null) => { void onChange?.(next); setOpen(false); };
+  const onEnter = () => {
+    if (!q) return;
+    const exact = listed.find((x) => same(x, q)) ?? suggestions.find((x) => same(x, q));
+    if (exact) { if (listed.includes(exact)) pick(exact); else adopt(exact); return; }
+    if (shown.length === 1) { pick(shown[0]); return; }
+    if (canCreate) adopt(q);
+  };
   const canManage = !!onRemoveType && types.length > 0;
-  const ROW = 'flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-2 text-left text-[14px] text-foreground transition-colors hover:bg-muted/60';
+  const ROW = 'group/row flex h-8 w-full min-w-0 items-center gap-2.5 rounded-md px-2 text-left text-[13px] text-foreground transition-colors hover:bg-muted/60';
+  const LABEL = 'px-2 pb-1 pt-2 text-[11px] font-medium text-muted-foreground';
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setAdding(false); setDraft(''); setEditing(false); } }}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setQuery(''); setEditing(false); } }}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="start" className={`${CELL_POPOVER_RADIUS} w-[320px] p-2`} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-2 pb-1 pt-0.5">
-          <span className="text-[12px] text-muted-foreground">{tr('Types')}</span>
-          {canManage && (
-            <button type="button" onClick={() => setEditing((v) => !v)}
-              className="rounded-md px-1.5 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-              {editing ? tr('Done') : tr('Edit')}
-            </button>
-          )}
+      <PopoverContent align="start" className={`${CELL_POPOVER_RADIUS} w-[304px] p-0`} onClick={(e) => e.stopPropagation()}>
+        {/* Search, and the way to create a name the list does not have. */}
+        <div className="flex items-center gap-2 border-b border-border/60 px-3">
+          <Search size={14} className="shrink-0 text-muted-foreground" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); onEnter(); } }}
+            placeholder={onAddType ? tr('Find or create a type…') : tr('Find a type…')}
+            aria-label={onAddType ? tr('Find or create a type…') : tr('Find a type…')}
+            className="h-10 min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
+          />
         </div>
-        <div className="max-h-[240px] overflow-y-auto">
-          <button type="button" className={ROW} onClick={() => pick(null)}>
-            <TypeMark type={null} icons={icons} kind={kind} />
-            <span className="min-w-0 truncate">{kind === 'object' ? 'Object' : 'Element'}</span>
-            <span className="shrink-0 text-[12px] text-muted-foreground">{tr('(default)')}</span>
-            <span className="flex-1" />
-            {!current && <MenuCheck />}
-          </button>
-          {types.map((name) => (
-            <div key={name} className="flex min-w-0 items-center">
-              <button type="button" className={ROW} onClick={() => { if (!editing) pick(name); }}>
-                <TypeMark type={name} icons={icons} kind={kind} />
-                <span className="min-w-0 flex-1 truncate">{name}</span>
-                {!editing && name === current && <MenuCheck />}
-              </button>
-              {editing && (
-                <button type="button" onClick={() => void onRemoveType?.(name)}
-                  title={tr('Delete “{name}”', { name })} aria-label={tr('Delete “{name}”', { name })}
-                  className="mr-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
-                  <X size={12} />
+
+        <div className="max-h-[320px] overflow-y-auto p-1.5">
+          {(listed.length > 0 || canCreate) && (
+            <>
+              <div className="flex items-center justify-between">
+                <div className={LABEL}>{tr('Types')}</div>
+                {canManage && (
+                  <button type="button" onClick={() => setEditing((v) => !v)}
+                    className="mr-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                    {editing ? tr('Done') : tr('Edit')}
+                  </button>
+                )}
+              </div>
+              {shown.map((name) => (
+                <div key={name} className="flex min-w-0 items-center">
+                  <button type="button" className={`${ROW} ${name === current ? 'font-medium' : ''}`} onClick={() => { if (!editing) pick(name); }}>
+                    <TypeMark type={name} icons={icons} kind={kind} />
+                    <span className="min-w-0 flex-1 truncate">{name}</span>
+                    {!editing && name === current && <MenuCheck />}
+                  </button>
+                  {editing && types.includes(name) && (
+                    <button type="button" onClick={() => void onRemoveType?.(name)}
+                      title={tr('Delete “{name}”', { name })} aria-label={tr('Delete “{name}”', { name })}
+                      className="mr-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {q && shown.length === 0 && !canCreate && (
+                <p className="px-2 py-1.5 text-[12px] text-muted-foreground">{tr('No matching type')}</p>
+              )}
+              {canCreate && !editing && (
+                <button type="button" className={ROW} onClick={() => adopt(q)}>
+                  <Plus size={14} className="shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{tr('Create “{name}”', { name: q })}</span>
                 </button>
               )}
+            </>
+          )}
+          {current && !editing && !q && (
+            <button type="button" className={`${ROW} text-muted-foreground`} onClick={() => pick(null)}>
+              <X size={14} className="shrink-0" />
+              <span>{tr('Remove type')}</span>
+            </button>
+          )}
+
+          {/* Suggested names, by field: chips that add the name to the
+              Domain and give it to this one. */}
+          {onAddType && !editing && suggestions.length + (q ? 0 : 1) > 0 && (
+            <div className={listed.length > 0 || canCreate ? 'mt-1.5 border-t border-border/60 pt-1' : ''}>
+              <div className={LABEL}>{tr('Suggested')}</div>
+              {!q && (
+                <div className="px-2 pb-2">
+                  <TabStrip>
+                    {TYPE_PRESETS.map((p, i) => (
+                      <button key={p.label} type="button" onClick={() => setPresetTab(i)} aria-pressed={presetTab === i}
+                        className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] transition-colors ${
+                          presetTab === i ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                        }`}>
+                        {tr(p.label)}
+                      </button>
+                    ))}
+                  </TabStrip>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
+                {suggestions.map((name) => (
+                  <button key={name} type="button" onClick={() => adopt(name)}
+                    className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-transparent px-2.5 text-[12px] text-foreground transition-colors hover:border-muted-foreground/40 hover:bg-muted/60">
+                    <TypeMark type={name} icons={icons} kind={kind} size={12} />
+                    <span>{name}</span>
+                  </button>
+                ))}
+                {suggestions.length === 0 && (
+                  <p className="px-0.5 text-[12px] text-muted-foreground">{tr('All of these are in use.')}</p>
+                )}
+              </div>
             </div>
-          ))}
+          )}
         </div>
-        {onAddType && !editing && (
-          <>
-            <div className="my-1 border-t border-border/60" />
-            {adding ? (
-              <input
-                autoFocus
-                value={draft}
-                placeholder={tr('New type…')}
-                aria-label={tr('New type…')}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); submitNew(); }
-                  else if (e.key === 'Escape') { e.preventDefault(); setAdding(false); setDraft(''); }
-                }}
-                onBlur={submitNew}
-                className="w-full rounded-md bg-muted/50 px-2 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground/60"
-              />
-            ) : (
-              <button type="button" className={ROW} onClick={() => setAdding(true)}>
-                <Plus size={14} className="shrink-0 text-muted-foreground" />
-                <span>{tr('Create type')}</span>
-              </button>
-            )}
-            {/* Suggestions by field: tabs that scroll under a round arrow, and
-                the field's names in two aligned columns. */}
-            <div className="my-1 border-t border-border/60" />
-            <div className="px-2 pb-1.5 pt-1 text-[12px] text-muted-foreground">{tr('Recommended')}</div>
-            <TabStrip>
-              {TYPE_PRESETS.map((p, i) => (
-                <button key={p.label} type="button" onClick={() => setPresetTab(i)}
-                  className={`shrink-0 whitespace-nowrap rounded-md border px-2.5 py-1 text-[12px] transition-colors ${
-                    presetTab === i
-                      ? 'border-border bg-muted text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}>
-                  {tr(p.label)}
-                </button>
-              ))}
-            </TabStrip>
-            <div className="mt-1 grid grid-cols-2 gap-x-1">
-              {TYPE_PRESETS[presetTab].types.map((name) => (
-                <button key={name} type="button" className={`${ROW} !py-1.5 !text-[13px]`} onClick={() => pickPreset(name)}>
-                  <TypeMark type={name} icons={icons} kind={kind} size={13} />
-                  <span className="min-w-0 flex-1 truncate">{name}</span>
-                  {name === current && <MenuCheck />}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
       </PopoverContent>
     </Popover>
   );
