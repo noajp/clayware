@@ -32,11 +32,11 @@ Clayware を、課題を解決できる道具にすること。そのために�
 
 | 分類 | 何を扱うか | 単位 |
 |---|---|---|
-| **Strategy** | 何を達成し、どう勝つか | Strategy（際限なく入れ子にでき、最上位が Space の目指す姿、配下がそれを勝ち取る筋道）。Phase（期間の区切り）はナビに出さない |
+| **Strategy** | 何を達成し、どう勝つか | Vision（Space の目指す姿。入れ子にしない）→ Portfolio（それを勝ち取る筋道。際限なく入れ子にでき、Portfolio・Domain・Object を持つ）。Phase（期間の区切り）はナビに出さない |
 | **Execution** | 実際に行動する | Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位） |
 | **Sustainment** | 活動を続ける道具 | Artifacts / Team / Table / Calendar |
 
-Strategy は目的・前提・意思決定・成功条件と、今どの段階にあるか（Status）を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Element・Object・Strategy の Status は同じ 7 段階（Backlog / To Do / In Progress / In Review / Done / Blocked / Cancelled）で、同じマークで描き、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
+Vision と Portfolio は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Vision は Domain と同じくメンバーと権限（owner / admin / member / viewer）を持ち、Portfolio は必ずどれか一つの Vision に属する。Portfolio は今どの段階にあるか（Status）を持つ。Element・Object・Portfolio の Status は同じ 7 段階（Backlog / To Do / In Progress / In Review / Done / Blocked / Cancelled）で、同じマークで描き、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
 
 ## コマンド
 
@@ -76,7 +76,7 @@ root 直下は `supabase/`（migrations と functions。ここにだけ置く）
 7. **Object のネスト禁止**。Element の multi-homing は `object_id` + `element_objects` の二重書き
 8. 日付は `Function/shared/dateUtils.ts` を通す。Phase の期間は `end_date` 当日を含める。暦日を `new Date('yyyy-MM-dd')` で読まない
 9. 色はトークン（`globals.css` / `shared/designTokens.ts`）だけ。「Task」と呼ばず「Element」。recharts を使うコンポーネントは `'use client'`
-10. **AI の入口**：汎用の AI は Agent 画面（Copilot）だけに置き、画面ごとに汎用チャットを置かない。対象に結び付いた AI の仕事（Strategy の会話、Planner、Element の実行）は置ける。ただし、対象の範囲に限られ、成果が記録として残り、承認の境界を越えないものだけ。Copilot は開いている対象を文脈として受け取るが、入口は Agent 画面のまま。どの機能も AI なしで動くように作る
+10. **AI の入口**：汎用の AI は Agent 画面（Copilot）だけに置き、画面ごとに汎用チャットを置かない。対象に結び付いた AI の仕事（Portfolio の会話、Planner、Element の実行）は置ける。ただし、対象の範囲に限られ、成果が記録として残り、承認の境界を越えないものだけ。Copilot は開いている対象を文脈として受け取るが、入口は Agent 画面のまま。どの機能も AI なしで動くように作る
 
 ## Supabase
 
