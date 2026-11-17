@@ -13,15 +13,15 @@
 |---|---|---|---|
 | GET | `/domains` | 参加している Domain | — |
 | GET | `/objects` | Object（アーカイブ済みは除く。説明を含む） | `domainId` |
-| GET | `/objects/{id}` | Object の詳細（説明・期間・Lead・結び付いた Strategy・Element のステータス別件数） | — |
+| GET | `/objects/{id}` | Object の詳細（説明・期間・Lead・結び付いた Portfolio・Element のステータス別件数） | — |
 | GET | `/elements` | Element の一覧（既定 50 件、最大 200） | `domainId` `objectId` `status` `priority` `dueWithinDays` `overdueOnly` `limit` |
 | GET | `/elements/{id}` | Element の詳細（Sub-element・ラベル・担当・直近のコメント） | — |
 | GET | `/search` | タイトル・説明の部分一致 | `query`（必須） `domainId` `limit` |
 | GET | `/progress` | ステータスの内訳・完了率・遅延 | `domainId` か `objectId` |
 | GET | `/activity` | 最近の Element の変更 | `domainId` `objectId` `limit` |
 | GET | `/workers` | 担当にできる Worker | `elementId` `objectId` `domainId` |
-| GET | `/initiatives` | 見える Strategy | `parentId` `status` |
-| GET | `/initiatives/{id}` | Strategy の意図と、実行する Object | — |
+| GET | `/initiatives` | 見える Portfolio | `parentId` `status` |
+| GET | `/initiatives/{id}` | Portfolio の意図と、実行する Object | — |
 | POST | `/elements` | Element を作る（201） | `objectId` `title`（必須） `description` `status` `priority` `type` `due_date` `labels` `assigneeWorkerIds` `basisIntentIds` |
 | PATCH | `/elements/{id}` | Element を更新する | `title` `description` `status` `priority` `type` `due_date`（`null` で解除） `estimated_hours` `labels` |
 | POST | `/elements/{id}/comments` | コメントする（201） | `body`（必須） |
@@ -34,7 +34,7 @@
 | POST | `/elements/{id}/progress` | 計画・進捗を報告する（201） | `title`（必須） `detail` `steps` `session` |
 | POST | `/elements/{id}/outcome` | 作業を締めくくる（201） | `outcome`（必須。`completed / partial / blocked`） `summary`（必須） `message`（必須） `session` |
 
-`{id}` は Element なら UUID か display_id（`ELE_PLT-006` など）、Object・Strategy・Sub-element は UUID。GET の入力はクエリ文字列、それ以外は JSON の本文で渡す。`null` を渡せるのは `due_date`・`estimated_hours`・`description`（消す）だけ。ステータスは `backlog / todo / in_progress / review / done / blocked / cancelled`、優先度は `urgent / high / medium / low`、日付は `YYYY-MM-DD`。
+`{id}` は Element なら UUID か display_id（`ELE_PLT-006` など）、Object・Portfolio・Sub-element は UUID。GET の入力はクエリ文字列、それ以外は JSON の本文で渡す。`null` を渡せるのは `due_date`・`estimated_hours`・`description`（消す）だけ。ステータスは `backlog / todo / in_progress / review / done / blocked / cancelled`、優先度は `urgent / high / medium / low`、日付は `YYYY-MM-DD`。
 
 Sub-element は、親の Element（`parent_id`）を持つ普通の Element で、親と同じ Object に入る。`/elements/{id}` の `subElements` に並び、それ自体も Element として読み書きできる。
 

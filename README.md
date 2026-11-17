@@ -31,11 +31,13 @@ Clayware の中心は AIP（AI に業務をさせる仕組み）の統制 — �
 
 | 分類 | 扱うもの | 単位 |
 |---|---|---|
-| **Strategy** | 何を達成し、どう勝つか | Strategy（入れ子にできる） |
+| **Strategy** | 何を達成し、どう勝つか | Vision → Portfolio（入れ子にできる） |
 | **Execution** | 実際の行動 | Domain → Object → Element |
 | **Sustainment** | 活動を続けるための道具 | Automation / Artifacts / Reviews / Audit / People / Table / Calendar |
 
-- **Strategy**: 目的・前提・判断・成功条件を持つ。担当と進捗は持たない
+- **Vision**: Space の目指す姿。入れ子にしない。Domain と同じくメンバーと権限を持つ
+- **Portfolio**: Vision を勝ち取る筋道。入れ子にでき、Portfolio・Domain・Object を持つ。必ずどれか一つの Vision に属する
+- Vision と Portfolio は目的・前提・判断・成功条件を持ち、担当と進捗は持たない
 - **Domain**: 活動の場（部署・事業・案件の領域）
 - **Object**: Element をまとめる持ち場。プロジェクトに近い
 - **Element**: 行動の最小単位。担当・期限・進捗・依存・動詞を持つ
@@ -55,7 +57,7 @@ Clayware の中心は AIP（AI に業務をさせる仕組み）の統制 — �
 
 | 入口 | 始まり方 |
 |---|---|
-| 上から | 人が Strategy に目的と成功条件を書く。Planner がハーネスの分け方で Object と Element に分け、人が確かめて作る |
+| 上から | 人が Portfolio に目的と成功条件を書く。Planner がハーネスの分け方で Object と Element に分け、人が確かめて作る |
 | 下から | トリガーが外の出来事（メール・フォーム・障害・申請）や時刻で起動する。ハーネスが分類し、Table に記録し、担当を決めて Element にする |
 
 その後は共通。
@@ -63,7 +65,7 @@ Clayware の中心は AIP（AI に業務をさせる仕組み）の統制 — �
 1. AI か人が Element を実行する
 2. 権限を超える操作は承認待ちになり、人が判断する
 3. 成果物は検証を通ってから完了になる
-4. 結果を Strategy の成功条件と照らし合わせる
+4. 結果を Portfolio と Vision の成功条件と照らし合わせる
 
 ## AIP の仕組み
 
@@ -92,7 +94,7 @@ Clayware の中心は AIP（AI に業務をさせる仕組み）の統制 — �
 
 | 状態 | 項目 |
 |---|---|
-| あり | Strategy の 1 ページと成功条件 / ハーネスの読み取りと検査 / 承認の束縛 / 検証役 / コネクタ（MCP・HTTP、Google Drive・GitHub の OAuth、Vault） / 自動化（schedule・webhook） / 流れのボード / 担当の決め方 / 業務のハーネス / Planner の出力検査 |
+| あり | Portfolio の 1 ページと成功条件 / ハーネスの読み取りと検査 / 承認の束縛 / 検証役 / コネクタ（MCP・HTTP、Google Drive・GitHub の OAuth、Vault） / 自動化（schedule・webhook） / 流れのボード / 担当の決め方 / 業務のハーネス / Planner の出力検査 |
 | 一部 | アクションの一覧 / 実行の記録 / 外部の実行役 |
 | これから | AI Worker の委任 / 外部への通知 / Gmail コネクタ / コンパイルの拡張 / ハーネスの版と試し実行 / 質問票 / リンクの統一 / 外部 ID の対応表 / AI の消費の台帳 / ハーネスの見直し |
 
