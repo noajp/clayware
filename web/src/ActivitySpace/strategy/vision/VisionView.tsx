@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Plus } from '@/ui/icons';
 import { NavStrategyIcon, NavStrategyModeIcon } from '@/Frame/sidebar/NavIcons';
+import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IslandHeader } from '@/Function/shared/MainIsland';
@@ -24,6 +25,7 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
   onAddPortfolio: (visionId: string) => void;
 }) {
   const { t } = useI18n();
+  const { openCreate } = useWorkspaceActions();
   const { data: visions, loading } = useVisions();
   const vision = visions.find((v) => v.id === visionId) ?? visions[0] ?? null;
   const roles = useMyVisionRoles();
@@ -38,7 +40,8 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
       <div className="flex h-full flex-col bg-card">
         <IslandHeader crumbs={[{ id: 'vision', label: t('Vision') }]} />
         <EmptyState art="initiative" title="Create your first Vision"
-          description="A Vision is what the Space aims to become. Its Portfolios are the ways to get there." />
+          description="A Vision is what the Space aims to become. Its Portfolios are the ways to get there."
+          cta="Create Vision" onCta={() => openCreate('vision')} />
       </div>
     );
   }

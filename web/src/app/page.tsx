@@ -24,6 +24,8 @@ import { useDomains, useObjects, createObject, createActivitySpace, useActivityS
 import { QuickAddObjectPopup } from '@/ActivitySpace/execution/object/QuickAddObjectPopup';
 import { linkObjectToStrategy } from '@/hooks/strategyData';
 import { QuickAddNotebookPopup } from '@/ActivitySpace/artifacts/notebook/QuickAddNotebookPopup';
+import { QuickAddVisionPopup } from '@/ActivitySpace/strategy/vision/QuickAddVisionPopup';
+import { createVision } from '@/hooks/visionData';
 import { placeNewNotebook, seedNotebook, setNextNotebookFolder } from '@/ActivitySpace/artifacts/notebook/notebookActions';
 import { useNotes } from '@/hooks/useNotesDb';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -725,6 +727,10 @@ function WorkspaceContent({
   // asking for the notebook's name.
   const [notebookPopupOpen, setNotebookPopupOpen] = useState(false);
   const openNotebookPopup = useCallback(() => setNotebookPopupOpen(true), []);
+  // A new Vision: the same card, from the Strategy place's "+", its list
+  // and its empty page.
+  const [visionPopupOpen, setVisionPopupOpen] = useState(false);
+  const openVisionPopup = useCallback(() => setVisionPopupOpen(true), []);
   const { createNode: createNoteNode, deleteNode: deleteNoteNode } = useNotes();
 
   // Fetch the active Domain's workers when the popup opens (lazy — keeps the
@@ -872,7 +878,7 @@ function WorkspaceContent({
 
   return (
     <ExplorerDataProvider value={explorerData}>
-    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup}>
+    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup} onOpenCreateVision={openVisionPopup}>
     <SidebarRevealContext.Provider value={{ hidden: sidebarCollapsed && !sidebarOverlay, show: handleSidebarToggle }}>
     <CopilotProvider>
     <CopilotArrivalWatcher visible={aiScreen || copilotOpen} carryRef={aiCarryRef} />
@@ -1015,6 +1021,15 @@ function WorkspaceContent({
           await placeNewNotebook(folder.id);
           setActiveView('note');
           setActiveNavigation({ noteFolderId: folder.id, noteSectionId: null, noteId: page.id });
+        }}
+      />
+      <QuickAddVisionPopup
+        open={visionPopupOpen}
+        onClose={() => setVisionPopupOpen(false)}
+        onSubmit={async ({ name, description }) => {
+          const vision = await createVision(name, description);
+          setActiveNavigation({ visionId: vision.id, strategyId: null });
+          setActiveView('vision');
         }}
       />
       <QuickAddObjectPopup

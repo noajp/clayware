@@ -4,9 +4,6 @@ import { DomainMark } from '@/Function/shared/DomainMark';
 import { SidebarFold } from '@/Function/shared/SidebarFold';
 import { FollowSection } from '@/Frame/sidebar/FollowSection';
 import { VisionList } from '@/Frame/sidebar/VisionList';
-import { createVision } from '@/hooks/visionData';
-import { appDialog } from '@/Function/shared/appDialogStore';
-import { formatError } from '@/Function/shared/formatError';
 import { useStrategies } from '@/hooks/strategyData';
 import { requestElementDetail, requestObjectPage } from '@/Function/shared/element/elementDetailRequest';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
@@ -214,21 +211,13 @@ export function AppSidebar({
       notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
       calendar: 'Add schedule', workspace: 'Create new',
     } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
-  const newVision = async () => {
-    const name = (await appDialog.prompt(t('Vision name')))?.trim();
-    if (!name) return;
-    try {
-      const v = await createVision(name);
-      onNavigate({ visionId: v.id }); onViewChange('vision');
-    } catch (e) { void appDialog.alert(formatError(e)); }
-  };
   // The Vision the open Strategy screen is in: the open Portfolio's, else
   // the one navigated to.
   const { data: allStrategies } = useStrategies();
   const openVisionId = (activeView === 'strategy' && navigation.strategyId
     ? allStrategies.find((st) => st.id === navigation.strategyId)?.vision_id : undefined) ?? navigation.visionId ?? null;
   const openCreateMenu = () => {
-    if (section === 'strategy') { void newVision(); return; }
+    if (section === 'strategy') { openCreate('vision'); return; }
     if (railMode === 'tables') { openCreate('table'); return; }
     if (railMode === 'notebook') { openCreate('notebook'); return; }
     if (railMode === 'calendar') {
@@ -529,7 +518,7 @@ export function AppSidebar({
           <VisionList activeView={treeView} visionId={openVisionId}
             onOpenVision={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('vision'); }}
             onOpenPortfolios={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('strategy'); }}
-            onCreate={() => void newVision()} />
+            onCreate={() => openCreate('vision')} />
           </>}
 
           {section === 'execution' && <>

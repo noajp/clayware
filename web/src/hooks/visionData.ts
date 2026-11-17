@@ -51,12 +51,12 @@ function refresh() {
   void getQueryClient().invalidateQueries({ queryKey: VISIONS_KEY });
 }
 
-export async function createVision(name: string): Promise<Vision> {
+export async function createVision(name: string, description: string | null = null): Promise<Vision> {
   const createdBy = await getCurrentUserId();
   const spaceId = getActiveSpaceId();
   if (!createdBy || !spaceId) throw new Error('Not signed in');
   const { data, error } = await supabase.from('visions')
-    .insert({ name, activity_space_id: spaceId, created_by: createdBy, order_index: Date.now() })
+    .insert({ name, description, activity_space_id: spaceId, created_by: createdBy, order_index: Date.now() })
     .select().single();
   if (error) throw error;
   refresh();
