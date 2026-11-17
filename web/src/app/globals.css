@@ -802,6 +802,12 @@ button, a, input, select, textarea {
   --muted-foreground:     #9a9ea6;               /* inactive gray */
   --sidebar-foreground:   #9a9ea6;
 }
+/* The sidebar sits on the island's ground, which in a light theme is the
+   raised tone its hover and pick would take, so there they take a wash of the
+   text colour instead. The rail, on the sidebar's ground, keeps the raised
+   tone; a dark theme's accent reads on both and stays. */
+.island-sidebar { --sidebar-accent: color-mix(in oklab, var(--text-primary) 7%, transparent); }
+:is(.dark, .theme-midnight, .theme-carbon, .theme-graphite) .island-sidebar { --sidebar-accent: inherit; }
 
 :root {
   --rail-active: var(--accent-default); /* accent used by Send buttons and similar primary actions */
