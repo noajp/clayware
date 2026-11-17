@@ -166,7 +166,10 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
           </button>
         </PopoverTrigger>
       ) : <PopoverAnchor asChild><span aria-hidden className="inline-block h-7 w-0" /></PopoverAnchor>}
-      <PopoverContent align="end" className="w-64 p-2">
+      {/* Opened from the "…" menu: as that menu closes it hands focus back to
+          its trigger, which would count as leaving the panel and close it at
+          once. Only a click outside or Escape closes it. */}
+      <PopoverContent align="end" className="w-64 p-2" onFocusOutside={(e) => e.preventDefault()}>
         {!enabled ? (
           <button
             onClick={toggleApproval}
