@@ -33,27 +33,39 @@ export function useFollows() {
       const { data: pins, error } = await supabase.from('home_pins').select('entity_type, entity_id, created_at')
         .in('entity_type', ['strategy', 'object', 'element']).order('created_at');
       if (error) throw error;
-      const elementIds = (pins ?? []).filter((p) => p.entity_type === 'element').map((p) => p.entity_id as string);
-      const { data: elements, error: elementsError } = elementIds.length
-        ? await supabase.from('elements').select('id, title, status, object_id').in('id', elementIds)
-        : { data: [], error: null };
+      // One round trip after the pins, not three in a row: an Element brings
+      // its Object's Domain with it, so the Objects read is only the
+      // followed Objects, and all three run at once.
+      const idsOf = (kind: FollowKind) => (pins ?? []).filter((p) => p.entity_type === kind).map((p) => p.entity_id as string);
+      const elementIds = idsOf('element');
+      const objectIds = idsOf('object');
+      const strategyIds = idsOf('strategy');
+      const [
+        { data: elementRows, error: elementsError },
+        { data: objects, error: objectsError },
+        { data: strategies, error: strategiesError },
+      ] = await Promise.all([
+        elementIds.length
+          ? supabase.from('elements').select('id, title, status, object_id, object:objects!elements_object_id_fkey(domain_id)').in('id', elementIds)
+          : Promise.resolve({ data: [], error: null }),
+        objectIds.length
+          ? supabase.from('objects').select('id, name, domain_id').in('id', objectIds)
+          : Promise.resolve({ data: [], error: null }),
+        strategyIds.length
+          ? supabase.from('strategies').select('id, name').in('id', strategyIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
       if (elementsError) throw elementsError;
-      const objectIds = [...new Set([
-        ...(pins ?? []).filter((p) => p.entity_type === 'object').map((p) => p.entity_id as string),
-        ...(elements ?? []).map((e) => e.object_id as string | null).filter((id): id is string => !!id),
-      ])];
-      const { data: objects, error: objectsError } = objectIds.length
-        ? await supabase.from('objects').select('id, name, domain_id').in('id', objectIds)
-        : { data: [], error: null };
       if (objectsError) throw objectsError;
-      const strategyIds = (pins ?? []).filter((p) => p.entity_type === 'strategy').map((p) => p.entity_id as string);
-      const { data: strategies, error: strategiesError } = strategyIds.length
-        ? await supabase.from('strategies').select('id, name').in('id', strategyIds)
-        : { data: [], error: null };
       if (strategiesError) throw strategiesError;
+      const elements = (elementRows ?? []) as Array<{ id: string; title: string; status: string | null; object_id: string | null; object: { domain_id: string | null } | { domain_id: string | null }[] | null }>;
+      const domainOfElement = (e: (typeof elements)[number]) => {
+        const o = Array.isArray(e.object) ? e.object[0] : e.object;
+        return o?.domain_id ?? null;
+      };
       const strategyById = new Map((strategies ?? []).map((st) => [st.id as string, st]));
       const objectById = new Map((objects ?? []).map((o) => [o.id as string, o]));
-      const elementById = new Map((elements ?? []).map((e) => [e.id as string, e]));
+      const elementById = new Map(elements.map((e) => [e.id, e]));
       const out: Followed[] = [];
       for (const p of pins ?? []) {
         if (p.entity_type === 'strategy') {
@@ -64,8 +76,7 @@ export function useFollows() {
           if (o) out.push({ kind: 'object', id: o.id as string, label: o.name as string, objectId: o.id as string, domainId: (o.domain_id as string | null) ?? null, status: null });
         } else {
           const e = elementById.get(p.entity_id as string);
-          if (e) out.push({ kind: 'element', id: e.id as string, label: e.title as string, objectId: (e.object_id as string | null) ?? null,
-            domainId: e.object_id ? ((objectById.get(e.object_id as string)?.domain_id as string | null) ?? null) : null, status: (e.status as string | null) ?? null });
+          if (e) out.push({ kind: 'element', id: e.id, label: e.title, objectId: e.object_id ?? null, domainId: domainOfElement(e), status: e.status ?? null });
         }
       }
       return out;
