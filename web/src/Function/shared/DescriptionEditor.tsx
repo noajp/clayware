@@ -27,9 +27,18 @@ export function DescriptionEditor({ value, onSave, onChange, placeholder, readOn
   // The text the editor started from, and a count that restarts it.
   const [seed, setSeed] = useState(value);
   const [rev, setRev] = useState(0);
-  if (value !== seed && !editing) {
-    setSeed(value);
-    setRev((n) => n + 1);
+  // The saved description the editor has taken in. It restarts only when
+  // that changes — someone else's edit — not while its own save is on the
+  // way, when the host still hands back the text from before: restarting
+  // then would throw away a command still running (a "/" menu item picked
+  // with a click, which takes the focus and so saves first).
+  const [taken, setTaken] = useState(value);
+  if (value !== taken && !editing) {
+    setTaken(value);
+    if (value !== seed) {
+      setSeed(value);
+      setRev((n) => n + 1);
+    }
   }
   const html = useMemo(() => markdownToHtml(seed), [seed]);
   const draft = useRef(value);

@@ -599,6 +599,11 @@ textarea.quick-create-title {
 
 /* ---- Selection ---- */
 ::selection { background: var(--selection-background); color: var(--selection-foreground); }
+/* While ProseMirror draws a selection of its own (a node picked whole), the
+   browser's is hidden. Kept here, not in the editor's styled-jsx: compiled
+   there, the selector lost its head and became a bare ::selection that
+   cleared every selection in the app. */
+.note-editor.ProseMirror-hideselection *::selection { background: transparent; }
 
 /* ---- Transitions ---- */
 button, a, input, select, textarea {
