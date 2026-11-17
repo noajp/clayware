@@ -11,7 +11,6 @@ export function NoteEditorStyles() {
         .note-editor { word-wrap: break-word; white-space: pre-wrap; white-space: break-spaces; font-variant-ligatures: none; }
         .note-editor pre { white-space: pre-wrap; }
         .note-editor li { position: relative; }
-        .note-editor.ProseMirror-hideselection *::selection { background: transparent; }
         .note-editor.ProseMirror-hideselection { caret-color: transparent; }
         .note-editor .ProseMirror-selectednode { outline: 2px solid color-mix(in srgb, var(--accent-default) 55%, transparent); border-radius: 4px; }
         .note-editor img.ProseMirror-separator { display: inline !important; border: none !important; margin: 0 !important; }
