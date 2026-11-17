@@ -4,6 +4,10 @@
 type Row = [ja: string, ko: string, fr: string, es: string];
 
 const APP_MESSAGES: Record<string, Row> = {
+  'Quick add folder': ['フォルダをすばやく追加', '폴더 빠르게 추가', 'Ajout rapide de dossier', 'Añadir carpeta rápidamente'],
+  'Folder name…': ['フォルダ名…', '폴더 이름…', 'Nom du dossier…', 'Nombre de la carpeta…'],
+  'Quick add unit': ['ユニットをすばやく追加', '유닛 빠르게 추가', 'Ajout rapide d’unité', 'Añadir unidad rápidamente'],
+  'Unit name…': ['ユニット名…', '유닛 이름…', 'Nom de l’unité…', 'Nombre de la unidad…'],
   'Following': ['Following', '팔로잉', 'Suivis', 'Siguiendo'],
   'Places': ['場所', '위치', 'Emplacements', 'Lugares'],
   'That link could not be opened. It may have been deleted, or you may not have access.': ['リンク先を開けませんでした。削除されたか、見る権限がない可能性があります。', '링크를 열 수 없습니다. 삭제되었거나 접근 권한이 없을 수 있습니다.', 'Impossible d’ouvrir ce lien. Il a peut-être été supprimé, ou vous n’y avez pas accès.', 'No se pudo abrir el enlace. Puede que se haya eliminado o que no tengas acceso.'],

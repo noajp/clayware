@@ -6,6 +6,9 @@ type Row = [ja: string, ko: string, fr: string, es: string];
 
 const STRATEGY_MESSAGES: Record<string, Row> = {
   // Vision and Portfolio
+  'Quick add Vision': ['Vision をすばやく追加', 'Vision 빠르게 추가', 'Ajout rapide de Vision', 'Añadir Vision rápidamente'],
+  'Vision name…': ['Vision の名前…', 'Vision 이름…', 'Nom de la Vision…', 'Nombre de la Vision…'],
+  'Create Vision': ['Vision を作成', 'Vision 만들기', 'Créer une Vision', 'Crear Vision'],
   'Vision': ['Vision', 'Vision', 'Vision', 'Vision'],
   'Portfolio': ['Portfolio', 'Portfolio', 'Portfolio', 'Portfolio'],
   'Your Strategy': ['あなたの Strategy', '내 Strategy', 'Votre Strategy', 'Tu Strategy'],
