@@ -7,6 +7,7 @@ import { SidebarRow, SidebarRowAction, SidebarSectionLabel } from '@/Function/sh
 import { DisclosureTriangle } from '@/Function/shared/DisclosureTriangle';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { useQuickCreateCard } from '@/Function/shared/QuickCreatePopup';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { MenuShell, MENU_SEPARATOR } from '@/Function/shared/menu';
 import { childUnits } from '@/Function/team/orgUnits';
@@ -43,11 +44,16 @@ export function TeamList({ navigation, onOpen }: {
   const inAUnit = useMemo(() => new Set(members.map((m) => m.worker_id)), [members]);
   const unplaced = byName([...workers.keys()].filter((id) => !inAUnit.has(id)));
 
-  const newUnit = async (parentId: string | null) => {
-    const name = (await appDialog.prompt(t('Unit name')))?.trim();
-    if (!name) return;
-    actions.create.mutate({ name, parentId }, { onSuccess: (u) => onOpen({ unitId: u.id, workerId: null }) });
-  };
+  // A new unit, top-level or inside one: the quick-create card.
+  const unitCard = useQuickCreateCard<string | null>({
+    icon: <Network size={12} />, contextLabel: t('New unit'), ariaLabel: t('Quick add unit'),
+    namePlaceholder: t('Unit name…'), description: false,
+    onSubmit: async ({ name }, parentId) => {
+      const u = await actions.create.mutateAsync({ name, parentId });
+      onOpen({ unitId: u.id, workerId: null });
+    },
+  });
+  const newUnit = (parentId: string | null) => unitCard.open(parentId);
   const person = (id: string, unitId: string | null) => (
     <SidebarRow key={`${unitId ?? 'none'}:${id}`} size="sm" active={workerFocus === id && unitFocus === unitId}
       icon={<WorkerAvatar worker={workers.get(id)!} size={16} />} label={workers.get(id)!.name}
@@ -56,6 +62,7 @@ export function TeamList({ navigation, onOpen }: {
 
   return (
     <div className="mt-5 pb-4">
+      {unitCard.card}
       <SidebarRow active={workerFocus === null && unitFocus === null} icon={<Users size={16} />} label={t('Everyone')}
         meta={workers.size || null} onClick={() => onOpen({ workerId: null, unitId: null })} />
 

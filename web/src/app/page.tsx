@@ -24,6 +24,8 @@ import { useDomains, useObjects, createObject, createActivitySpace, useActivityS
 import { QuickAddObjectPopup } from '@/ActivitySpace/execution/object/QuickAddObjectPopup';
 import { linkObjectToStrategy } from '@/hooks/strategyData';
 import { QuickAddNotebookPopup } from '@/ActivitySpace/artifacts/notebook/QuickAddNotebookPopup';
+import { QuickAddVisionPopup } from '@/ActivitySpace/strategy/vision/QuickAddVisionPopup';
+import { createVision } from '@/hooks/visionData';
 import { placeNewNotebook, seedNotebook, setNextNotebookFolder } from '@/ActivitySpace/artifacts/notebook/notebookActions';
 import { useNotes } from '@/hooks/useNotesDb';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -75,37 +77,36 @@ export default function Home() {
 // inlined-app-shell idea). Pure CSS, no data, so it paints immediately.
 function AppShellSkeleton() {
   return (
-    <div className="h-dvh flex overflow-hidden bg-[var(--content-bg)]" aria-hidden>
-      {/* Rail and sidebar silhouettes */}
-      <div className="max-md:hidden my-1.5 ml-1.5 w-12 shrink-0 rounded-lg gloss-island" />
-      <div className="w-[260px] shrink-0 flex flex-col gap-4 p-3 animate-pulse">
-        <div className="h-7 w-32 rounded-md bg-muted/70" />
-        <div className="flex flex-col gap-1.5 mt-1">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-7 rounded-md bg-muted/50" style={{ width: `${70 - i * 8}%` }} />
-          ))}
-        </div>
-        <div className="h-3 w-20 rounded bg-muted/40 mt-3" />
-        <div className="flex flex-col gap-1.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-7 rounded-md bg-muted/40" style={{ width: `${85 - i * 6}%` }} />
-          ))}
-        </div>
-      </div>
-      {/* Main island silhouette */}
-      <div className="flex-1 flex flex-col overflow-hidden pr-1.5 pb-1.5 pl-0">
-        <div className="h-10 flex items-center gap-2 px-1.5">
-          <div className="h-7 w-44 rounded-md bg-muted/60 animate-pulse" />
-        </div>
-        <div className="flex-1 rounded-lg gloss-island bg-white dark:bg-card p-4">
-          <div className="flex flex-col gap-2.5 animate-pulse">
-            <div className="h-5 w-40 rounded bg-muted/50 mb-2" />
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded-full bg-muted/50 shrink-0" />
-                <div className="h-4 rounded bg-muted/40" style={{ width: `${55 + ((i * 7) % 35)}%` }} />
-              </div>
-            ))}
+    <div className="h-dvh flex overflow-hidden bg-sidebar" aria-hidden>
+      {/* The rail, sunk into the ground */}
+      <div className="max-md:hidden w-12 shrink-0" />
+      {/* One island: the sidebar, then the main screen */}
+      <div className="flex-1 flex overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
+        <div className="flex-1 flex overflow-hidden rounded-lg gloss-island bg-white dark:bg-card">
+          <div className="max-md:hidden w-[260px] shrink-0 flex flex-col gap-4 p-3 border-r border-sidebar-border animate-pulse">
+            <div className="h-7 w-32 rounded-md bg-muted/70" />
+            <div className="flex flex-col gap-1.5 mt-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-7 rounded-md bg-muted/50" style={{ width: `${70 - i * 8}%` }} />
+              ))}
+            </div>
+            <div className="h-3 w-20 rounded bg-muted/40 mt-3" />
+            <div className="flex flex-col gap-1.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-7 rounded-md bg-muted/40" style={{ width: `${85 - i * 6}%` }} />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 p-4">
+            <div className="flex flex-col gap-2.5 animate-pulse">
+              <div className="h-5 w-40 rounded bg-muted/50 mb-2" />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-full bg-muted/50 shrink-0" />
+                  <div className="h-4 rounded bg-muted/40" style={{ width: `${55 + ((i * 7) % 35)}%` }} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -534,7 +535,7 @@ function WorkspaceContent({
   const handleRailSelect = (section: RailSection) => {
     if (railSectionOf(activeTab.activeView) === section) return;
     if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
-    if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('strategy'); return; }
+    if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
     if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
     setActiveNavigation({ workerId: null, unitId: null });
     setActiveView('team');
@@ -725,6 +726,10 @@ function WorkspaceContent({
   // asking for the notebook's name.
   const [notebookPopupOpen, setNotebookPopupOpen] = useState(false);
   const openNotebookPopup = useCallback(() => setNotebookPopupOpen(true), []);
+  // A new Vision: the same card, from the Strategy place's "+", its list
+  // and its empty page.
+  const [visionPopupOpen, setVisionPopupOpen] = useState(false);
+  const openVisionPopup = useCallback(() => setVisionPopupOpen(true), []);
   const { createNode: createNoteNode, deleteNode: deleteNoteNode } = useNotes();
 
   // Fetch the active Domain's workers when the popup opens (lazy — keeps the
@@ -872,12 +877,12 @@ function WorkspaceContent({
 
   return (
     <ExplorerDataProvider value={explorerData}>
-    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup}>
+    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup} onOpenCreateVision={openVisionPopup}>
     <SidebarRevealContext.Provider value={{ hidden: sidebarCollapsed && !sidebarOverlay, show: handleSidebarToggle }}>
     <CopilotProvider>
     <CopilotArrivalWatcher visible={aiScreen || copilotOpen} carryRef={aiCarryRef} />
     <div
-      className="h-dvh flex flex-col overflow-hidden bg-[var(--content-bg)] text-foreground"
+      className="h-dvh flex flex-col overflow-hidden bg-sidebar text-foreground"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -886,34 +891,12 @@ function WorkspaceContent({
       }}
     >
       <div className="relative flex-1 flex overflow-hidden">
-        {/* The ModeRail, an island of its own. On a phone it shows with the
-            drawer, above the scrim. */}
+        {/* The ModeRail, sunk into the window's ground (the sidebar tone,
+            around the island): no frame of its own.
+            On a phone it shows with the drawer, above the scrim. */}
         <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
-          className={`my-1.5 ml-1.5 ${sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'}`} />
-        {/* The sidebar's frame, inside a positioned holder: the frame itself
-            is not positioned, so the sidebar's drawer (absolute) escapes its
-            clipping and opens from the holder, right of the rail. */}
-        <div className="relative flex shrink-0">
-        {/* Hidden, it keeps only the gap to the rail: no frame of its own. */}
-        <div className={`my-1.5 ml-1.5 flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'mr-1.5 rounded-lg gloss-island'}`}>
-        <AppSidebar
-          onToggleSidebar={handleSidebarToggle}
-          navigation={activeTab.navigation}
-          onNavigate={handleSidebarNavigate}
-          activeView={activeTab.activeView}
-          onViewChange={handleSidebarViewChange}
-          onOpenItem={openItem}
-          onOpenSettings={handleOpenSettings}
-          onCloseSettings={handleCloseSettings}
-          onRefresh={refetch}
-          width={260}
-          collapsed={sidebarCollapsed}
-          overlay={sidebarCollapsed && sidebarOverlay}
-          onCreateNew={handleSidebarCreateNew}
-          onSearch={() => setDiscoverOpen(true)}
-        />
-        </div>
-        </div>
+          activeView={activeTab.activeView} onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
+          className={sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'} />
 
         {sidebarCollapsed && sidebarOverlay && (
           <div
@@ -923,15 +906,39 @@ function WorkspaceContent({
           />
         )}
 
-        <div className={`relative flex-1 flex flex-col overflow-hidden py-1.5 pr-1.5`}>
+        <div className="relative flex-1 flex flex-col overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
         {/* No strip above the content: back / forward are the browser's
             arrows (and ⌘[ / ⌘]). The sidebar closes by dragging the island
             over it; each page's title row then offers it back (⌘\\). */}
-        {/* MainContent + Copilot live side-by-side as two islands. When the
-            Copilot is open it claims its own width on the right; otherwise
-            MainContent fills the row. */}
+        {/* One island holds the sidebar and the screen it opens, on one
+            ground with a hairline between them; the Copilot,
+            when open, is an island of its own on the right. */}
         <div className="flex-1 flex overflow-hidden gap-1.5">
           <div className="flex-1 flex overflow-hidden bg-white dark:bg-card rounded-lg gloss-island">
+            {/* The sidebar's holder is positioned and its frame is not, so
+                the drawer (absolute) escapes the frame and opens from the
+                island's left edge; the island clips it while it slides in and
+                out. Open as a drawer, the holder rises over the scrim. */}
+            <div className={`relative flex shrink-0 ${sidebarCollapsed && sidebarOverlay ? 'z-50' : ''}`}>
+            <div className={`flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'border-r border-sidebar-border'}`}>
+            <AppSidebar
+              onToggleSidebar={handleSidebarToggle}
+              navigation={activeTab.navigation}
+              onNavigate={handleSidebarNavigate}
+              activeView={activeTab.activeView}
+              onViewChange={handleSidebarViewChange}
+              onOpenItem={openItem}
+              onOpenSettings={handleOpenSettings}
+              onCloseSettings={handleCloseSettings}
+              onRefresh={refetch}
+              width={260}
+              collapsed={sidebarCollapsed}
+              overlay={sidebarCollapsed && sidebarOverlay}
+              onCreateNew={handleSidebarCreateNew}
+              onSearch={() => setDiscoverOpen(true)}
+            />
+            </div>
+            </div>
             {/* The open tool's own list (Tables, Artifacts, People …), left
                 of what it opens; the Workspace has none. */}
             {!createType && (
@@ -1010,6 +1017,15 @@ function WorkspaceContent({
           await placeNewNotebook(folder.id);
           setActiveView('note');
           setActiveNavigation({ noteFolderId: folder.id, noteSectionId: null, noteId: page.id });
+        }}
+      />
+      <QuickAddVisionPopup
+        open={visionPopupOpen}
+        onClose={() => setVisionPopupOpen(false)}
+        onSubmit={async ({ name, description }) => {
+          const vision = await createVision(name, description);
+          setActiveNavigation({ visionId: vision.id, strategyId: null });
+          setActiveView('vision');
         }}
       />
       <QuickAddObjectPopup

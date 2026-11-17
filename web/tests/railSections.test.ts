@@ -4,7 +4,7 @@ import { RAIL_SECTIONS, railSectionOf } from '@/Frame/railSections';
 describe('railSectionOf', () => {
   it('puts each screen under its place on the rail', () => {
     expect(['inbox', 'ai', 'my-elements', 'calendar', 'profile'].map(railSectionOf)).toEqual(Array(5).fill('home'));
-    expect(['strategy', 'phase', 'timeline'].map(railSectionOf)).toEqual(Array(3).fill('strategy'));
+    expect(['vision', 'strategy', 'phase', 'timeline'].map(railSectionOf)).toEqual(Array(4).fill('strategy'));
     expect(['domain-overview', 'objects', 'domain-elements', 'domains'].map(railSectionOf)).toEqual(Array(4).fill('execution'));
     expect(['team', 'workload'].map(railSectionOf)).toEqual(['team', 'team']);
   });

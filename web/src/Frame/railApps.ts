@@ -33,7 +33,7 @@ export const MODE_META: Record<RailMode, ModeMeta> = {
   // Strategy and the Domains with their Objects and Elements. Strategy opens
   // first, the sidebar's top row; Phase stays routable but is not in the nav.
   workspace: { label: 'Workspace', icon: NavStrategyModeIcon, defaultView: 'strategy',
-    views: ['strategy', 'phase', 'objects', 'domain-elements', 'domains', 'domain-overview'] },
+    views: ['strategy', 'vision', 'phase', 'objects', 'domain-elements', 'domains', 'domain-overview'] },
   notebook:  { label: 'Notebook',  icon: NavNoteIcon, defaultView: 'note', views: ['note'] },
   tables:    { label: 'Table',     icon: NavTableIcon, defaultView: 'tables', views: ['tables'] },
   files:     { label: 'Artifacts', icon: NavFilesIcon, defaultView: 'files', views: ['files'] },

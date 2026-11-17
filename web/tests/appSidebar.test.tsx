@@ -58,9 +58,10 @@ vi.mock('@/hooks/useObjectArchive', () => ({
 
 // The surfaces below the fixed block are not what is being tested.
 vi.mock('@/Frame/sidebar/FollowSection', () => ({ FollowSection: () => null }));
-vi.mock('@/Frame/sidebar/StrategyList', () => ({ StrategyList: () => null }));
 vi.mock('@/Frame/sidebar/TeamList', () => ({ TeamList: () => null }));
-vi.mock('@/Frame/sidebar/MeFooter', () => ({ MeFooter: () => null }));
+vi.mock('@/Frame/sidebar/VisionList', () => ({ VisionList: () => null }));
+vi.mock('@/hooks/visionData', () => ({ createVision: vi.fn() }));
+vi.mock('@/hooks/strategyData', () => ({ useStrategies: () => ({ data: [] }) }));
 vi.mock('@/Frame/sidebar/DomainNavigationRow', () => ({ DomainNavigationRow: () => null }));
 vi.mock('@/Function/space/SpaceSwitcher', () => ({ SpaceSwitcher: () => null }));
 vi.mock('@/Function/settings/SettingsSidebarPanel', () => ({ SettingsSidebarPanel: () => null }));

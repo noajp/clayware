@@ -4,17 +4,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useCurrentUserId } from '@/providers/authContext';
 
-// Follow: the Objects and Elements a person keeps at hand — listed under
-// "Follow" in Execution's sidebar, toggled by the star beside an Object's or
-// an Element's "…". Kept per person in home_pins (each sees only their own,
-// RLS); one that was deleted or that they can no longer see drops out.
+// Follow: the Strategies, Objects and Elements a person keeps at hand —
+// listed under "Following" in Execution's sidebar, toggled by the star
+// beside a page's "…". Kept per person in home_pins (each sees only their
+// own, RLS); one that was deleted or that they can no longer see drops out.
 
-export type FollowKind = 'object' | 'element';
+export type FollowKind = 'strategy' | 'object' | 'element';
 export interface Followed {
   kind: FollowKind;
   id: string;
   label: string;
-  /** The Object it opens in (itself for an Object, its home for an Element). */
+  /** The Object it opens in (itself for an Object, its home for an Element;
+   *  null for a Strategy). */
   objectId: string | null;
   domainId: string | null;
   status: string | null;
@@ -30,7 +31,7 @@ export function useFollows() {
     enabled: !!userId,
     queryFn: async (): Promise<Followed[]> => {
       const { data: pins, error } = await supabase.from('home_pins').select('entity_type, entity_id, created_at')
-        .in('entity_type', ['object', 'element']).order('created_at');
+        .in('entity_type', ['strategy', 'object', 'element']).order('created_at');
       if (error) throw error;
       const elementIds = (pins ?? []).filter((p) => p.entity_type === 'element').map((p) => p.entity_id as string);
       const { data: elements, error: elementsError } = elementIds.length
@@ -45,11 +46,20 @@ export function useFollows() {
         ? await supabase.from('objects').select('id, name, domain_id').in('id', objectIds)
         : { data: [], error: null };
       if (objectsError) throw objectsError;
+      const strategyIds = (pins ?? []).filter((p) => p.entity_type === 'strategy').map((p) => p.entity_id as string);
+      const { data: strategies, error: strategiesError } = strategyIds.length
+        ? await supabase.from('strategies').select('id, name').in('id', strategyIds)
+        : { data: [], error: null };
+      if (strategiesError) throw strategiesError;
+      const strategyById = new Map((strategies ?? []).map((st) => [st.id as string, st]));
       const objectById = new Map((objects ?? []).map((o) => [o.id as string, o]));
       const elementById = new Map((elements ?? []).map((e) => [e.id as string, e]));
       const out: Followed[] = [];
       for (const p of pins ?? []) {
-        if (p.entity_type === 'object') {
+        if (p.entity_type === 'strategy') {
+          const st = strategyById.get(p.entity_id as string);
+          if (st) out.push({ kind: 'strategy', id: st.id as string, label: st.name as string, objectId: null, domainId: null, status: null });
+        } else if (p.entity_type === 'object') {
           const o = objectById.get(p.entity_id as string);
           if (o) out.push({ kind: 'object', id: o.id as string, label: o.name as string, objectId: o.id as string, domainId: (o.domain_id as string | null) ?? null, status: null });
         } else {

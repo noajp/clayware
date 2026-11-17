@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from '@/ui/icons';
 import { QUICK_CREATE } from '@/shared/designTokens';
 import { Button } from '@/ui/button';
@@ -191,6 +192,22 @@ export function QuickCreatePopup({
 
 /** The property-pill look every quick-create surface shares (mirrors the
  *  Properties panel chips: semibold, brighter text, soft fill at rest). */
+/**
+ * The card opened from a menu or a list (a new unit, a new folder): `open`
+ * shows it with what it is for (the parent unit, …), `card` is the card to
+ * render. It is drawn at the top of the page, so a sidebar's clipping and
+ * transform never reach it.
+ */
+export function useQuickCreateCard<A = void>({ onSubmit, ...card }: Omit<QuickCreatePopupProps, 'open' | 'onClose' | 'onSubmit'> & {
+  onSubmit: (input: QuickCreateInput, arg: A) => void | Promise<void>;
+}) {
+  const [pending, setPending] = useState<{ arg: A } | null>(null);
+  const node = pending && typeof document !== 'undefined'
+    ? createPortal(<QuickCreatePopup {...card} open onClose={() => setPending(null)} onSubmit={(input) => onSubmit(input, pending.arg)} />, document.body)
+    : null;
+  return { open: (arg: A) => setPending({ arg }), card: node };
+}
+
 export function quickCreatePillClass(active: boolean): string {
   return [
     'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold transition-colors border',

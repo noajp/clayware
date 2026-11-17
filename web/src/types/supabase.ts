@@ -5946,6 +5946,7 @@ export type Database = {
           scope: Json
           status: string | null
           updated_at: string
+          vision_id: string
           work_stage: string
           work_status_id: string | null
         }
@@ -5966,6 +5967,7 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          vision_id?: string
           work_stage?: string
           work_status_id?: string | null
         }
@@ -5986,6 +5988,7 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          vision_id?: string
           work_stage?: string
           work_status_id?: string | null
         }
@@ -6592,6 +6595,85 @@ export type Database = {
             columns: ["definition_id"]
             isOneToOne: false
             referencedRelation: "definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vision_members: {
+        Row: {
+          created_at: string
+          role: string
+          user_id: string
+          vision_id: string
+        }
+        Insert: {
+          created_at?: string
+          role: string
+          user_id: string
+          vision_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: string
+          user_id?: string
+          vision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vision_members_vision_id_fkey"
+            columns: ["vision_id"]
+            isOneToOne: false
+            referencedRelation: "visions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visions: {
+        Row: {
+          activity_space_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+          privacy: string
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          privacy?: string
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          privacy?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visions_activity_space_id_fkey"
+            columns: ["activity_space_id"]
+            isOneToOne: false
+            referencedRelation: "activity_spaces"
             referencedColumns: ["id"]
           },
         ]
