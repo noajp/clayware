@@ -63,7 +63,6 @@ const SURFACE_MESSAGES: Record<string, Row> = {
   'Milestones': ['マイルストーン', '마일스톤', 'Jalons', 'Hitos'],
   'Breakdown': ['内訳', '분류', 'Répartition', 'Desglose'],
   'Upcoming 7 days': ['今後 7 日間', '앞으로 7일', '7 prochains jours', 'Próximos 7 días'],
-  'Recent activity': ['最近のアクティビティ', '최근 활동', 'Activité récente', 'Actividad reciente'],
 
   // ── Widget descriptions (the picker) ──────────────────────────
   'Create a persistent calculator, checklist or mini app with AI': ['計算機・チェックリスト・ミニアプリを AI で作って置いておく', 'AI로 계산기, 체크리스트, 미니 앱을 만들어 두기', 'Créez avec l’IA une calculatrice, une checklist ou une mini-app durable', 'Crea con IA una calculadora, una lista o una mini app que se quede aquí'],

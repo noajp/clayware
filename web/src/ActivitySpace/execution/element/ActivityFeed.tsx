@@ -91,7 +91,7 @@ export function ActivityFeed({ entries, compact = false }: { entries: Entry[]; c
   if (entries.length === 0) {
     return (
       <p className={`text-muted-foreground ${compact ? 'text-center text-[12px] py-3' : 'text-[13px]'}`}>
-        {t('No activity yet')}
+        {t('No history yet')}
       </p>
     );
   }

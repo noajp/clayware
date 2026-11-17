@@ -455,7 +455,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
   },
   'recent-activity': {
     type: 'recent-activity',
-    label: 'Recent activity',
+    label: 'History',
     description: 'Latest changes and updates',
     group: 'list',
     accepts: ['object', 'me', 'initiative'],

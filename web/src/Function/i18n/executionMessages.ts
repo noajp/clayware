@@ -177,7 +177,7 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   'Closed without approval': ['承認せずに閉じた', '승인 없이 종료', 'Fermé sans approbation', 'Cerrado sin aprobación'],
   'Earlier · {n}': ['それ以前の {n} 件', '이전 {n}건', '{n} plus anciens', '{n} anteriores'],
   'Small changes · {n}': ['細かい変更 {n} 件', '작은 변경 {n}건', '{n} petits changements', '{n} cambios pequeños'],
-  'No activity yet': ['アクティビティはまだありません', '아직 활동이 없습니다', 'Aucune activité pour l’instant', 'Aún no hay actividad'],
+  'No history yet': ['履歴はまだありません', '아직 기록이 없습니다', 'Aucun historique pour l’instant', 'Aún no hay historial'],
   'Created “{title}”': ['「{title}」を作成', '“{title}” 생성', 'A créé « {title} »', 'Creó «{title}»'],
   'just now': ['たった今', '방금', 'à l’instant', 'justo ahora'],
   '{n}m ago': ['{n} 分前', '{n}분 전', 'il y a {n} min', 'hace {n} min'],

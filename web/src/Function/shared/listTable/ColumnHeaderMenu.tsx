@@ -194,12 +194,14 @@ export function ResizeHandle({
  *  a new field. It is a "+" only where a field can be added; elsewhere it
  *  shows switches, since all it does is turn fields on and off. */
 export function FieldsMenu({
-  allColumns, isVisible, onToggle, onCreate,
+  allColumns, isVisible, onToggle, onCreate, onEdit,
 }: {
   allColumns: DataColumn[];
   isVisible: (id: ColumnId) => boolean;
   onToggle: (id: ColumnId) => void;
   onCreate?: (anchor?: DOMRect) => void;
+  /** Opens a custom field's settings (rename, type, delete). */
+  onEdit?: (column: DataColumn) => void;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -209,7 +211,8 @@ export function FieldsMenu({
       <Button ref={triggerRef} type="button" variant="ghost" size="icon-sm" aria-label={t('Fields')} title={t('Fields')}>{onCreate ? <Plus size={14} /> : <FieldSwitches size={14} />}</Button>
     </PopoverTrigger>
     <MenuShell align="end" width="wide">
-      <FieldVisibility columns={allColumns} isVisible={isVisible} onToggle={onToggle} />
+      <FieldVisibility columns={allColumns} isVisible={isVisible} onToggle={onToggle}
+        onEdit={onEdit ? (c) => { setOpen(false); onEdit(c); } : undefined} />
       {onCreate && <>
         <div className={MENU_SEPARATOR} />
         <button type="button" className={`${MENU_ROW} text-muted-foreground hover:text-foreground`}
