@@ -185,6 +185,8 @@ const SHARED_MESSAGES: Record<string, Row> = {
   'Show {name}': ['{name} を表示', '{name} 표시', 'Afficher {name}', 'Mostrar {name}'],
   'No fields found': ['項目が見つかりません', '항목을 찾을 수 없습니다', 'Aucun champ trouvé', 'No se encontraron campos'],
   'Edit field': ['項目を編集', '항목 편집', 'Modifier le champ', 'Editar campo'],
+  'Change decision': ['判断を変更', '결정 변경', 'Changer la décision', 'Cambiar la decisión'],
+  '{name} decided {when}': ['{name} が判断（{when}）', '{name}님이 결정 ({when})', '{name} a décidé {when}', '{name} decidió {when}'],
   'Delete field': ['項目を削除', '항목 삭제', 'Supprimer le champ', 'Eliminar campo'],
   'Create field': ['項目を作成', '항목 만들기', 'Créer le champ', 'Crear campo'],
   'Save changes': ['変更を保存', '변경 사항 저장', 'Enregistrer les modifications', 'Guardar cambios'],
