@@ -6229,6 +6229,56 @@ export type Database = {
           },
         ]
       }
+      strategy_gap_checks: {
+        Row: {
+          activity_space_id: string | null
+          checked_by: string | null
+          cost_usd: number
+          created_at: string
+          findings: Json
+          id: string
+          model: string | null
+          scope: Json
+          strategy_id: string
+          summary: string
+          uncovered: Json
+        }
+        Insert: {
+          activity_space_id?: string | null
+          checked_by?: string | null
+          cost_usd?: number
+          created_at?: string
+          findings?: Json
+          id?: string
+          model?: string | null
+          scope?: Json
+          strategy_id: string
+          summary?: string
+          uncovered?: Json
+        }
+        Update: {
+          activity_space_id?: string | null
+          checked_by?: string | null
+          cost_usd?: number
+          created_at?: string
+          findings?: Json
+          id?: string
+          model?: string | null
+          scope?: Json
+          strategy_id?: string
+          summary?: string
+          uncovered?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_gap_checks_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategy_objects: {
         Row: {
           created_at: string

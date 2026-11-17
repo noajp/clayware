@@ -72,6 +72,7 @@ import { requestPlan } from './mission/plannerRequest';
 import { useQueryClient } from '@tanstack/react-query';
 import { InitiativeCodeChanges } from '@/ActivitySpace/execution/codeChanges/InitiativeCodeChanges';
 import { StrategyEvaluationPanel } from './StrategyEvaluationPanel';
+import { StrategyGapPanel } from './StrategyGapPanel';
 import { InitiativeMission } from './mission/InitiativeMission';
 import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -1075,7 +1076,14 @@ function StrategyDetailView({
           // board: the records of finished runs, aggregated by the
           // Strategy's element set (StrategyEvaluationPanel).
           <div className={PAGE_FRAME}>
-            <StrategyEvaluationPanel objects={missionProps.objects} />
+            {/* Gap first: whether the work still matches the Strategy, read
+                from its links and, when asked, by Athena (StrategyGapPanel).
+                The run records' numbers follow. */}
+            <div className="space-y-8">
+              <StrategyGapPanel strategyId={strategy.id} strategyName={strategy.name} strategyUpdatedAt={strategy.updated_at ?? null}
+                objects={boardObjects} ownObjectIds={strategy.objectIds} via={descendantHolders} onOpenObject={onOpenObject} />
+              <StrategyEvaluationPanel objects={missionProps.objects} />
+            </div>
           </div>
         ) : (
         <div className={PAGE_FRAME}>
