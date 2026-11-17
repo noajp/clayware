@@ -895,7 +895,8 @@ export function ListTable({
                 {/* Trailing button: which fields show as columns, and a new
                     field where the list has a scope to create one in. */}
                 <div className="flex items-center justify-end">
-                  <FieldsMenu allColumns={cols.allColumns} isVisible={cols.isVisible} onToggle={cols.toggleVisible} onCreate={onAddColumn} />
+                  <FieldsMenu allColumns={cols.allColumns} isVisible={cols.isVisible} onToggle={cols.toggleVisible} onCreate={onAddColumn}
+                    onEdit={onEditColumn ? (c) => { if (c.custom) onEditColumn(c.custom); } : undefined} />
                 </div>
               </th>
             )}

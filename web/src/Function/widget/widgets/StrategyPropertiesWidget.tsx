@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { RailRow } from '@/Function/shared/RailRow';
 import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
-import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
+import { ObjectIcon } from '@/Function/shared/conceptIcons';
+import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
 import { completionOf } from '@/Function/shared/completion';
 import { formatRelative } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
@@ -33,6 +34,7 @@ export function StrategyPropertiesWidget({ host }: { host: WidgetHost }) {
   const nameOf = useStatusName();
 
   if (!strategy) return null;
+  const childCount = strategies.filter((s) => s.parentIds.includes(strategy.id)).length;
   const owner = workers.find((w) => w.user_id && w.user_id === strategy.created_by) ?? null;
 
   // The stage it stands in, and the Space's own status within it.
@@ -60,13 +62,12 @@ export function StrategyPropertiesWidget({ host }: { host: WidgetHost }) {
           <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{progress.pct}%</span>
         </span>
       } />
-      {/* The Status mark filled by the share done, as an in-progress Element
-          is: an empty ring with none done, a check with all. */}
-      <RailRow name={t('Elements')}
-        icon={<ElementProgressMark size={14}
-          status={progress.total > 0 && progress.done === progress.total ? 'done' : progress.done > 0 ? 'in_progress' : 'todo'}
-          progress={progress.total ? (progress.done / progress.total) * 100 : 0} />}
-        label={<span className="tabular-nums">{progress.done}/{progress.total}</span>} />
+      {/* What a Portfolio holds: its Objects and the Portfolios under it.
+          Elements belong to the Objects, not to the Portfolio. */}
+      <RailRow name={t('Objects')} icon={<ObjectIcon size={14} />}
+        label={<span className="tabular-nums">{strategy.objectIds.length}</span>} />
+      <RailRow name={t('Portfolios')} icon={<NavStrategyIcon size={14} />}
+        label={<span className="tabular-nums">{childCount}</span>} />
       <RailRow name={t('Updated')} label={formatRelative(strategy.updated_at)} />
     </div>
   );

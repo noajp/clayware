@@ -469,11 +469,15 @@ function useObjectPicker(query: string) {
   const { data: domains } = useDomains();
   const { objects: allObjects } = useAllObjects();
 
+  // Only this Space's Objects: useDomains is scoped to the active Space, and
+  // a Strategy bundles work from its own Space. Objects of another Space (or
+  // with no Domain) are never candidates.
   const filtered = useMemo(() => {
+    const inSpace = new Set(domains.map((d) => d.id));
     const q = query.trim().toLowerCase();
-    if (!q) return allObjects;
-    return allObjects.filter((o) => o.name.toLowerCase().includes(q));
-  }, [allObjects, query]);
+    return allObjects.filter((o) => !!o.domain_id && inSpace.has(o.domain_id)
+      && (!q || o.name.toLowerCase().includes(q)));
+  }, [allObjects, domains, query]);
 
   const grouped = useMemo(() => {
     const m = new Map<string, { domainName: string; objects: ClaywareObject[] }>();

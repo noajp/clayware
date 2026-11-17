@@ -45,6 +45,7 @@ const STRATEGY_MESSAGES: Record<string, Row> = {
   'Create Vision': ['Vision を作成', 'Vision 만들기', 'Créer une Vision', 'Crear Vision'],
   'Vision': ['Vision', 'Vision', 'Vision', 'Vision'],
   'Portfolio': ['Portfolio', 'Portfolio', 'Portfolio', 'Portfolio'],
+  'Portfolios': ['Portfolios', 'Portfolios', 'Portfolios', 'Portfolios'],
   'Your Strategy': ['あなたの Strategy', '내 Strategy', 'Votre Strategy', 'Tu Strategy'],
   'New Vision': ['新しい Vision', '새 Vision', 'Nouvelle Vision', 'Nueva Vision'],
   'Vision name': ['Vision の名前', 'Vision 이름', 'Nom de la Vision', 'Nombre de la Vision'],
