@@ -3,6 +3,11 @@
 import { DomainMark } from '@/Function/shared/DomainMark';
 import { SidebarFold } from '@/Function/shared/SidebarFold';
 import { FollowSection } from '@/Frame/sidebar/FollowSection';
+import { VisionList } from '@/Frame/sidebar/VisionList';
+import { createVision } from '@/hooks/visionData';
+import { appDialog } from '@/Function/shared/appDialogStore';
+import { formatError } from '@/Function/shared/formatError';
+import { useStrategies } from '@/hooks/strategyData';
 import { requestElementDetail, requestObjectPage } from '@/Function/shared/element/elementDetailRequest';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -204,11 +209,26 @@ export function AppSidebar({
   const slidesReady = useSlidesReady();
   // Team makes its units in its own list (owners only), so it has no "+".
   const createLabel = section === 'team' ? undefined
+    : section === 'strategy' ? 'New Vision'
     : ({
       notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
       calendar: 'Add schedule', workspace: 'Create new',
     } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
+  const newVision = async () => {
+    const name = (await appDialog.prompt(t('Vision name')))?.trim();
+    if (!name) return;
+    try {
+      const v = await createVision(name);
+      onNavigate({ visionId: v.id }); onViewChange('vision');
+    } catch (e) { void appDialog.alert(formatError(e)); }
+  };
+  // The Vision the open Strategy screen is in: the open Portfolio's, else
+  // the one navigated to.
+  const { data: allStrategies } = useStrategies();
+  const openVisionId = (activeView === 'strategy' && navigation.strategyId
+    ? allStrategies.find((st) => st.id === navigation.strategyId)?.vision_id : undefined) ?? navigation.visionId ?? null;
   const openCreateMenu = () => {
+    if (section === 'strategy') { void newVision(); return; }
     if (railMode === 'tables') { openCreate('table'); return; }
     if (railMode === 'notebook') { openCreate('notebook'); return; }
     if (railMode === 'calendar') {
@@ -414,7 +434,7 @@ export function AppSidebar({
               <Button variant="ghost" size="icon-xs" className="text-muted-foreground"
                 ref={createBtnRef}
                 type="button"
-                aria-haspopup={railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
+                aria-haspopup={section === 'strategy' || railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
                 aria-expanded={createMenuOpen || undefined}
                 onClick={openCreateMenu}
                 title={t(createLabel)}
@@ -504,16 +524,24 @@ export function AppSidebar({
               onOpen={(nav) => { onNavigate(nav); onViewChange('team'); }} />
           )}
 
+          {section === 'strategy' && <>
+          <div className="mt-5" />
+          <VisionList activeView={treeView} visionId={openVisionId}
+            onOpenVision={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('vision'); }}
+            onOpenPortfolios={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('strategy'); }}
+            onCreate={() => void newVision()} />
+          </>}
+
           {section === 'execution' && <>
           <div className="mt-5" />
-          {/* Execution: Strategy (the list of Strategies), what this person
-              starred, then the Domains. */}
-          <SidebarRow active={treeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
-            onClick={() => { onNavigate({ strategyId: null }); onViewChange('strategy'); }} />
+          {/* Execution: what this person starred, then the Domains. */}
           <FollowSection kinds={['strategy', 'object', 'element']}
             activeId={followPickOpen ? followPick!.id : null} onOpen={(f) => {
             if (f.kind !== 'element') setFollowPick({ kind: f.kind, id: f.id });
-            if (f.kind === 'strategy') { onNavigate({ strategyId: f.id }); onViewChange('strategy'); return; }
+            if (f.kind === 'strategy') {
+              onNavigate({ strategyId: f.id, visionId: allStrategies.find((st) => st.id === f.id)?.vision_id ?? null });
+              onViewChange('strategy'); return;
+            }
             if (f.domainId) setActiveDomainId(f.domainId);
             if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
             const nav = { objectId: f.objectId, objectDomainId: f.domainId ?? undefined };

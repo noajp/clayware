@@ -91,6 +91,7 @@ interface ColumnOverrides {
   custom_columns: { column_type: CustomColumnType; options: CustomColumnOptions }
   object_tabs: { tab_type: ObjectTabType }
   strategies: { status: StrategyStatus; scope: StrategyScope; delegation: StrategyDelegation }
+  visions: { privacy: 'workspace' | 'private' }
   strategy_comments: { author_kind: CommentAuthorKind }
   object_comments: { author_kind: CommentAuthorKind }
   phases: { status: PhaseStatus }

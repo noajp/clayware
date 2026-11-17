@@ -1,17 +1,17 @@
 'use client';
 
 import type React from 'react';
-import { NavDomainIcon, NavHomeIcon, NavTeamsIcon } from '@/Frame/sidebar/NavIcons';
+import { NavDomainIcon, NavHomeIcon, NavStrategyIcon, NavTeamsIcon } from '@/Frame/sidebar/NavIcons';
 
-// The ModeRail's three places, left of the sidebar. Each picks what the
+// The ModeRail's four places, left of the sidebar. Each picks what the
 // sidebar lists: Home (what is yours — Inbox, the Agent, your Elements,
-// your Calendar), Execution (a row to the Strategies, what you starred,
-// and the Domains; the Strategy screens are under it) and Team (the
-// organisation's units and who is in them). A unit says who
+// your Calendar), Strategy (the Visions, each with its Portfolios, as
+// Execution has Domains with their Objects), Execution (what you starred,
+// and the Domains) and Team (the organisation's units and who is in them). A unit says who
 // someone answers to and a Domain where they work, so Team and Execution
 // are two places, not one.
 
-export type RailSection = 'home' | 'execution' | 'team';
+export type RailSection = 'home' | 'strategy' | 'execution' | 'team';
 
 export interface RailSectionMeta {
   id: RailSection;
@@ -21,13 +21,14 @@ export interface RailSectionMeta {
 
 export const RAIL_SECTIONS: readonly RailSectionMeta[] = [
   { id: 'home', label: 'Home', icon: NavHomeIcon },
+  { id: 'strategy', label: 'Strategy', icon: NavStrategyIcon },
   { id: 'execution', label: 'Execution', icon: NavDomainIcon },
   { id: 'team', label: 'Team', icon: NavTeamsIcon },
 ];
 
 const SECTION_OF_VIEW: Partial<Record<string, RailSection>> = {
   inbox: 'home', ai: 'home', 'my-elements': 'home', calendar: 'home', schedule: 'home', profile: 'home',
-  strategy: 'execution', phase: 'execution', timeline: 'execution',
+  strategy: 'strategy', vision: 'strategy', phase: 'strategy', timeline: 'strategy',
   objects: 'execution', 'domain-elements': 'execution', domains: 'execution', 'domain-overview': 'execution',
   team: 'team', workload: 'team',
 };
