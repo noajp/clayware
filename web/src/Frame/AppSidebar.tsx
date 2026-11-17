@@ -388,9 +388,9 @@ export function AppSidebar({
           width,
           transform: collapsed && !overlay ? 'translateX(-100%)' : 'translateX(0)',
         }}
-        className={`app-sidebar flex flex-col flex-shrink-0 overflow-hidden ${
+        className={`app-sidebar island-sidebar flex flex-col flex-shrink-0 overflow-hidden ${
           collapsed
-            ? 'absolute inset-y-0 left-0 z-50 h-full bg-background shadow-xl'
+            ? 'absolute inset-y-0 left-0 z-50 h-full bg-white dark:bg-card shadow-xl'
             : 'relative'
         } ${resizing ? '' : 'transition-transform duration-200 ease-out'}`}
       >
@@ -398,7 +398,7 @@ export function AppSidebar({
             height as the main island's header (50px), so the Space name and
             the island's title sit on one line. */}
         <ButtonAppearanceProvider appearance="navigation">
-        <div className={`${collapsed ? 'mt-1.5' : ''} flex h-[50px] shrink-0 items-center pl-1 pr-2`}>
+        <div className="flex h-[50px] shrink-0 items-center pl-1 pr-2">
           {activeView === 'settings' ? (
             <Button variant="ghost" size="sm" align="start" onClick={onCloseSettings} className="text-muted-foreground">
               <ArrowLeft size={14} />{t('Back')}
