@@ -534,6 +534,7 @@ function WorkspaceContent({
   const handleRailSelect = (section: RailSection) => {
     if (railSectionOf(activeTab.activeView) === section) return;
     if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
+    if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
     if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
     setActiveNavigation({ workerId: null, unitId: null });
     setActiveView('team');

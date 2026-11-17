@@ -8,6 +8,7 @@ import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ViewTabs } from '@/Function/shared/ViewTabs';
 import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/boardOrientation';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { useVisions } from '@/hooks/visionData';
 import { FollowButton } from '@/Function/shared/FollowButton';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -172,6 +173,8 @@ function InitiativeBoard({ surface, defaults, subjectId, host, zones, children }
 // =============================================================
 
 export function StrategyShell({
+  visionId,
+  onOpenVision,
   activeStrategyId,
   onSelectStrategy,
   onOpenObject,
@@ -179,6 +182,10 @@ export function StrategyShell({
   createRequested,
   onCreateHandled,
 }: {
+  /** The Vision whose Portfolios the list shows; null = the Space's first. */
+  visionId?: string | null;
+  /** The path's Vision crumb opens the Vision's page. */
+  onOpenVision?: (visionId: string) => void;
   /** Which Strategy the detail page shows; null = the root Strategy list.
    *  Controlled by the caller (navigation.strategyId) so other surfaces can
    *  deep-link straight into a Strategy. */
@@ -215,7 +222,10 @@ export function StrategyShell({
   // parent, as deep as they go.
   const { t } = useI18n();
   const spaceId = useActiveSpaceId();
-  const tree = useMemo(() => buildInitiativeTree(strategies.filter((s) => inSpace(s, spaceId, () => true))), [strategies, spaceId]);
+  const { data: visions } = useVisions();
+  const vision = visions.find((v) => v.id === visionId) ?? visions[0] ?? null;
+  const tree = useMemo(() => buildInitiativeTree(strategies.filter((s) => inSpace(s, spaceId, () => true)
+    && (!vision || s.vision_id === vision.id))), [strategies, spaceId, vision]);
 
   if (openStrategy) {
     return (
@@ -233,18 +243,21 @@ export function StrategyShell({
 
   return (
     <div className="flex flex-col h-full bg-card">
-      <IslandHeader crumbs={[{ id: 'initiatives', label: t('Strategies') }]} actions={
+      <IslandHeader crumbs={[
+        ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : undefined }] : []),
+        { id: 'initiatives', label: t('Portfolio') },
+      ]} actions={
         <ButtonAppearanceProvider appearance="navigation">
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setNewOpen(true)}>
-            <Plus size={14} />{t('Add Strategy')}</Button>
+            <Plus size={14} />{t('Add Portfolio')}</Button>
         </ButtonAppearanceProvider>
       } />
 
       <div className="flex-1 overflow-hidden">
         {loading ? null : tree.length === 0 ? (
-          <EmptyState art="initiative" title="Create your first Strategy"
-            description="A Strategy groups Objects across Domains around one outcome."
-            cta="Create Strategy" onCta={() => setNewOpen(true)} />
+          <EmptyState art="initiative" title="Create your first Portfolio"
+            description="A Portfolio groups Domains and Objects around one outcome."
+            cta="Create Portfolio" onCta={() => setNewOpen(true)} />
         ) : (
           <div className="h-full overflow-auto">
             <StrategyListView nodes={tree} onSelectStrategy={(s) => setOpenStrategyId(s.id)} />
@@ -254,6 +267,7 @@ export function StrategyShell({
 
       {newOpen && (
         <StrategyCreateDialog
+          visionId={vision?.id}
           onClose={() => setNewOpen(false)}
           onCreated={(id) => {
             setNewOpen(false);
@@ -994,7 +1008,7 @@ function StrategyDetailView({
           onClick={onBack}
           className="px-1.5 py-0.5 rounded text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
         >
-          {t('Strategy')}
+          {t('Portfolio')}
         </button>
         <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
         <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground truncate max-w-[240px]">
@@ -1383,9 +1397,12 @@ function StrategyDetailView({
 // push into a detail page for).
 // =============================================================
 function StrategyCreateDialog({
+  visionId,
   onClose,
   onCreated,
 }: {
+  /** The Vision it is made in; left out, the Space's first. */
+  visionId?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
@@ -1415,7 +1432,7 @@ function StrategyCreateDialog({
       namePlaceholder={t('Strategy name…')}
       onClose={onClose}
       onSubmit={async ({ name, description }) => {
-        const created = await createStrategy({ name, description }, Array.from(selectedIds));
+        const created = await createStrategy({ name, description, ...(visionId ? { vision_id: visionId } : {}) }, Array.from(selectedIds));
         onCreated(created.id);
       }}
     >

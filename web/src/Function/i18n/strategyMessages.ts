@@ -5,6 +5,24 @@
 type Row = [ja: string, ko: string, fr: string, es: string];
 
 const STRATEGY_MESSAGES: Record<string, Row> = {
+  // Vision and Portfolio
+  'Vision': ['Vision', 'Vision', 'Vision', 'Vision'],
+  'Portfolio': ['Portfolio', 'Portfolio', 'Portfolio', 'Portfolio'],
+  'Your Strategy': ['あなたの Strategy', '내 Strategy', 'Votre Strategy', 'Tu Strategy'],
+  'New Vision': ['新しい Vision', '새 Vision', 'Nouvelle Vision', 'Nueva Vision'],
+  'Vision name': ['Vision の名前', 'Vision 이름', 'Nom de la Vision', 'Nombre de la Vision'],
+  'What this Vision aims for': ['この Vision が目指すもの', '이 Vision이 지향하는 것', 'Ce que vise cette Vision', 'Lo que persigue esta Vision'],
+  'What this Vision aims for…': ['この Vision が目指すもの…', '이 Vision이 지향하는 것…', 'Ce que vise cette Vision…', 'Lo que persigue esta Vision…'],
+  'See all': ['すべて見る', '모두 보기', 'Tout voir', 'Ver todo'],
+  'Add Portfolio': ['Portfolio を追加', 'Portfolio 추가', 'Ajouter un Portfolio', 'Añadir Portfolio'],
+  'Add a Vision': ['Vision を追加', 'Vision 추가', 'Ajouter une Vision', 'Añadir una Vision'],
+  '{name} settings': ['{name} の設定', '{name} 설정', 'Paramètres de {name}', 'Ajustes de {name}'],
+  'A Vision that still holds Portfolios can’t be deleted. Move or delete them first.': ['Portfolio が残っている Vision は削除できません。先に移動または削除してください。', 'Portfolio가 남아 있는 Vision은 삭제할 수 없습니다. 먼저 옮기거나 삭제하세요.', 'Une Vision qui contient encore des Portfolios ne peut pas être supprimée. Déplacez-les ou supprimez-les d’abord.', 'No se puede eliminar una Vision que aún contiene Portfolios. Muévelos o elimínalos primero.'],
+  'Create your first Vision': ['最初の Vision を作成', '첫 Vision 만들기', 'Créez votre première Vision', 'Crea tu primera Vision'],
+  'A Vision is what the Space aims to become. Its Portfolios are the ways to get there.': ['Vision は Space が目指す姿です。その下の Portfolio が、そこへ至る道筋です。', 'Vision은 Space가 지향하는 모습입니다. 그 아래의 Portfolio가 그곳에 이르는 길입니다.', 'Une Vision est ce que l’Space veut devenir. Ses Portfolios sont les chemins pour y parvenir.', 'Una Vision es lo que el Space aspira a ser. Sus Portfolios son los caminos para llegar.'],
+  'Create your first Portfolio': ['最初の Portfolio を作成', '첫 Portfolio 만들기', 'Créez votre premier Portfolio', 'Crea tu primer Portfolio'],
+  'A Portfolio groups Domains and Objects around one outcome.': ['Portfolio は、一つの成果に向けて Domain と Object をまとめます。', 'Portfolio는 하나의 성과를 중심으로 Domain과 Object를 묶습니다.', 'Un Portfolio regroupe des Domains et des Objects autour d’un résultat.', 'Un Portfolio agrupa Domains y Objects en torno a un resultado.'],
+  'Create Portfolio': ['Portfolio を作成', 'Portfolio 만들기', 'Créer un Portfolio', 'Crear Portfolio'],
   // Strategy list and page
   '{open} open · {alone} alone': ['未完了 {open} · 単独 {alone}', '미완료 {open} · 단독 {alone}', '{open} ouverts · {alone} seul', '{open} abiertos · {alone} en solitario'],
   '{n} tokens': ['{n} トークン', '{n} 토큰', '{n} jetons', '{n} tokens'],

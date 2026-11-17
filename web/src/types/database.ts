@@ -2112,6 +2112,23 @@ export interface StrategyScope {
  *  starts the AI Elements it unblocks, stopping at a person's Element. */
 export type StrategyDelegation = 'manual' | 'auto'
 
+/** The top of Strategy, as a Domain is the top of Execution: not nested; it
+ *  holds Portfolios (strategies), and has members and a privacy as a
+ *  Domain does. */
+export interface Vision {
+  id: string
+  activity_space_id: string
+  name: string
+  description: string | null
+  icon: string | null
+  color: string | null
+  privacy: 'workspace' | 'private'
+  order_index: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Strategy {
   id: string
   name: string
@@ -2128,6 +2145,8 @@ export interface Strategy {
   color: string | null
   icon: string | null
   activity_space_id: string | null  // the Space it belongs to
+  /** The Vision it belongs to; every Portfolio has one (its Space follows it). */
+  vision_id: string
   /** Order among its siblings in the Strategy list; null sorts after, oldest first. */
   order_index?: number | null
   /** The Note pinned to it (its Document), shown under the description. */
@@ -2146,6 +2165,8 @@ export interface StrategyInsert {
   color?: string | null
   icon?: string | null
   activity_space_id?: string | null
+  /** Left out, the Space's first Vision takes it (the database decides). */
+  vision_id?: string
   created_by?: string
 }
 
