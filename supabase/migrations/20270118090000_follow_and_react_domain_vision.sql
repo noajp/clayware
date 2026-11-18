@@ -1,4 +1,4 @@
--- Every concept page has the same head: its "⋯", the star that follows it,
+-- Every concept page has the same head: its "⋯", the check that follows it,
 -- and reactions under its description. Domains and Visions join what can be
 -- followed (home_pins) and Visions what can be reacted to (element_reactions,
 -- the sixth subject beside Elements, comments, Strategies, Objects and
@@ -7,6 +7,7 @@
 do $$
 declare
   c record;
+  added text;
 begin
   -- Follow: a check on home_pins.entity_type, where there is one, takes the
   -- two new kinds; the values it allowed stay allowed.
@@ -18,10 +19,13 @@ begin
          and pg_get_constraintdef(oid) like '%entity_type%'
          and pg_get_constraintdef(oid) like '%ARRAY[%'
     loop
-      if c.def not like '%''domain''%' or c.def not like '%''vision''%' then
+      added := '';
+      if c.def not like '%''domain''%' then added := added || '''domain''::text, '; end if;
+      if c.def not like '%''vision''%' then added := added || '''vision''::text, '; end if;
+      if added <> '' then
         execute format('alter table public.home_pins drop constraint %I', c.conname);
         execute format('alter table public.home_pins add constraint %I %s', c.conname,
-          replace(c.def, 'ARRAY[', 'ARRAY[''domain''::text, ''vision''::text, '));
+          replace(c.def, 'ARRAY[', 'ARRAY[' || added));
       end if;
     end loop;
   end if;
