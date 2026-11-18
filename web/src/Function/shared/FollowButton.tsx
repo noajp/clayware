@@ -9,7 +9,7 @@ import { useFollow, type FollowKind } from '@/hooks/followData';
 
 /** The check beside a concept page's "…" (Vision, Portfolio, Domain, Object,
  *  Element): follow it (it joins Following in the sidebar), or stop. Muted until
- *  followed, then in the key blue. */
+ *  followed, then in the key blue (its text shade, which stays readable on dark). */
 export function FollowButton({ kind, id }: { kind: FollowKind; id: string }) {
   const { t } = useI18n();
   const { following, toggle } = useFollow(kind, id);
@@ -18,7 +18,7 @@ export function FollowButton({ kind, id }: { kind: FollowKind; id: string }) {
     <Button type="button" variant="ghost" size="icon-xs" aria-pressed={following} aria-label={label} title={label}
       disabled={toggle.isPending}
       onClick={() => toggle.mutate(undefined, { onError: (e) => void appDialog.alert(formatError(e)) })}
-      className={following ? 'text-[var(--accent-default)]' : 'text-muted-foreground'}>
+      className={following ? 'text-[var(--accent-text)]' : 'text-muted-foreground'}>
       <SquareCheckBig size={14} />
     </Button>
   );
