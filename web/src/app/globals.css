@@ -499,35 +499,37 @@
    Latin beside it. "Clayware JP" holds only Japanese (unicode-range) and maps
    each weight band to the Hiragino face that matches Inter's look, with
    the common Japanese fonts of other systems after it. Japanese glyphs fill
-   the whole em box (a kanji at 14px stands ~12.7px tall against Inter's
-   10.2px capitals), so they are drawn at 90% to sit level with the Latin. */
+   most of the em box (a kanji stands 0.90em and a kana 0.82em against
+   Inter's 0.73em capitals), so they are drawn at 95%: a kanji a little over
+   the capitals and a kana just above them. At 90% the kana sank to the
+   capitals' height and Japanese read a size smaller than the Latin. */
 @font-face {
   font-family: "Clayware JP";
   src: local("HiraginoSans-W3"), local("Hiragino Sans W3"), local("YuGothic-Regular"), local("Yu Gothic UI"), local("NotoSansJP-Regular"), local("Meiryo");
   font-weight: 100 449;
   unicode-range: U+3000-303F, U+3040-30FF, U+31F0-31FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
-  size-adjust: 90%;
+  size-adjust: 95%;
 }
 @font-face {
   font-family: "Clayware JP";
   src: local("HiraginoSans-W4"), local("Hiragino Sans W4"), local("YuGothic-Medium"), local("Yu Gothic UI Semibold"), local("NotoSansJP-Medium"), local("Meiryo");
   font-weight: 450 569;
   unicode-range: U+3000-303F, U+3040-30FF, U+31F0-31FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
-  size-adjust: 90%;
+  size-adjust: 95%;
 }
 @font-face {
   font-family: "Clayware JP";
   src: local("HiraginoSans-W5"), local("Hiragino Sans W5"), local("YuGothic-Medium"), local("Yu Gothic UI Semibold"), local("NotoSansJP-Medium"), local("Meiryo");
   font-weight: 570 649;
   unicode-range: U+3000-303F, U+3040-30FF, U+31F0-31FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
-  size-adjust: 90%;
+  size-adjust: 95%;
 }
 @font-face {
   font-family: "Clayware JP";
   src: local("HiraginoSans-W6"), local("Hiragino Sans W6"), local("YuGothic-Bold"), local("Yu Gothic UI Bold"), local("NotoSansJP-Bold"), local("Meiryo Bold");
   font-weight: 650 900;
   unicode-range: U+3000-303F, U+3040-30FF, U+31F0-31FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
-  size-adjust: 90%;
+  size-adjust: 95%;
 }
 
 html, body {
