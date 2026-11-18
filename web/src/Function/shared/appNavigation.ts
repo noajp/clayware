@@ -15,3 +15,11 @@ export interface OpenInAppDetail {
 export function openInApp(view: string, nav?: Partial<NavigationState>): void {
   window.dispatchEvent(new CustomEvent<OpenInAppDetail>(OPEN_IN_APP_EVENT, { detail: { view, nav } }));
 }
+
+// "Open this Domain's settings" from its own page's "…": the settings dialog
+// belongs to the sidebar (AppSidebar listens), as it does from the sidebar row.
+export const OPEN_DOMAIN_SETTINGS_EVENT = 'clayware:open-domain-settings';
+
+export function openDomainSettings(domainId: string): void {
+  window.dispatchEvent(new CustomEvent<{ domainId: string }>(OPEN_DOMAIN_SETTINGS_EVENT, { detail: { domainId } }));
+}

@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
+import { ActionsButton } from '@/Function/shared/ActionMenus';
+import { useVisionActions } from './visionActions';
 import { Plus } from '@/ui/icons';
 import { NavStrategyIcon, NavStrategyModeIcon } from '@/Frame/sidebar/NavIcons';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
@@ -29,7 +31,9 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
   const { data: visions, loading } = useVisions();
   const vision = visions.find((v) => v.id === visionId) ?? visions[0] ?? null;
   const roles = useMyVisionRoles();
-  const canEdit = !!vision && ['owner', 'admin'].includes(roles.get(vision.id) ?? '');
+  const role = vision ? roles.get(vision.id) : undefined;
+  const canEdit = role === 'owner' || role === 'admin';
+  const actions = useVisionActions(vision, role);
   const { data: strategies } = useStrategiesInSpace();
   const portfolios = useMemo(() => strategies
     .filter((s) => s.vision_id === vision?.id && s.parentIds.every((p) => !strategies.some((o) => o.id === p && o.vision_id === vision?.id)))
@@ -50,12 +54,13 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <IslandHeader crumbs={[{ id: vision.id, label: vision.name, icon: <ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={14} />} /> }]} />
+      <IslandHeader crumbs={[{ id: vision.id, label: vision.name, icon: <ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={14} />} /> }]}
+        menu={<ActionsButton items={actions} label={t('Vision actions')} />} />
       <div className="flex-1 overflow-auto">
         <PageLayout>
           <PageHead key={vision.id} icon={<ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={20} />} />} title={vision.name} description={vision.description ?? ''} canEdit={canEdit}
             titleLabel={t('Vision name')} titlePlaceholder={t('Vision name')}
-            descriptionLabel={t('What this Vision aims for')} descriptionPlaceholder={t('What this Vision aims for…')}
+            descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Vision…')}
             onSaveTitle={(name) => { if (name.trim() && name !== vision.name) void save({ name: name.trim() }); }}
             onSaveDescription={(description) => void save({ description: description || null })} />
           <PageSection title={t('Portfolio')} action={

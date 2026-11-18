@@ -1,20 +1,20 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { IslandHeader } from '@/Function/shared/MainIsland';
 import { runsInClaudeCode } from '@/Function/team/agentModel';
 import { handOverLabels } from '@/ActivitySpace/strategy/initiative/mission/missionModel';
 import { markElementCommentsRead } from '@/hooks/notificationData';
-import { FollowButton } from '@/Function/shared/FollowButton';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { AiWorkingMark } from '@/Function/shared/element/AiWorkingMark';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentUserId } from '@/providers/authContext';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
-import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { Button } from '@/ui/button';
 import { ElementDependencies } from './ElementDependencies';
 import { CheckInDialog } from './checkIn/CheckInDialog';
 import { PRIORITY, FONT } from '@/shared/designTokens';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Calendar, User, Link2, Plus, Tag, Timer, ChevronRight, ChevronLeft, Check } from '@/ui/icons';
+import { Calendar, User, Link2, Plus, Tag, Timer, ChevronLeft, Check } from '@/ui/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +85,7 @@ const ELEMENT_ZONES: Zone[] = ['rail'];
 import { RailRow } from '@/Function/shared/RailRow';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { ObjectIcon } from '@/Frame/icons';
-import { PageSection, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
+import { PageSection, PageTitleField, PAGE_FRAME } from '@/Function/shared/PageHead';
 import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { StatusPicker } from '@/Function/shared/StatusPicker';
@@ -95,17 +95,14 @@ import { ElementCommentsPanel } from './ElementCommentsPanel';
 import { ElementApprovalMenu } from './ElementApprovalMenu';
 import { ApprovalRequestBanner } from './ApprovalRequestBanner';
 import { ElementActionsMenu } from './ElementActionsMenu';
-import { FileText, MoreHorizontal } from '@/ui/icons';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
+import { FileText } from '@/ui/icons';
 import { ACTION_LABEL, ActionIcon, ActionPicker } from '@/Function/shared/elementAction';
 import { isElementAction, type ElementAction } from '@/Function/shared/elementActionKinds';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
 import { FileImportActions, canImport } from './FileImportActions';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
-import { isCancelKey, isCommitEnter, isSubmitChord, useEscapeLayer } from '@/Function/shared/keyboard';
+import { useEscapeLayer } from '@/Function/shared/keyboard';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
 import { ActivityFeed } from './ActivityFeed';
@@ -233,15 +230,6 @@ function ElementDetailBody({
   );
   const [title, setTitle] = useState(element.title);
   const [description, setDescription] = useState(element.description || '');
-  // Auto-grow the title textarea so long titles wrap into multiple
-  // visible rows. We re-measure on value change.
-  const titleRef = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [title]);
   const { t } = useI18n();
   // A description put back from an unsaved draft is what the editor starts
   // from instead of the saved one; any change from outside clears it again.
@@ -265,23 +253,6 @@ function ElementDetailBody({
     setUnsavedRev((n) => n + 1);
   };
   const offeredDraft = pendingDraft(unsaved, { title: element.title, description: element.description || '' });
-
-  // Readers can resize independently of the viewport (sidebar or split pane).
-  useEffect(() => {
-    const fields = [titleRef.current].filter((el): el is HTMLTextAreaElement => !!el);
-    const widths = new WeakMap<Element, number>();
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        if (widths.get(entry.target) === entry.contentRect.width) continue;
-        widths.set(entry.target, entry.contentRect.width);
-        const field = entry.target as HTMLTextAreaElement;
-        field.style.height = 'auto';
-        field.style.height = `${field.scrollHeight}px`;
-      }
-    });
-    fields.forEach(field => observer.observe(field));
-    return () => observer.disconnect();
-  }, []);
 
   // Esc goes back to the list this Element was opened from — one level.
   // Anything open above the page (a picker, a field
@@ -663,86 +634,43 @@ function ElementDetailBody({
     }
   };
 
-  // The breadcrumb's root segment: the Domain name when there is one, or —
-  // for a Domain-less Home surface (Inbox, My Elements) — a plain
-  // back-chevron, so there is always a way back to wherever this Element
-  // was opened from. `onNavigateRoot` is required for exactly this reason:
-  // a Domain-less caller has no name to show, only somewhere to go back to.
-  const rootSegment = domainName ? (
-    <button
-      type="button"
-      onClick={onNavigateRoot}
-      className="px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[160px] transition-colors hover:text-foreground hover:bg-muted/40"
-    >
-      {domainName}
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={onNavigateRoot}
-      aria-label={t('Back')}
-      title={t('Back')}
-      className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
-    >
-      <ChevronLeft size={13} />
-    </button>
-  );
-
   return (
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card">
-      {/* Breadcrumb — data hierarchy only: Domain > Object > Element. */}
-      {/* pl-6 + the crumb's px-1.5: the path starts 30px in, as on every
-          island, and the page below starts under it. */}
-      <div className="h-[50px] flex items-center gap-1 pl-6 pr-2 border-b border-border/60 bg-card flex-shrink-0">
-        <SidebarReveal />
-        <div className="flex items-center gap-1 min-w-0 text-[13px] font-medium">
-          {rootSegment}
-          <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
-          {objectPath?.map((seg) => (
-            <span key={seg.id} className="flex items-center gap-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => onNavigateObject?.(seg.id)}
-                disabled={!onNavigateObject}
-                className="px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[160px] transition-colors enabled:hover:text-foreground enabled:hover:bg-muted/40 disabled:cursor-default"
-              >
-                {seg.name}
-              </button>
-              <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
-            </span>
-          ))}
-          <span className="text-foreground truncate max-w-[240px]">{element.title}</span>
-          {/* ⋯ actions for the lowest breadcrumb item (this Element):
-              duplicate / move / multi-home / delete. */}
-          <span className="inline-flex">
-            <ElementActionsMenu element={element} onRefresh={onRefresh} onDeleted={onBack}
-              onAddDependency={() => setDependencySignal((n) => n + 1)}
-              onOpenApproval={() => setApprovalSignal((n) => n + 1)}
-              onDelegateToAi={() => setDelegateOpen(true)} />
-          </span>
-          {/* Handing the Element to an AI is a modal dialog, opened
-              directly from the menu item (or ⌘K): focus is trapped by
-              the dialog, so the menu's focus hand-back cannot close it
-              in the frame it opens — the anchored-Popover handoff it
-              replaces could, which read as the item doing nothing. */}
-          <Dialog open={delegateOpen} onOpenChange={setDelegateOpen}>
-            <DialogContent className="max-w-[420px]">
-              <DialogHeader>
-                <DialogTitle>{t('Delegate to AI…')}</DialogTitle>
-              </DialogHeader>
-              <DelegateToAiForm aiWorkers={aiWorkers}
-                defaultWorkerId={rerunWorkerId(agent.run?.worker_id)}
-                defaultPrompt={previousPrompt}
-                busy={agentBusy} starting={agent.starting} error={agent.error ?? null}
-                onStart={({ workerId, prompt, planMode }) => agent.start({ workerId, prompt, planMode, triggeredFrom: 'detail', domainId })}
-                onViewRun={() => setDelegateOpen(false)}
-                onStarted={() => setDelegateOpen(false)} />
-            </DialogContent>
-          </Dialog>
-          <FollowButton kind="element" id={element.id} />
-        </div>
-        <div className="flex-1" />
-      </div>
+      {/* The path from the top — Domain › Object › this Element — with its
+          "⋯" (duplicate / move / multi-home / delete) and star. Without a
+          Domain (Inbox, My Elements) the root is a back-chevron, so there
+          is always a way back to where this Element was opened from. */}
+      <IslandHeader crumbs={[
+        domainName
+          ? { id: 'domain', label: domainName, onClick: onNavigateRoot }
+          : { id: 'back', label: <ChevronLeft size={13} />, title: t('Back'), onClick: onNavigateRoot },
+        ...(objectPath ?? []).map((seg) => ({ id: seg.id, label: seg.name, onClick: onNavigateObject ? () => onNavigateObject(seg.id) : undefined })),
+        { id: element.id, label: element.title },
+      ]}
+        menu={<ElementActionsMenu element={element} onRefresh={onRefresh} onDeleted={onBack}
+          onAddDependency={() => setDependencySignal((n) => n + 1)}
+          onOpenApproval={() => setApprovalSignal((n) => n + 1)}
+          onDelegateToAi={() => setDelegateOpen(true)} />}
+        follow={{ kind: 'element', id: element.id }} />
+      {/* Handing the Element to an AI is a modal dialog, opened
+          directly from the menu item (or ⌘K): focus is trapped by
+          the dialog, so the menu's focus hand-back cannot close it
+          in the frame it opens — the anchored-Popover handoff it
+          replaces could, which read as the item doing nothing. */}
+      <Dialog open={delegateOpen} onOpenChange={setDelegateOpen}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>{t('Delegate to AI…')}</DialogTitle>
+          </DialogHeader>
+          <DelegateToAiForm aiWorkers={aiWorkers}
+            defaultWorkerId={rerunWorkerId(agent.run?.worker_id)}
+            defaultPrompt={previousPrompt}
+            busy={agentBusy} starting={agent.starting} error={agent.error ?? null}
+            onStart={({ workerId, prompt, planMode }) => agent.start({ workerId, prompt, planMode, triggeredFrom: 'detail', domainId })}
+            onViewRun={() => setDelegateOpen(false)}
+            onStarted={() => setDelegateOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Scrollable body — Linear-style two-column layout */}
       <div className="flex-1 overflow-auto">
@@ -751,34 +679,9 @@ function ElementDetailBody({
 
           {/* Title & description. An Element's page opens on its title: no icon above it. */}
           <div>
-            <div className="flex items-start gap-2 mb-3">
-              {/* Auto-grow textarea so long titles wrap to multiple
-                  lines instead of being clipped. Enter and Escape both
-                  save (via blur) — the title autosaves, so Escape ends the
-                  edit rather than discarding it (Cmd+Z undoes while
-                  typing); Shift+Enter inserts a newline. Escape is
-                  consumed here, so the page's own Escape (back to the
-                  list) is the next press.
-                  NOTE: the global base resets typed content (input /
-                  textarea / contenteditable) to font-weight 400, which
-                  beats a `font-semibold` utility — so the heading's
-                  semibold weight is forced inline. */}
-              <textarea
-                ref={titleRef}
-                value={title}
-                rows={1}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => { void handleTitleSave(); }}
-                onKeyDown={(e) => {
-                  if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                  }
-                }}
-                className={`bg-transparent border-none focus:outline-none flex-1 min-w-0 resize-none overflow-hidden ${PAGE_TITLE}`}
-                style={PAGE_TITLE_WEIGHT}
-                placeholder={t('Element title')}
-              />
+            <div className="mb-3">
+              <PageTitleField value={title} onChange={setTitle} onCommit={() => { void handleTitleSave(); }}
+                label={t('Element title')} placeholder={t('Element title')} />
             </div>
             <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
             {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
@@ -812,7 +715,7 @@ function ElementDetailBody({
               </div>
             )}
             <DescriptionEditor key={element.id} value={restoredDescription ?? element.description ?? ''}
-              placeholder={t('Add description…')}
+              placeholder={t('Describe this Element…')}
               onChange={setDescription}
               onSave={(next) => handleDescriptionSave(next)} />
           </div>
@@ -825,67 +728,27 @@ function ElementDetailBody({
               heading — attached files, Sub-elements (always), then
               Dependencies — so the read order is the breakdown → what it
               waits on. */}
-          <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-          <ButtonAppearanceProvider appearance="inline">
-          <div className="flex items-center gap-0.5">
-            {/* Reactions on this Element: the smile opens the palette; the chips end the row. */}
-            <ReactionPicker onToggle={(e) => void handleEmojiPick(e)} />
-
-            {/* Attach a file from this computer — it lists under the row and
-                opens through a short-lived link (attachments). */}
-            <AttachButton owner={{ kind: 'element', id: element.id }}
-              className="inline-flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors disabled:opacity-50" />
-
-            {/* More to attach, kept off the page until chosen: a Note
-                (Document), a new deck (Slide). */}
-            <div className="relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors data-[state=open]:bg-muted data-[state=open]:text-foreground"
-                    title={t('More')}
-                    aria-label={t('More')}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[200px]">
-                  {!element.note_id && (
-                    <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                      <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                    <NavSlidesIcon size={15} />{t('Slide')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <NotePicker
-                open={notePickerOpen}
-                onClose={() => setNotePickerOpen(false)}
-                onPick={handlePickNote}
-                anchorClassName="absolute top-full left-0 mt-1"
-              />
-            </div>
-
-            {/* Approval — turned on from the "…" menu; once on, its state
-                icon here opens the panel to record a decision (Approve /
-                Request changes / Reject). */}
-            <ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />
-
-            <ReactionChips reactions={reactions} userId={user?.id ?? null} onToggle={(e) => void handleEmojiPick(e)} />
-
-          </div>
-          </ButtonAppearanceProvider>
-          {/* Attached files, and the trash under them. */}
-          <AttachmentList owner={{ kind: 'element', id: element.id }}
-            actions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)} />
-
-          {/* Sub-elements — Elements under this one, each with its own page. */}
-          <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
-
-          </div>
+          <PageActionRow reactions={reactions} userId={user?.id ?? null} onReact={(e) => void handleEmojiPick(e)}
+            filesOf={{ kind: 'element', id: element.id }}
+            attachmentActions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)}
+            moreItems={<>
+              {!element.note_id && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            </>}
+            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)} onPick={handlePickNote}
+              anchorClassName="absolute top-full left-0 mt-1" />}
+            // Approval — turned on from the "…" menu; once on, its state
+            // icon here opens the panel to record a decision.
+            trailing={<ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />}>
+            {/* Sub-elements — Elements under this one, each with its own page. */}
+            <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
+          </PageActionRow>
 
           <CodeChangesSection elementId={element.id} />
 

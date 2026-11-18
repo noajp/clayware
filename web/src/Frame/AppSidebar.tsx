@@ -21,6 +21,7 @@ import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
 import { ArrowLeft, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
 import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
@@ -293,6 +294,17 @@ export function AppSidebar({
   };
 
   const activeDomain = [...domains, ...guestDomains].find((d) => d.id === activeDomainId) ?? domains[0];
+
+  // A Domain's own page asks for its settings from its "…".
+  useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<{ domainId: string }>).detail?.domainId;
+      const domain = [...domains, ...guestDomains].find((d) => d.id === id);
+      if (domain) setSettingsDomain(domain);
+    };
+    window.addEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+    return () => window.removeEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+  }, [domains, guestDomains]);
 
   // Same reason as the order mirror above: the open dialog picks up the row
   // it is editing as it is rendered, not a frame later.
