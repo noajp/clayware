@@ -4,14 +4,12 @@ import { useDomainOverview } from '@/hooks/useDomainOverview';
 import { useBoard, WidgetSurface, WidgetZone, type WidgetHost } from '@/Function/widget';
 import { DOMAIN_OVERVIEW_BOARD } from '@/Function/widget/defaults';
 import { DomainIcon, ElementIcon, ObjectIcon } from '@/Function/shared/conceptIcons';
-import { FileText, Hash, Lock, MoreHorizontal, Users } from '@/ui/icons';
+import { FileText, Hash, Lock, Users } from '@/ui/icons';
 import { useQuery } from '@tanstack/react-query';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
+import { DropdownMenuItem } from '@/ui/dropdown-menu';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { ensureArtifactRoot } from '@/hooks/artifactData';
 import { toggleReaction, useDomainReactions } from '@/hooks/commentData';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
@@ -110,39 +108,22 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
         <PageHead key={`head-${domain.id}`} icon={<DomainLookButton domain={domain} canEdit={role.data === 'owner' || role.data === 'admin'} onSaved={() => void query.refetch()} />} title={domain.name} description={domain.description ?? ''}
           canEdit={role.data === 'owner' || role.data === 'admin'}
           titleLabel={t('Domain name')} titlePlaceholder={t('Domain name…')}
-          descriptionLabel={t('Description')} descriptionPlaceholder={t('What this Domain is for…')}
+          descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Domain…')}
           emptyDescription={t('No description yet.')}
           onSaveTitle={async (name) => { await updateDomain(domain.id, { name }); await query.refetch(); }}
           onSaveDescription={async (description) => { await updateDomain(domain.id, { description: description || null }); await query.refetch(); }} />
-        {/* Under the description, as on an Element: attaching a file and the
-            "…" of other things to attach, then the attached files. */}
-        <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-          <div className="flex items-center gap-0.5">
-            <ReactionPicker onToggle={(e) => void reactWith(e)} />
-            {filesRoot.data && <AttachButton owner={{ kind: 'folder', id: filesRoot.data }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" />}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" title={t('More')} aria-label={t('More')}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
-                  <MoreHorizontal size={15} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[200px]">
-                {onOpenNote && (
-                  <DropdownMenuItem onSelect={onOpenNote} className="gap-2.5 py-1.5 text-[13px]">
-                    <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => { requestNewDeck(domain.name); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                  <NavSlidesIcon size={15} />{t('Slide')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <ReactionChips reactions={reactions} userId={userId} onToggle={(e) => void reactWith(e)} />
-          </div>
-          {filesRoot.data && <AttachmentList owner={{ kind: 'folder', id: filesRoot.data }} />}
-        </div>
+        <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
+          filesOf={filesRoot.data ? { kind: 'folder', id: filesRoot.data } : null}
+          moreItems={<>
+            {onOpenNote && (
+              <DropdownMenuItem onSelect={onOpenNote} className={PAGE_MORE_ITEM}>
+                <FileText size={15} className="text-muted-foreground" />{t('Document')}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => { requestNewDeck(domain.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+              <NavSlidesIcon size={15} />{t('Slide')}
+            </DropdownMenuItem>
+          </>} />
         <WidgetSurface key={`board-${domain.id}`} board={board} host={host} zones={['main']}>
           <WidgetZone zone="main" columns={1} />
         </WidgetSurface>

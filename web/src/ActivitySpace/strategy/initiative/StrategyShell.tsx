@@ -1,31 +1,26 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { formatError } from '@/Function/shared/formatError';
 
-import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ViewTabs } from '@/Function/shared/ViewTabs';
 import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/boardOrientation';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { useVisions } from '@/hooks/visionData';
-import { FollowButton } from '@/Function/shared/FollowButton';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, MessageCircle, MoreHorizontal, Plus, Search, X } from '@/ui/icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, FileText, MessageCircle, Plus, Search, X } from '@/ui/icons';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
 import { FoldSection, FoldSectionAddRow } from '@/Function/shared/FoldSection';
 import { EmbedHostContext } from '@/Function/notebook/editor/embedBlocks';
 import { useStrategyEmbeds } from './StrategyEmbeds';
 import { UnplacedFrameLines } from './StrategyFrameLine';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NavSlidesIcon, NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
-import { PageIcon, PageSection, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
+import { PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
 import { ItemIconButton, useItemLook } from '@/Function/shared/itemIcon/IconPicker';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IndexList, IndexRow } from '@/Function/shared/IndexList';
@@ -38,7 +33,7 @@ import { QuickCreatePopup, quickCreatePillClass } from '@/Function/shared/QuickC
 import { Popover, PopoverTrigger } from '@/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/ui/command';
 import { MenuShell } from '@/Function/shared/menu';
-import { isCancelKey, isCommitEnter, isSubmitChord, useEscapeLayer } from '@/Function/shared/keyboard';
+import { isCancelKey, isCommitEnter, useEscapeLayer } from '@/Function/shared/keyboard';
 import { ConfirmDialog } from '@/Function/shared/ConfirmDialog';
 import {
   addDomainObjectType,
@@ -235,6 +230,7 @@ export function StrategyShell({
         allStrategies={strategies}
         onBack={() => setOpenStrategyId(null)}
         onOpenStrategy={setOpenStrategyId}
+        onOpenVision={onOpenVision}
         onSaved={() => refetchStrategies()}
         onOpenObject={onOpenObject}
         onOpenDomain={onOpenDomain}
@@ -443,17 +439,6 @@ function StrategyListView({
   );
 }
 
-// Auto-grow a textarea to fit its content, mirroring the seamless
-// title/description textareas on the Object Overview / Element detail tabs.
-function useAutoGrowTextarea(ref: { current: HTMLTextAreaElement | null }, value: string) {
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [ref, value]);
-}
-
 function useAllObjects(): { objects: ClaywareObjectWithChildren[]; refetch: () => Promise<void> } {
   const { data: explorer, refetch } = useObjects(null);
 
@@ -552,11 +537,14 @@ function StrategyDetailView({
   allStrategies,
   onBack,
   onOpenStrategy,
+  onOpenVision,
   onSaved,
   onOpenObject,
   onOpenDomain,
 }: {
   strategy: StrategyWithObjects;
+  /** The path's Vision crumb opens the Vision's page. */
+  onOpenVision?: (visionId: string) => void;
   /** Every Strategy, so this page can list/pick its nested children. */
   allStrategies: StrategyWithObjects[];
   onBack: () => void;
@@ -567,7 +555,6 @@ function StrategyDetailView({
   onOpenDomain?: (domainId: string) => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState(strategy.name);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(strategy.objectIds));
   const [query, setQuery] = useState('');
   // Objects section starts collapsed to the selected chips — "+" reveals
@@ -606,7 +593,6 @@ function StrategyDetailView({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setName(strategy.name);
     setSaveError(null);
     setSelectedIds(new Set(strategy.objectIds));
   }, [strategy.id, strategy.name, strategy.description, strategy.objectIds]);
@@ -617,8 +603,6 @@ function StrategyDetailView({
     setPickerMode('closed');
   }, [strategy.id]);
 
-  const nameRef = useRef<HTMLTextAreaElement | null>(null);
-  useAutoGrowTextarea(nameRef, name);
 
   // The description as it reads right now, typing included: which lines of
   // the frame it places is asked of this, so a line just placed is not also
@@ -763,6 +747,23 @@ function StrategyDetailView({
     }
     return seen;
   }, [allStrategies, strategy.id, strategy.parentIds]);
+  // The header's path: the Vision, then the Portfolios this one sits inside,
+  // from the top down (through the first parent where there are several).
+  const { data: visions } = useVisions();
+  const vision = visions.find((v) => v.id === strategy.vision_id) ?? null;
+  const parentPath = useMemo(() => {
+    const byId = new Map(allStrategies.map((s) => [s.id, s] as const));
+    const path: StrategyWithObjects[] = [];
+    const seen = new Set<string>([strategy.id]);
+    let next = strategy.parentIds.find((id) => byId.has(id));
+    while (next && !seen.has(next)) {
+      seen.add(next);
+      const parent = byId.get(next)!;
+      path.unshift(parent);
+      next = parent.parentIds.find((id) => byId.has(id));
+    }
+    return path;
+  }, [allStrategies, strategy.id, strategy.parentIds]);
   const childCandidates = useMemo(() => {
     const existingChildIds = new Set(childStrategies.map((c) => c.id));
     const q = childQuery.trim().toLowerCase();
@@ -889,21 +890,13 @@ function StrategyDetailView({
     }
   };
 
-  const saveName = async () => {
-    // An emptied name is not saved; show the saved one again.
-    if (!name.trim()) { setName(strategy.name); return; }
-    const trimmed = name.trim();
-    if (trimmed === strategy.name) return;
-    if (!canEdit) { setName(strategy.name); return; }
-    try {
-      await updateStrategy(strategy.id, { name: trimmed });
-      setSaveError(null);
-      onSaved();
-    } catch (e) {
-      console.error('Failed to rename Strategy:', e);
-      setName(strategy.name);
-      setSaveError(t('Could not save the name'));
-    }
+  // PageHead hands over the trimmed, changed name; a failure is shown under
+  // the title and the field keeps what was typed.
+  const saveName = async (next: string) => {
+    if (!canEdit) return;
+    await updateStrategy(strategy.id, { name: next });
+    setSaveError(null);
+    onSaved();
   };
 
   const saveDescription = async (description: string) => {
@@ -1005,43 +998,29 @@ function StrategyDetailView({
     />
     <WidgetActionSlotProvider>
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card h-full">
-      {/* Drawn as the shared IslandHeader is (Function/shared/MainIsland). */}
-      <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
-        <SidebarReveal />
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-1.5 py-0.5 rounded text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-        >
-          {t('Portfolio')}
-        </button>
-        <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
-        <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground truncate max-w-[240px]">
-          {strategy.name}
-        </span>
-        {/* Beside the name, as on an Object: move it, or delete it. */}
-        <InitiativeActionsButton initiative={strategy} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />
-        <FollowButton kind="strategy" id={strategy.id} />
-        {!canEdit && (
+      {/* The path from the top: the Vision it belongs to, the Portfolios it
+          sits inside, then this one — with its "⋯" and follow check. */}
+      <IslandHeader crumbs={[
+        ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : onBack }] : [{ id: 'portfolio', label: t('Portfolio'), onClick: onBack }]),
+        ...parentPath.map((p) => ({ id: p.id, label: p.name, onClick: () => onOpenStrategy(p.id) })),
+        { id: strategy.id, label: strategy.name },
+      ]}
+        menu={<InitiativeActionsButton initiative={strategy} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />}
+        follow={{ kind: 'strategy', id: strategy.id }}
+        after={!canEdit && (
           // Said once, where the eye lands first. The Strategy's own
           // structure — name, description, Objects, nested Strategies —
           // is locked to match. The board's intent sections keep their own
           // policy and report their own failures (ELE_STR-025).
-          <span
-            className="ml-1 px-1.5 py-0.5 text-[11px] text-muted-foreground"
-            title={t("Only the Strategy's owner can edit it")}
-          >
+          <span className="ml-1 px-1.5 py-0.5 text-[11px] text-muted-foreground" title={t("Only the Strategy's owner can edit it")}>
             {t('Read-only')}
           </span>
         )}
-        <div className="ml-auto flex min-w-0 items-center gap-2">
-          {(deleteError || saveError) && (
-            <span role="status" className="text-[11px] text-muted-foreground truncate">
-              {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
-            </span>
-          )}
-        </div>
-      </div>
+        actions={(deleteError || saveError) ? (
+          <span role="status" className="text-[11px] text-muted-foreground truncate">
+            {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
+          </span>
+        ) : undefined} />
 
 
       <ViewTabs tabs={STRATEGY_TABS} active={tab} onSelect={setTab} label={t('Strategy views')}
@@ -1095,89 +1074,43 @@ function StrategyDetailView({
         {/* items-start: the island does not stretch the document column. */}
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
-          <div>
-            <PageIcon>
-              <ItemIconButton value={look} onChange={changeLook} canEdit={canEdit} defaultIcon={<NavStrategyIcon size={18} />} />
-            </PageIcon>
-            <textarea
-              ref={nameRef}
-              value={name}
-              rows={1}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={(e) => {
-                // A name is one line: Enter commits (via blur), Shift+Enter
-                // is the only way to a newline. The name autosaves, so
-                // Escape ends the edit and saves too; it is consumed here,
-                // so the page's own Escape (back to the list) waits for the
-                // next press.
-                if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-              }}
-              placeholder={t('Strategy name')}
-              readOnly={!canEdit}
-              aria-readonly={!canEdit}
-              tabIndex={canEdit ? undefined : -1}
-              className={`w-full bg-transparent border-none resize-none overflow-hidden ${PAGE_TITLE}`}
-              style={PAGE_TITLE_WEIGHT}
-            />
-            {/* Band — how it is going, right under the name. */}
-            <WidgetZone zone="band" className="mt-3" />
-          </div>
           <EmbedHostContext.Provider value={embeds}>
-            <DescriptionEditor key={strategy.id} value={savingDescription ?? strategy.description ?? ''} readOnly={!canEdit}
-              placeholder={t('What this Strategy aims for… Type / for a live block')} onSave={saveDescription} onChange={setLiveDescription} />
+            <PageHead key={strategy.id}
+              icon={<ItemIconButton value={look} onChange={changeLook} canEdit={canEdit} defaultIcon={<NavStrategyIcon size={18} />} />}
+              title={strategy.name} description={savingDescription ?? strategy.description ?? ''} canEdit={canEdit}
+              titleLabel={t('Strategy name')} titlePlaceholder={t('Strategy name')}
+              descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Portfolio…')}
+              emptyDescription={t('No description yet.')}
+              // Band — how it is going, right under the name.
+              under={<WidgetZone zone="band" className="mt-1" />}
+              onSaveTitle={saveName} onSaveDescription={saveDescription} onDescriptionChange={setLiveDescription} />
           </EmbedHostContext.Provider>
           {/* The frame's lines the description does not place stand after it. */}
           <UnplacedFrameLines description={liveDescription} />
 
-          {/* Under the description, as on an Element: one quiet row —
-              reactions, attaching a file, and the "…" of other things to do
-              (talking it through among them) — then the attached files. */}
-          <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-              <ButtonAppearanceProvider appearance="inline">
-                <div className="flex items-center gap-0.5">
-                  <ReactionPicker onToggle={(e) => void reactWith(e)} />
-                  <AttachButton owner={{ kind: 'strategy', id: strategy.id }}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" />
-                  <div className="relative">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" title={t('More')} aria-label={t('More')}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
-                        <MoreHorizontal size={15} />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-[200px]">
-                      <DropdownMenuItem onSelect={() => setTalking(true)} className="gap-2.5 py-1.5 text-[13px]">
-                        <MessageCircle size={15} />{t('Talk it through')}
-                      </DropdownMenuItem>
-                      {canEdit && (
-                        <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                          <NavStrategyIcon size={15} />{t('Add existing Strategy')}
-                        </DropdownMenuItem>
-                      )}
-                      {canEdit && !strategy.note_id && (
-                        <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                          <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onSelect={() => { requestNewDeck(strategy.name); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                        <NavSlidesIcon size={15} />{t('Slide')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
-                    onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
-                    anchorClassName="absolute top-full left-0 mt-1" />
-                  </div>
-                  <ReactionChips reactions={reactions} userId={userId} onToggle={(e) => void reactWith(e)} />
-                </div>
-              </ButtonAppearanceProvider>
-              <AttachmentList owner={{ kind: 'strategy', id: strategy.id }} />
-          </div>
+          <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
+            filesOf={{ kind: 'strategy', id: strategy.id }}
+            moreItems={<>
+              <DropdownMenuItem onSelect={() => setTalking(true)} className={PAGE_MORE_ITEM}>
+                <MessageCircle size={15} />{t('Talk it through')}
+              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <NavStrategyIcon size={15} />{t('Add existing Strategy')}
+                </DropdownMenuItem>
+              )}
+              {canEdit && !strategy.note_id && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => { requestNewDeck(strategy.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            </>}
+            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
+              onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
+              anchorClassName="absolute top-full left-0 mt-1" />} />
           {strategy.note_id && <LinkedNoteEmbed noteId={strategy.note_id} onUnlink={canEdit ? () => void linkNote(null) : undefined} />}
 
 

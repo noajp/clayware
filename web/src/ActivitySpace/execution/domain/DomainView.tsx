@@ -11,7 +11,7 @@ import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { ObjectSidePanel } from '@/ActivitySpace/execution/object/ObjectSidePanel';
 import { addObjectDependency, removeObjectDependency, useObjectDependencies, setObjectDependencyKind } from '@/hooks/objectDependencyData';
 import { asDependencyKind, dependencyConflicts, linkWouldLoop } from '@/Function/shared/objectDependencyModel';
-import { Plus } from '@/ui/icons';
+import { Plus, Settings } from '@/ui/icons';
 import { TabBar } from '@/Frame/TabBar';
 import type { ObjectTab, ObjectTabType, Json } from '@/types/database';
 import type { ClaywareObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
@@ -43,7 +43,8 @@ import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/b
 import { ElementDrilldown } from '@/ActivitySpace/execution/element/ElementDrilldown';
 import { ObjectIcon } from '@/Frame/icons';
 import { IslandHeader } from '@/Function/shared/MainIsland';
-import { FollowButton } from '@/Function/shared/FollowButton';
+import { ActionsButton } from '@/Function/shared/ActionMenus';
+import { openDomainSettings } from '@/Function/shared/appNavigation';
 import { useDomains } from '@/hooks/useSupabase';
 import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
 import { useCurrentUserId } from '@/providers/authContext';
@@ -461,14 +462,20 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
           onDomainClick={() => { onNavigate({ objectId: null }); onViewChange?.('domain-overview'); }}
           objectsCrumb={surface === 'objects'}
           onObjectsClick={selectedObject ? () => onNavigate({ objectId: null }) : undefined}
-          objectSlot={selectedObject ? (<>
+          menu={selectedObject ? (
             <ObjectActionsMenu
               object={selectedObject}
               onRefresh={onRefresh}
               onDeleted={() => onNavigate({ objectId: null })}
             />
-            <FollowButton kind="object" id={selectedObject.id} />
-          </>) : undefined}
+          ) : activeDomain && surface !== 'objects' ? (
+            <ActionsButton label={t('Domain actions')} items={[{
+              key: 'settings', label: t('Settings'), icon: <Settings size={14} />,
+              onSelect: () => openDomainSettings(activeDomain.id),
+            }]} />
+          ) : undefined}
+          follow={selectedObject ? { kind: 'object', id: selectedObject.id }
+            : activeDomain && surface !== 'objects' ? { kind: 'domain', id: activeDomain.id } : undefined}
           actions={headerActions}
         />
       )}
@@ -552,7 +559,8 @@ function HierarchyHeader({
   onDomainClick,
   objectsCrumb,
   onObjectsClick,
-  objectSlot,
+  menu,
+  follow,
   actions,
 }: {
   domainName: string;
@@ -562,9 +570,11 @@ function HierarchyHeader({
   objectsCrumb?: boolean;
   /** Present when "Objects" leads somewhere (an Object is open). */
   onObjectsClick?: () => void;
-  /** Rendered immediately after the Object name (the lowest breadcrumb item) —
-   *  e.g. the Object "⋯" actions menu. */
-  objectSlot?: ReactNode;
+  /** The "⋯" right after the last crumb: the Object's, or the Domain's on
+   *  its own page. */
+  menu?: ReactNode;
+  /** The follow check after it. */
+  follow?: { kind: 'object' | 'domain'; id: string };
   actions?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -575,7 +585,8 @@ function HierarchyHeader({
         ...(objectsCrumb ? [{ id: 'objects', label: t('Objects'), onClick: onObjectsClick }] : []),
         ...(objectName ? [{ id: 'object', label: objectName, icon: <ObjectIcon size={12} /> }] : []),
       ]}
-      after={objectName ? objectSlot : undefined}
+      menu={menu}
+      follow={follow}
       actions={actions}
     />
   );

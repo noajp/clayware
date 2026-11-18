@@ -21,6 +21,7 @@ import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
 import { ArrowLeft, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
 import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
@@ -294,6 +295,17 @@ export function AppSidebar({
 
   const activeDomain = [...domains, ...guestDomains].find((d) => d.id === activeDomainId) ?? domains[0];
 
+  // A Domain's own page asks for its settings from its "…".
+  useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<{ domainId: string }>).detail?.domainId;
+      const domain = [...domains, ...guestDomains].find((d) => d.id === id);
+      if (domain) setSettingsDomain(domain);
+    };
+    window.addEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+    return () => window.removeEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+  }, [domains, guestDomains]);
+
   // Same reason as the order mirror above: the open dialog picks up the row
   // it is editing as it is rendered, not a frame later.
   if (settingsDomain) {
@@ -524,8 +536,13 @@ export function AppSidebar({
           {section === 'execution' && <>
           <div className="mt-5" />
           {/* Execution: what this person starred, then the Domains. */}
-          <FollowSection kinds={['strategy', 'object', 'element']}
+          <FollowSection kinds={['vision', 'strategy', 'domain', 'object', 'element']}
             activeId={followPickOpen ? followPick!.id : null} onOpen={(f) => {
+            // A Vision and a Domain have their own rows below; those light.
+            if (f.kind === 'vision') { onNavigate({ visionId: f.id, strategyId: null }); onViewChange('vision'); return; }
+            if (f.kind === 'domain') {
+              setActiveDomainId(f.id); onNavigate({ objectId: null, landOnTab: 'overview' }); onViewChange('domain-overview'); return;
+            }
             if (f.kind !== 'element') setFollowPick({ kind: f.kind, id: f.id });
             if (f.kind === 'strategy') {
               onNavigate({ strategyId: f.id, visionId: allStrategies.find((st) => st.id === f.id)?.vision_id ?? null });

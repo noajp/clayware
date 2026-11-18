@@ -1,33 +1,29 @@
 'use client';
 
-import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { formatError } from '@/Function/shared/formatError';
 import { setActiveDomainId } from '@/Function/space/domainsStore';
 
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ElementWithDetails, ClaywareObjectWithChildren } from '@/hooks/useSupabase';
 import { toggleReaction, updateObject, useWorkers } from '@/hooks/useSupabase';
 import { useObjectReactions } from '@/hooks/commentData';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { Button, ButtonAppearanceProvider } from '@/ui/button';
-import { FileText, MoreHorizontal, Plus } from '@/ui/icons';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { Button } from '@/ui/button';
+import { FileText, Plus } from '@/ui/icons';
+import { DropdownMenuItem } from '@/ui/dropdown-menu';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
-import { PageSection } from '@/Function/shared/PageHead';
 import { MilestoneList } from '@/Function/widget/widgets/MilestonesWidget';
 import { ObjectCommentsPanel } from '../ObjectCommentsPanel';
 import { ObjectIcon } from '@/Frame/icons';
-import { PageIcon, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
+import { PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
 import { ItemIconButton, useItemLook } from '@/Function/shared/itemIcon/IconPicker';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import {
@@ -64,38 +60,6 @@ interface OverviewViewProps {
   onViewChange?: (view: string) => void;
 }
 
-/**
- * Auto-grow a textarea to fit its content. Robust against the "measured
- * while the column was 0-width → wrapped into 14 lines → stuck at 400px"
- * bug: re-measures on `value` change AND whenever the element's WIDTH
- * changes (via ResizeObserver). Width-only guard prevents the height we
- * write from feeding back into an observer loop.
- */
-function useAutoGrowTextarea(
-  ref: React.RefObject<HTMLTextAreaElement | null>,
-  value: string,
-) {
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      el.style.height = 'auto';
-      el.style.height = `${el.scrollHeight}px`;
-    };
-    measure();
-    let lastWidth = el.clientWidth;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      if (w !== lastWidth) {
-        lastWidth = w;
-        measure();
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref, value]);
-}
-
 export function OverviewView({
   elements,
   object,
@@ -105,42 +69,19 @@ export function OverviewView({
 }: OverviewViewProps) {
   const { t } = useI18n();
   const explorerData = useExplorerData();
-  // The name as an always-editable seamless textarea, mirroring
-  // ElementDetailView's inline header (transparent, no border/ring,
-  // auto-grow, save on blur — no Edit button, no view/edit toggle); the
-  // description is the shared DescriptionEditor.
-  const [title, setTitle] = useState(object.name);
   const [look, changeLook] = useItemLook({ icon: object.icon ?? null, color: object.color },
     async (next) => { await updateObject(object.id, next); onRefresh?.(); });
-  const titleRef = useRef<HTMLTextAreaElement | null>(null);
-  useAutoGrowTextarea(titleRef, title);
 
-  // Re-sync from props when the Object switches or is saved elsewhere.
-  useEffect(() => {
-    setTitle(object.name);
-  }, [object.id, object.name]);
-
-  const handleTitleSave = async () => {
-    const next = title.trim();
-    if (next && next !== object.name) {
-      try {
-        await updateObject(object.id, { name: next });
-        onRefresh?.();
-      } catch (err) {
-        console.error('Failed to save name:', err);
-      }
-    }
+  // The name and description are edited in place by the shared PageHead,
+  // which reports a failed save under the title.
+  const handleTitleSave = async (name: string) => {
+    await updateObject(object.id, { name });
+    onRefresh?.();
   };
 
   const handleDescriptionSave = async (description: string) => {
-    if (description !== (object.description || '')) {
-      try {
-        await updateObject(object.id, { description: description || null });
-        onRefresh?.();
-      } catch (err) {
-        console.error('Failed to save description:', err);
-      }
-    }
+    await updateObject(object.id, { description: description || null });
+    onRefresh?.();
   };
 
   const board = useBoard('object-overview', OBJECT_OVERVIEW_BOARD, object.id);
@@ -198,72 +139,28 @@ export function OverviewView({
             {/* pl-6: indent the editorial content off the left rail so it
                 reads as a document rather than flush against the sidebar. */}
             <div className="space-y-6 min-w-0">
-              {/* Icon stacked above the name; the name sits flush with the
-                  column's left edge so it lines up with the description. */}
-              <div>
-                <PageIcon>
-                  <ItemIconButton value={look} onChange={changeLook} defaultIcon={<ObjectIcon size={18} />} />
-                </PageIcon>
-                <textarea
-                  ref={titleRef}
-                  value={title}
-                  rows={1}
-                  onChange={(e) => setTitle(e.target.value)}
-                  onBlur={handleTitleSave}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      (e.currentTarget as HTMLTextAreaElement).blur();
-                    }
-                  }}
-                  className={`w-full bg-transparent border-none resize-none overflow-hidden ${PAGE_TITLE}`}
-                  style={PAGE_TITLE_WEIGHT}
-                  placeholder={t('Object name')}
-                />
-              </div>
+              <PageHead key={object.id}
+                icon={<ItemIconButton value={look} onChange={changeLook} defaultIcon={<ObjectIcon size={18} />} />}
+                title={object.name} description={object.description ?? ''} canEdit
+                titleLabel={t('Object name')} titlePlaceholder={t('Object name')}
+                descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Object…')}
+                onSaveTitle={handleTitleSave} onSaveDescription={handleDescriptionSave} />
 
-              <section>
-                <DescriptionEditor key={object.id} value={object.description ?? ''}
-                  placeholder={t('Add description…')} onSave={handleDescriptionSave} />
-              </section>
-
-              {/* Under the description, as on an Element: one quiet row —
-                  reactions and attaching a file — then the attached files. */}
-              <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-                <ButtonAppearanceProvider appearance="inline">
-                  <div className="flex items-center gap-0.5">
-                    <ReactionPicker onToggle={(e) => void reactWith(e)} />
-                    <AttachButton owner={{ kind: 'object', id: object.id }}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" />
-                    {/* More to attach, as on an Element: a Note (Document), a new deck (Slide). */}
-                    <div className="relative">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button type="button" title={t('More')} aria-label={t('More')}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
-                            <MoreHorizontal size={15} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="min-w-[200px]">
-                          {!object.note_id && (
-                            <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                              <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onSelect={() => { requestNewDeck(object.name); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                            <NavSlidesIcon size={15} />{t('Slide')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
-                        onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
-                        anchorClassName="absolute top-full left-0 mt-1" />
-                    </div>
-                    <ReactionChips reactions={reactions} userId={userId} onToggle={(e) => void reactWith(e)} />
-                  </div>
-                </ButtonAppearanceProvider>
-                <AttachmentList owner={{ kind: 'object', id: object.id }} />
-              </div>
+              <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
+                filesOf={{ kind: 'object', id: object.id }}
+                moreItems={<>
+                  {!object.note_id && (
+                    <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                      <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => { requestNewDeck(object.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                    <NavSlidesIcon size={15} />{t('Slide')}
+                  </DropdownMenuItem>
+                </>}
+                moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
+                  onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
+                  anchorClassName="absolute top-full left-0 mt-1" />} />
 
               {/* The Note pinned to this Object, shown in place. */}
               {object.note_id && <LinkedNoteEmbed noteId={object.note_id} onUnlink={() => void linkNote(null)} />}

@@ -274,11 +274,13 @@ export async function toggleReaction(params: {
   strategyId?: string | null;
   objectId?: string | null;
   domainId?: string | null;
+  visionId?: string | null;
 }): Promise<'added' | 'removed'> {
-  const { userId, emoji, elementId, commentId, strategyId, objectId, domainId } = params;
+  const { userId, emoji, elementId, commentId, strategyId, objectId, domainId, visionId } = params;
   let q = supabase.from('element_reactions').select('id').eq('user_id', userId).eq('emoji', emoji);
   q = elementId ? q.eq('element_id', elementId) : strategyId ? q.eq('strategy_id', strategyId)
-    : objectId ? q.eq('object_id', objectId) : domainId ? q.eq('domain_id', domainId) : q.eq('comment_id', commentId!);
+    : objectId ? q.eq('object_id', objectId) : domainId ? q.eq('domain_id', domainId)
+    : visionId ? q.eq('vision_id', visionId) : q.eq('comment_id', commentId!);
   const { data: existing } = await q.maybeSingle();
   if (existing) {
     await removeReaction(existing.id);
@@ -292,6 +294,7 @@ export async function toggleReaction(params: {
     strategy_id: strategyId ?? null,
     object_id: objectId ?? null,
     domain_id: domainId ?? null,
+    vision_id: visionId ?? null,
   });
   return 'added';
 }
@@ -338,6 +341,23 @@ export function useDomainReactions(domainId: string | null) {
     enabled: !!domainId,
     queryFn: async (): Promise<ElementReaction[]> => {
       const { data, error } = await supabase.from('element_reactions').select('*').eq('domain_id', domainId!);
+      if (error) throw error;
+      return (data ?? []) as ElementReaction[];
+    },
+  });
+  const refresh = useCallback(() => qc.invalidateQueries({ queryKey: key }), [qc, key]);
+  return { reactions: query.data ?? NO_STRATEGY_REACTIONS, refresh };
+}
+
+/** A Vision's own reactions (element_reactions.vision_id). */
+export function useVisionReactions(visionId: string | null) {
+  const qc = useQueryClient();
+  const key = useMemo(() => ['vision-reactions', visionId] as const, [visionId]);
+  const query = useQuery({
+    queryKey: key,
+    enabled: !!visionId,
+    queryFn: async (): Promise<ElementReaction[]> => {
+      const { data, error } = await supabase.from('element_reactions').select('*').eq('vision_id', visionId!);
       if (error) throw error;
       return (data ?? []) as ElementReaction[];
     },

@@ -1,6 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
+import { ActionsButton } from '@/Function/shared/ActionMenus';
+import { useVisionActions } from './visionActions';
+import { DropdownMenuItem } from '@/ui/dropdown-menu';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
+import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
+import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
+import { openInApp } from '@/Function/shared/appNavigation';
+import { toggleReaction, useVisionReactions } from '@/hooks/commentData';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { Plus } from '@/ui/icons';
 import { NavStrategyIcon, NavStrategyModeIcon } from '@/Frame/sidebar/NavIcons';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
@@ -29,7 +38,17 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
   const { data: visions, loading } = useVisions();
   const vision = visions.find((v) => v.id === visionId) ?? visions[0] ?? null;
   const roles = useMyVisionRoles();
-  const canEdit = !!vision && ['owner', 'admin'].includes(roles.get(vision.id) ?? '');
+  const role = vision ? roles.get(vision.id) : undefined;
+  const canEdit = role === 'owner' || role === 'admin';
+  const actions = useVisionActions(vision, role);
+  const userId = useAuthContext().user?.id ?? null;
+  const { reactions, refresh: refreshReactions } = useVisionReactions(vision?.id ?? null);
+  const reactWith = async (emoji: string) => {
+    if (!userId || !vision) return;
+    try { await toggleReaction({ userId, emoji, visionId: vision.id }); }
+    catch (e) { void appDialog.alert(formatError(e)); }
+    finally { void refreshReactions(); }
+  };
   const { data: strategies } = useStrategiesInSpace();
   const portfolios = useMemo(() => strategies
     .filter((s) => s.vision_id === vision?.id && s.parentIds.every((p) => !strategies.some((o) => o.id === p && o.vision_id === vision?.id)))
@@ -50,14 +69,22 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <IslandHeader crumbs={[{ id: vision.id, label: vision.name, icon: <ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={14} />} /> }]} />
+      <IslandHeader crumbs={[{ id: vision.id, label: vision.name, icon: <ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={14} />} /> }]}
+        menu={<ActionsButton items={actions} label={t('Vision actions')} />}
+        follow={{ kind: 'vision', id: vision.id }} />
       <div className="flex-1 overflow-auto">
         <PageLayout>
           <PageHead key={vision.id} icon={<ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={20} />} />} title={vision.name} description={vision.description ?? ''} canEdit={canEdit}
             titleLabel={t('Vision name')} titlePlaceholder={t('Vision name')}
-            descriptionLabel={t('What this Vision aims for')} descriptionPlaceholder={t('What this Vision aims for…')}
+            descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Vision…')}
             onSaveTitle={(name) => { if (name.trim() && name !== vision.name) void save({ name: name.trim() }); }}
             onSaveDescription={(description) => void save({ description: description || null })} />
+          <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)} filesOf={null}
+            moreItems={
+              <DropdownMenuItem onSelect={() => { requestNewDeck(vision.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            } />
           <PageSection title={t('Portfolio')} action={
             <button type="button" onClick={() => onOpenPortfolios(vision.id)}
               className="rounded px-1.5 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
