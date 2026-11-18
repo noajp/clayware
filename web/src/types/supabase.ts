@@ -3159,6 +3159,7 @@ export type Database = {
           object_id: string | null
           strategy_id: string | null
           user_id: string
+          vision_id: string | null
         }
         Insert: {
           comment_id?: string | null
@@ -3170,6 +3171,7 @@ export type Database = {
           object_id?: string | null
           strategy_id?: string | null
           user_id: string
+          vision_id?: string | null
         }
         Update: {
           comment_id?: string | null
@@ -3181,6 +3183,7 @@ export type Database = {
           object_id?: string | null
           strategy_id?: string | null
           user_id?: string
+          vision_id?: string | null
         }
         Relationships: [
           {

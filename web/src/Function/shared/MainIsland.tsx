@@ -26,14 +26,14 @@ export interface IslandCrumb {
  *  A concept's own page (Vision, Portfolio, Domain, Object, Element) names
  *  its place from the top down — Vision › Portfolio…, Domain › Object ›
  *  Element — and puts the same two controls right after its own name: the
- *  "⋯" of what can be done to it (`menu`), then the star that follows it
+ *  "⋯" of what can be done to it (`menu`), then the check that follows it
  *  (`follow`). */
 export function IslandHeader({ crumbs, count, menu, follow, after, actions }: {
   crumbs: IslandCrumb[];
   count?: number;
   /** The page's own "⋯", right after the last crumb. */
   menu?: ReactNode;
-  /** The star after the "⋯": follow this page's subject. */
+  /** The check after the "⋯": follow this page's subject. */
   follow?: { kind: FollowKind; id: string };
   /** After those (a "Read-only" note). */
   after?: ReactNode;

@@ -474,7 +474,8 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
               onSelect: () => openDomainSettings(activeDomain.id),
             }]} />
           ) : undefined}
-          follow={selectedObject ? { kind: 'object', id: selectedObject.id } : undefined}
+          follow={selectedObject ? { kind: 'object', id: selectedObject.id }
+            : activeDomain && surface !== 'objects' ? { kind: 'domain', id: activeDomain.id } : undefined}
           actions={headerActions}
         />
       )}
@@ -572,8 +573,8 @@ function HierarchyHeader({
   /** The "⋯" right after the last crumb: the Object's, or the Domain's on
    *  its own page. */
   menu?: ReactNode;
-  /** The star after it. */
-  follow?: { kind: 'object'; id: string };
+  /** The follow check after it. */
+  follow?: { kind: 'object' | 'domain'; id: string };
   actions?: ReactNode;
 }) {
   const { t } = useI18n();

@@ -536,8 +536,13 @@ export function AppSidebar({
           {section === 'execution' && <>
           <div className="mt-5" />
           {/* Execution: what this person starred, then the Domains. */}
-          <FollowSection kinds={['strategy', 'object', 'element']}
+          <FollowSection kinds={['vision', 'strategy', 'domain', 'object', 'element']}
             activeId={followPickOpen ? followPick!.id : null} onOpen={(f) => {
+            // A Vision and a Domain have their own rows below; those light.
+            if (f.kind === 'vision') { onNavigate({ visionId: f.id, strategyId: null }); onViewChange('vision'); return; }
+            if (f.kind === 'domain') {
+              setActiveDomainId(f.id); onNavigate({ objectId: null, landOnTab: 'overview' }); onViewChange('domain-overview'); return;
+            }
             if (f.kind !== 'element') setFollowPick({ kind: f.kind, id: f.id });
             if (f.kind === 'strategy') {
               onNavigate({ strategyId: f.id, visionId: allStrategies.find((st) => st.id === f.id)?.vision_id ?? null });
