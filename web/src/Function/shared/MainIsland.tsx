@@ -33,7 +33,7 @@ export function IslandHeader({ crumbs, count, menu, follow, after, actions }: {
   count?: number;
   /** The page's own "⋯", right after the last crumb. */
   menu?: ReactNode;
-  /** The check after the "⋯": follow this page's subject. */
+  /** The star after the "⋯": follow this page's subject. */
   follow?: { kind: FollowKind; id: string };
   /** After those (a "Read-only" note). */
   after?: ReactNode;

@@ -639,7 +639,7 @@ function ElementDetailBody({
   return (
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card">
       {/* The path from the top — Domain › Object › this Element — with its
-          "⋯" (duplicate / move / multi-home / delete) and follow check. Without a
+          "⋯" (duplicate / move / multi-home / delete) and follow star. Without a
           Domain (Inbox, My Elements) the root is a back-chevron, so there
           is always a way back to where this Element was opened from. */}
       <IslandHeader crumbs={[

@@ -577,7 +577,7 @@ function HierarchyHeader({
   /** The "⋯" right after the last crumb: the Object's, or the Domain's on
    *  its own page. */
   menu?: ReactNode;
-  /** The follow check after it. */
+  /** The follow star after it. */
   follow?: { kind: 'object' | 'domain'; id: string };
   actions?: ReactNode;
 }) {

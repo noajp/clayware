@@ -1007,7 +1007,7 @@ function StrategyDetailView({
     <WidgetActionSlotProvider>
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card h-full">
       {/* The path from the top: the Vision it belongs to, the Portfolios it
-          sits inside, then this one — with its "⋯" and follow check. */}
+          sits inside, then this one — with its "⋯" and follow star. */}
       <IslandHeader crumbs={[
         ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : onBack }] : [{ id: 'portfolio', label: t('Portfolio'), onClick: onBack }]),
         ...parentPath.map((p) => ({ id: p.id, label: p.name, onClick: () => onOpenStrategy(p.id) })),
