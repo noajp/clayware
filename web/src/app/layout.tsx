@@ -63,6 +63,16 @@ export default function RootLayout({
               "try{var L=localStorage;if(!L.getItem('clayware:storage-renamed')){for(var i=L.length-1;i>=0;i--){var k=L.key(i);if(k&&k.indexOf('alcon')===0){var n='clayware'+k.slice(5);if(L.getItem(n)===null)L.setItem(n,L.getItem(k));L.removeItem(k)}}L.setItem('clayware:storage-renamed','1')}}catch(e){}",
           }}
         />
+        {/* A theme that is no longer offered moves to its nearest, before
+            next-themes reads it: the blue and warm darks to Dark, the
+            near-black to Black, the pure white to White, the tinted lights
+            to Light. A Custom theme's colours go on before paint too. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var m={midnight:'dark',graphite:'dark',carbon:'black',snow:'white',ivory:'light',mist:'light'};var t=localStorage.getItem('theme');if(t&&m[t])localStorage.setItem('theme',m[t]);var c=JSON.parse(localStorage.getItem('clayware.customTheme')||'null');if(c){var r=document.documentElement.style;if(c.accent)r.setProperty('--custom-accent',c.accent);if(c.background)r.setProperty('--custom-bg',c.background);if(c.contrast!=null)r.setProperty('--custom-contrast',String(c.contrast))}}catch(e){}",
+          }}
+        />
         {/* Set the document language before paint. The provider uses the same
             resolution order and translates visible copy after hydration. */}
         <script
