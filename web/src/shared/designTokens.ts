@@ -178,22 +178,26 @@ export function statusLabel(status?: string | null): string {
 
 // ============================================
 // Card styles
-// A card is a gloss island: lit rim, sheen, soft shadow (globals.css).
+// A card is a gloss island: lit rim, sheen, soft shadow (globals.css). In a
+// light theme it is the island's own white, set apart by rim and shadow (a
+// grey fill reads dull); in a dark one it is a step lighter than the island.
 // Hover: border brightens, background stays.
 // ============================================
 export const CARD =
-  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-rail)]';
+  'gloss-island gloss-sheen rounded-lg bg-card dark:bg-[var(--surface-rail)]';
 
 export const CARD_HOVER =
   'hover:border-[var(--border-strong)] transition-colors duration-[120ms]';
 
 /** A card without the island shadow — the install surfaces (harness and
  *  connector catalog cards, registry cards) sit flat inside Settings. */
-export const CARD_FLAT = 'rounded-lg bg-[var(--surface-rail)] border border-border/60';
+export const CARD_FLAT = 'rounded-lg bg-card dark:bg-[var(--surface-rail)] border border-border/60';
 /** A settings property island: the #803 Chain-card float, for a group of
- *  setting rows on the main island's ground (--card), a step off it. */
+ *  setting rows on the main island's ground (--card). In a light theme it is
+ *  that same white, set apart by its rim and shadow (a grey fill read dull);
+ *  in a dark one it is a step lighter. */
 export const SETTINGS_ISLAND =
-  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-rail)]';
+  'gloss-island gloss-sheen rounded-lg bg-card dark:bg-[var(--surface-rail)]';
 /** The ground of a choice control (a segmented track, a select) on an island:
  *  a tint of the text colour, so it stands one step off whatever surface it
  *  sits on in every theme — darker on a light island, lighter on a dark one.
