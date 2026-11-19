@@ -104,6 +104,7 @@ import {
   DropdownMenuSubTrigger,
 } from '@/ui/dropdown-menu';
 import { ConceptSection } from '@/Function/shared/ConceptSection';
+import { useSectionItems } from '@/Function/shared/sectionVisibility';
 import { DomainMark } from '@/Function/shared/DomainMark';
 import { DomainIcon } from '@/Function/shared/conceptIcons';
 import { ArtifactsSection } from '../ArtifactsSection';
@@ -775,6 +776,12 @@ function StrategyDetailView({
   const domainChoices = useMemo(() => domains.filter((d) => !strategyDomains.domainIds.includes(d.id)),
     [domains, strategyDomains.domainIds]);
   const byUser = useWorkersByUser();
+  // The page "…" lists the sections, to show one hidden from its own "…".
+  const sectionItems = useSectionItems('portfolio', [
+    { id: 'portfolio-artifacts', label: t('Artifacts') },
+    { id: 'portfolio-portfolios', label: t('Portfolios') },
+    { id: 'portfolio-domains-objects', label: t('Domains & Objects') },
+  ]);
   const newChildPortfolio = async () => {
     const name = (await appDialog.prompt(t('Portfolio name'), ''))?.trim();
     if (name) await createChild(name);
@@ -1006,7 +1013,7 @@ function StrategyDetailView({
         ...parentPath.map((p) => ({ id: p.id, label: p.name, onClick: () => onOpenStrategy(p.id) })),
         { id: strategy.id, label: strategy.name },
       ]}
-        menu={<InitiativeActionsButton initiative={strategy} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />}
+        menu={<InitiativeActionsButton initiative={strategy} extraItems={sectionItems} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />}
         follow={{ kind: 'strategy', id: strategy.id }}
         after={!canEdit && (
           // Said once, where the eye lands first. The Strategy's own
@@ -1139,7 +1146,7 @@ function StrategyDetailView({
               <InitiativeCodeChanges objects={allObjects.filter((o) => selectedIds.has(o.id))} />
               <ArtifactsSection subject={{ kind: 'strategy', id: strategy.id }} canAdd={canEdit} />
               {/* The Portfolios inside this one: each row opens its own page. */}
-              <ConceptSection id="portfolio-portfolios" title={t('Portfolios')} count={childStrategies.length}
+              <ConceptSection page="portfolio" id="portfolio-portfolios" title={t('Portfolios')} count={childStrategies.length}
                 columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
                 addLabel={t('Add Portfolio')}
                 addMenu={canEdit ? <>
@@ -1191,7 +1198,7 @@ function StrategyDetailView({
               </ConceptSection>
               {/* The Domains and Objects that carry it: a Domain opens its page,
                   an Object its own; "+" adds either. */}
-              <ConceptSection id="portfolio-domains-objects" title={t('Domains & Objects')} count={linkedDomains.length + selectedIds.size}
+              <ConceptSection page="portfolio" id="portfolio-domains-objects" title={t('Domains & Objects')} count={linkedDomains.length + selectedIds.size}
                 columns={[{ key: 'type', label: t('Type') }, { key: 'due', label: t('Due date') }, { key: 'lead', label: t('Lead') }, { key: 'progress', label: t('Progress') }]}
                 addLabel={t('Add Domain or Object')}
                 addMenu={canEdit ? <>

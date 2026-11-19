@@ -39,6 +39,9 @@ async function openArtifact(a: { kind: ArtifactKind; id: string }) {
   else void appDialog.alert('This file is no longer available.');
 }
 
+/** The page a subject's Artifacts section is on, for hiding it. */
+const ARTIFACT_PAGE = { vision: 'vision', strategy: 'portfolio' } as const;
+
 /** A Vision's or a Portfolio's Artifacts: files, notebooks and decks from
  *  Artifacts placed on it, with who placed them and when. */
 export function ArtifactsSection({ subject, canAdd }: { subject: ArtifactSubject; canAdd: boolean }) {
@@ -54,7 +57,7 @@ export function ArtifactsSection({ subject, canAdd }: { subject: ArtifactSubject
     remove.mutate(a.linkId, { onError: (e) => void appDialog.alert(formatError(e)) });
 
   return (
-    <ConceptSection id={`artifacts-${subject.kind}`} title={t('Artifacts')} count={artifacts.length}
+    <ConceptSection page={ARTIFACT_PAGE[subject.kind]} id={`${ARTIFACT_PAGE[subject.kind]}-artifacts`} title={t('Artifacts')} count={artifacts.length}
       columns={[{ key: 'addedBy', label: t('Added by') }, { key: 'added', label: t('Added') }]}
       addLabel={t('Add Artifact')} onAdd={canAdd ? () => setPicking(true) : undefined}
       addAnchor={picking && (

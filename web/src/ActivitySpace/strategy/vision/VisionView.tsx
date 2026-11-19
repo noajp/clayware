@@ -17,6 +17,7 @@ import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IslandHeader } from '@/Function/shared/MainIsland';
 import { PageHead, PageLayout } from '@/Function/shared/PageHead';
 import { ConceptSection } from '@/Function/shared/ConceptSection';
+import { useSectionItems } from '@/Function/shared/sectionVisibility';
 import { ArtifactsSection } from '../ArtifactsSection';
 import { PortfolioRow, useWorkersByUser } from '../PortfolioRow';
 import { useObjects } from '@/hooks/useSupabase';
@@ -46,7 +47,11 @@ export function VisionView({ visionId, onOpenPortfolio, onAddPortfolio }: {
   const { data: explorer } = useObjects(null);
   const objects = explorer.objects;
   const byUser = useWorkersByUser();
-  const actions = useVisionActions(vision, role);
+  const sectionItems = useSectionItems('vision', [
+    { id: 'vision-artifacts', label: t('Artifacts') },
+    { id: 'vision-portfolios', label: t('Portfolios') },
+  ]);
+  const actions = [...useVisionActions(vision, role), ...sectionItems];
   const userId = useAuthContext().user?.id ?? null;
   const { reactions, refresh: refreshReactions } = useVisionReactions(vision?.id ?? null);
   const reactWith = async (emoji: string) => {
@@ -92,7 +97,7 @@ export function VisionView({ visionId, onOpenPortfolio, onAddPortfolio }: {
               </DropdownMenuItem>
             } />
           <ArtifactsSection subject={{ kind: 'vision', id: vision.id }} canAdd={canWork} />
-          <ConceptSection id="vision-portfolios" title={t('Portfolios')} count={portfolios.length}
+          <ConceptSection page="vision" id="vision-portfolios" title={t('Portfolios')} count={portfolios.length}
             columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
             addLabel={t('Add Portfolio')} onAdd={() => onAddPortfolio(vision.id)} empty={portfolios.length === 0}>
             {(shows) => portfolios.map((s) => (
