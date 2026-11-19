@@ -1,20 +1,22 @@
 // Handing an Element to Claude Code, and where that hand-over stands.
 //
 // The dispatcher on the developer's Mac (.claude/ops/dispatch.mjs) starts a
-// Claude Code session for an Element only when its Object is in the
-// development Domain (dev_control.domain_id), it is labelled 'dispatch', its
-// status is To Do or In Progress and a Claude Code Worker is assigned. These
+// Claude Code session for an Element only when its Object is in the Space of
+// the development Domain (dev_control.domain_id) — a session there writes to
+// Clayware's own repository, so no other Space may start one — it is
+// labelled 'dispatch', its status is To Do or In Progress and a Claude Code
+// Worker is assigned. These
 // rules let the Element page say so before it claims a hand-over, and show
 // what the dispatcher is doing with it afterwards. Pure.
 
 export const DISPATCH_LABEL = 'dispatch';
 
 /** Why the dispatcher would not take this Element; null when it would. */
-export type HandoffBlock = 'no-dev-domain' | 'outside-dev-domain';
+export type HandoffBlock = 'no-dev-space' | 'outside-dev-space';
 
-export function handoffBlock(scope: { elementDomainId: string | null; devDomainId: string | null }): HandoffBlock | null {
-  if (!scope.devDomainId) return 'no-dev-domain';
-  if (scope.elementDomainId !== scope.devDomainId) return 'outside-dev-domain';
+export function handoffBlock(scope: { elementSpaceId: string | null; devSpaceId: string | null }): HandoffBlock | null {
+  if (!scope.devSpaceId) return 'no-dev-space';
+  if (scope.elementSpaceId !== scope.devSpaceId) return 'outside-dev-space';
   return null;
 }
 

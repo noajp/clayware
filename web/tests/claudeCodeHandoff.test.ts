@@ -8,15 +8,15 @@ const base = {
 } as const;
 
 describe('handoffBlock', () => {
-  it('blocks an Element outside the development Domain', () => {
-    expect(handoffBlock({ elementDomainId: 'gtm', devDomainId: 'dev' })).toBe('outside-dev-domain');
-    expect(handoffBlock({ elementDomainId: null, devDomainId: 'dev' })).toBe('outside-dev-domain');
+  it('blocks an Element of another Space', () => {
+    expect(handoffBlock({ elementSpaceId: 'other', devSpaceId: 'clayware' })).toBe('outside-dev-space');
+    expect(handoffBlock({ elementSpaceId: null, devSpaceId: 'clayware' })).toBe('outside-dev-space');
   });
   it('blocks when no development Domain is set', () => {
-    expect(handoffBlock({ elementDomainId: 'dev', devDomainId: null })).toBe('no-dev-domain');
+    expect(handoffBlock({ elementSpaceId: 'clayware', devSpaceId: null })).toBe('no-dev-space');
   });
-  it('lets an Element in the development Domain through', () => {
-    expect(handoffBlock({ elementDomainId: 'dev', devDomainId: 'dev' })).toBeNull();
+  it('lets any Element of the development Space through, whatever its Domain', () => {
+    expect(handoffBlock({ elementSpaceId: 'clayware', devSpaceId: 'clayware' })).toBeNull();
   });
 });
 
@@ -34,7 +34,7 @@ describe('claudeCodeState', () => {
     expect(claudeCodeState({ ...base, claimedBy: 'agent', claimExpiresAt: '2026-11-19T23:00:00Z' }, NOW)).toBe('waiting');
   });
   it('is stuck when the dispatcher would never take it', () => {
-    expect(claudeCodeState({ ...base, block: 'outside-dev-domain' }, NOW)).toBe('stuck');
+    expect(claudeCodeState({ ...base, block: 'outside-dev-space' }, NOW)).toBe('stuck');
     expect(claudeCodeState({ ...base, hasClaudeCodeAssignee: false }, NOW)).toBe('stuck');
     expect(claudeCodeState({ ...base, status: 'blocked' }, NOW)).toBe('stuck');
   });
