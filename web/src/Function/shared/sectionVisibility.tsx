@@ -3,6 +3,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { Check } from '@/ui/icons';
 import type { ActionItem } from '@/Function/shared/ActionMenus';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/ui/dropdown-menu';
 
 // Which sections of a concept's page this person has hidden — a Vision's
 // Artifacts, a Portfolio's Domains & Objects… Hidden from a section's own
@@ -54,4 +55,20 @@ export function useSectionItems(page: string, sections: readonly { id: string; l
     onSelect: () => toggle(s.id),
     separatorBefore: i === 0,
   }));
+}
+
+/** The same list as `DropdownMenuItem`s, for a page "…" built as a dropdown
+ *  of its own (an Object's, an Element's). */
+export function SectionMenuItems({ page, sections }: { page: string; sections: readonly { id: string; label: string }[] }) {
+  const { isHidden, toggle } = useHiddenSections(page);
+  return (
+    <>
+      <DropdownMenuSeparator />
+      {sections.map((s) => (
+        <DropdownMenuItem key={s.id} onSelect={(e) => { e.preventDefault(); toggle(s.id); }} className="gap-2.5 py-1.5 text-[13px]">
+          <span className="flex size-[15px] items-center justify-center">{!isHidden(s.id) && <Check size={14} />}</span>{s.label}
+        </DropdownMenuItem>
+      ))}
+    </>
+  );
 }

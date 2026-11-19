@@ -40,7 +40,7 @@ async function openArtifact(a: { kind: ArtifactKind; id: string }) {
 }
 
 /** The page a subject's Artifacts section is on, for hiding it. */
-const ARTIFACT_PAGE = { vision: 'vision', strategy: 'portfolio' } as const;
+const ARTIFACT_PAGE = { vision: 'vision', strategy: 'portfolio', domain: 'domain', object: 'object', element: 'element' } as const;
 
 /** A Vision's or a Portfolio's Artifacts: files, notebooks and decks from
  *  Artifacts placed on it, with who placed them and when. */

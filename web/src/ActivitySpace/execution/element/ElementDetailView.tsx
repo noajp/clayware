@@ -85,7 +85,9 @@ const ELEMENT_ZONES: Zone[] = ['rail'];
 import { RailRow } from '@/Function/shared/RailRow';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { ObjectIcon } from '@/Frame/icons';
-import { PageSection, PageTitleField, PAGE_FRAME } from '@/Function/shared/PageHead';
+import { DetailPage, PageSection, PageTitleField } from '@/Function/shared/PageHead';
+import { ArtifactsSection } from '@/ActivitySpace/strategy/ArtifactsSection';
+import { SectionMenuItems } from '@/Function/shared/sectionVisibility';
 import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { StatusPicker } from '@/Function/shared/StatusPicker';
@@ -637,7 +639,7 @@ function ElementDetailBody({
   return (
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card">
       {/* The path from the top — Domain › Object › this Element — with its
-          "⋯" (duplicate / move / multi-home / delete) and follow check. Without a
+          "⋯" (duplicate / move / multi-home / delete) and follow star. Without a
           Domain (Inbox, My Elements) the root is a back-chevron, so there
           is always a way back to where this Element was opened from. */}
       <IslandHeader crumbs={[
@@ -650,7 +652,8 @@ function ElementDetailBody({
         menu={<ElementActionsMenu element={element} onRefresh={onRefresh} onDeleted={onBack}
           onAddDependency={() => setDependencySignal((n) => n + 1)}
           onOpenApproval={() => setApprovalSignal((n) => n + 1)}
-          onDelegateToAi={() => setDelegateOpen(true)} />}
+          onDelegateToAi={() => setDelegateOpen(true)}
+          extra={<SectionMenuItems page="element" sections={[{ id: 'element-artifacts', label: t('Artifacts') }]} />} />}
         follow={{ kind: 'element', id: element.id }} />
       {/* Handing the Element to an AI is a modal dialog, opened
           directly from the menu item (or ⌘K): focus is trapped by
@@ -674,168 +677,9 @@ function ElementDetailBody({
 
       {/* Scrollable body — Linear-style two-column layout */}
       <div className="flex-1 overflow-auto">
-        <div className={layout === 'reader' ? "mx-auto w-full max-w-4xl px-5 py-7 flex flex-col gap-8" : `${PAGE_FRAME} flex gap-8`}>
-          <div className="flex-1 min-w-0 flex flex-col gap-8">
-
-          {/* Title & description. An Element's page opens on its title: no icon above it. */}
-          <div>
-            <div className="mb-3">
-              <PageTitleField value={title} onChange={setTitle} onCommit={() => { void handleTitleSave(); }}
-                label={t('Element title')} placeholder={t('Element title')} />
-            </div>
-            <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
-            {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
-              {/* Status and Priority as chips, in the Label chips' own form. */}
-              <StatusPicker element={element} onChanged={handleStatusChange} trigger={
-                <button type="button" className={TITLE_CHIP}><ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={11} />{statusName(element)}</button>
-              } />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.8]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {priorityOptions.map(opt => <DropdownMenuItem key={opt.priority} onClick={() => handlePriorityChange(opt.priority)} className="gap-2"><PriorityMark priority={opt.priority} />{t(opt.label)}</DropdownMenuItem>)}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>}
-            {/* Read and edited in one place: the Markdown is shown formatted and
-                typed into as it is shown, so a click never swaps it for its
-                source. Saved as Markdown when the editor is left. */}
-            {offeredDraft && (
-              <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <span className="mr-auto text-[13px]">{t(offeredDraft.description !== undefined
-                  ? 'This Element has a description that was not saved.'
-                  : 'This Element has a title that was not saved.')}{offeredDraft.changedSince && ` ${t('It has been changed since. Saving yours replaces that change.')}`}</span>
-                {offeredDraft.changedSince && (
-                  <div className={`w-full max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background px-2 py-1.5 ${FONT.sm}`}>
-                    {offeredDraft.title !== undefined && <p className="font-medium">{offeredDraft.title}</p>}
-                    {offeredDraft.description !== undefined && <p>{offeredDraft.description}</p>}
-                  </div>
-                )}
-                <Button variant="primary" size="sm" onClick={restoreUnsaved}>{t('Restore and save')}</Button>
-                <Button variant="ghost" size="sm" onClick={() => forgetUnsaved()}>{t('Discard')}</Button>
-              </div>
-            )}
-            <DescriptionEditor key={element.id} value={restoredDescription ?? element.description ?? ''}
-              placeholder={t('Describe this Element…')}
-              onChange={setDescription}
-              onSave={(next) => handleDescriptionSave(next)} />
-          </div>
-
-          {/* One row under the description, as Linear keeps a single line
-              under an issue: reactions, attaching a file, the "…" of other
-              attachments and (once on) the approval state, as quiet icons.
-              Dependencies and turning approval on are in the Element's "…"
-              menu. Below, each section takes the full width with its own
-              heading — attached files, Sub-elements (always), then
-              Dependencies — so the read order is the breakdown → what it
-              waits on. */}
-          <PageActionRow reactions={reactions} userId={user?.id ?? null} onReact={(e) => void handleEmojiPick(e)}
-            filesOf={{ kind: 'element', id: element.id }}
-            attachmentActions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)}
-            moreItems={<>
-              {!element.note_id && (
-                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
-                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
-                <NavSlidesIcon size={15} />{t('Slide')}
-              </DropdownMenuItem>
-            </>}
-            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)} onPick={handlePickNote}
-              anchorClassName="absolute top-full left-0 mt-1" />}
-            // Approval — turned on from the "…" menu; once on, its state
-            // icon here opens the panel to record a decision.
-            trailing={<ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />}>
-            {/* Sub-elements — Elements under this one, each with its own page. */}
-            <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
-          </PageActionRow>
-
-          <CodeChangesSection elementId={element.id} />
-
-          <AgentRunPanel
-            agent={agent}
-            onRunAgain={() => void agent.start({ workerId: rerunWorkerId(agent.run?.worker_id), triggeredFrom: 'detail', domainId })}
-          />
-          {checkInOpen && <CheckInDialog element={element} onClose={() => setCheckInOpen(false)}
-            onSaved={() => { setCheckInOpen(false); onRefresh?.(); }} />}
-
-          {/* Linked Note — embedded inline once chosen. */}
-          {element.note_id && (
-            <LinkedNoteEmbed
-              noteId={element.note_id}
-              onUnlink={handleUnlinkNote}
-            />
-          )}
-
-          {/* Linked Elements */}
-          {(edges.incoming.length > 0 || edges.outgoing.length > 0) && (
-            <PageSection title={t('Linked Elements')}>
-              <div>
-                {edges.outgoing.map(edge => (
-                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
-                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
-                    <span className="shrink-0 text-[12px] text-muted-foreground">{edge.edge_type.replace('_', ' ')}</span>
-                  </div>
-                ))}
-                {edges.incoming.map(edge => (
-                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
-                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
-                    <span className="shrink-0 text-[12px] text-muted-foreground">{t('{relation} this', { relation: edge.edge_type.replace('_', ' ') })}</span>
-                  </div>
-                ))}
-              </div>
-            </PageSection>
-          )}
-
-          {layout === 'reader' && <section className="space-y-3" aria-label={t('History')}>
-            <h2 className={`${FONT.lg} text-foreground`}>{t('History')}</h2>
-            <ActivityFeed entries={activityLog} compact />
-          </section>}
-
-          {/* The reader keeps changes next to their discussion. */}
-          <div>
-            {/* Comments and shared updates are one thread: a plain comment
-                sends with the button, an update from its ▾. */}
-            <div className="mb-4 flex items-center gap-2">
-              <h2 className={`${FONT.lg} text-foreground`}>{t('Updates')}</h2>
-            </div>
-            <ElementCommentsPanel
-              key={`comments-${element.id}`}
-              sendOptions={[{ label: t('Share an update'), onSelect: () => setCheckInOpen(true) }]}
-              refreshKey={agent.run ? `${agent.run.id}:${agent.run.status}:${agent.run.step_count}` : null}
-              elementId={element.id}
-              workers={allWorkers}
-              focusCommentId={focusCommentId}
-              waitingOnAnswer={element.status === 'blocked'}
-              onAskAgent={async ({ prompt, commentId, workerId }) => {
-                // Named, else the AI that last worked it, else the assigned one.
-                const id = workerId ?? rerunWorkerId(agent.run?.worker_id);
-                // An AI that works in Claude Code is not run here: the Element
-                // is handed to it, and it reads the comment when it picks it up.
-                const worker = aiWorkers.find((w) => w.id === id);
-                if (worker && runsInClaudeCode(worker.ai_config)) {
-                  try {
-                    await updateElement(element.id, { labels: handOverLabels(element.labels), status: element.status === 'in_progress' ? 'in_progress' : 'todo' });
-                    onRefresh?.();
-                    return 'handed';
-                  } catch {
-                    return 'failed';
-                  }
-                }
-                return agent.start({ mode: 'reply', prompt, replyTo: commentId, workerId: id, triggeredFrom: 'comment', domainId });
-              }}
-            />
-          </div>
-
-          {/* Bottom spacer */}
-          <div className="h-8" />
-          </div>
-
-          {/* Right rail — islands (RailCard): each group a raised card with a
-              quiet heading. Rows hover-highlight and open inline pickers. */}
-          <aside className={layout === 'reader' ? "w-full space-y-4" : "w-72 shrink-0 hidden lg:block space-y-4"}>
+        {/* Right rail — islands (RailCard): each group a raised card with a
+            quiet heading. Rows hover-highlight and open inline pickers. */}
+        <DetailPage reader={layout === 'reader'} rail={<>
             {/* What this Element is standing on — the decisions and
                 assumptions the Strategy bound to it. Above Properties for the
                 same reason Strategy intent sits above them on an Object: why
@@ -1140,8 +984,164 @@ function ElementDetailBody({
             </RailCard>}
             {/* The standalone "Objects" island was folded into the top of the
                 Properties island (membership reads as the first property). */}
-          </aside>
-        </div>
+        </>} head={
+          /* Title & description. An Element's page opens on its title: no icon above it. */
+          <div>
+            <div className="mb-3">
+              <PageTitleField value={title} onChange={setTitle} onCommit={() => { void handleTitleSave(); }}
+                label={t('Element title')} placeholder={t('Element title')} />
+            </div>
+            <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
+            {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
+              {/* Status and Priority as chips, in the Label chips' own form. */}
+              <StatusPicker element={element} onChanged={handleStatusChange} trigger={
+                <button type="button" className={TITLE_CHIP}><ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={11} />{statusName(element)}</button>
+              } />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.8]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {priorityOptions.map(opt => <DropdownMenuItem key={opt.priority} onClick={() => handlePriorityChange(opt.priority)} className="gap-2"><PriorityMark priority={opt.priority} />{t(opt.label)}</DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>}
+            {/* Read and edited in one place: the Markdown is shown formatted and
+                typed into as it is shown, so a click never swaps it for its
+                source. Saved as Markdown when the editor is left. */}
+            {offeredDraft && (
+              <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                <span className="mr-auto text-[13px]">{t(offeredDraft.description !== undefined
+                  ? 'This Element has a description that was not saved.'
+                  : 'This Element has a title that was not saved.')}{offeredDraft.changedSince && ` ${t('It has been changed since. Saving yours replaces that change.')}`}</span>
+                {offeredDraft.changedSince && (
+                  <div className={`w-full max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background px-2 py-1.5 ${FONT.sm}`}>
+                    {offeredDraft.title !== undefined && <p className="font-medium">{offeredDraft.title}</p>}
+                    {offeredDraft.description !== undefined && <p>{offeredDraft.description}</p>}
+                  </div>
+                )}
+                <Button variant="primary" size="sm" onClick={restoreUnsaved}>{t('Restore and save')}</Button>
+                <Button variant="ghost" size="sm" onClick={() => forgetUnsaved()}>{t('Discard')}</Button>
+              </div>
+            )}
+            <DescriptionEditor key={element.id} value={restoredDescription ?? element.description ?? ''}
+              placeholder={t('Describe this Element…')}
+              onChange={setDescription}
+              onSave={(next) => handleDescriptionSave(next)} />
+          </div>
+        } actions={<>
+          {/* One row under the description, as Linear keeps a single line
+              under an issue: reactions, attaching a file, the "…" of other
+              attachments and (once on) the approval state, as quiet icons.
+              Dependencies and turning approval on are in the Element's "…"
+              menu. Below, each section takes the full width with its own
+              heading — attached files, Sub-elements (always), then
+              Dependencies — so the read order is the breakdown → what it
+              waits on. */}
+          <PageActionRow reactions={reactions} userId={user?.id ?? null} onReact={(e) => void handleEmojiPick(e)}
+            filesOf={{ kind: 'element', id: element.id }}
+            attachmentActions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)}
+            moreItems={<>
+              {!element.note_id && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            </>}
+            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)} onPick={handlePickNote}
+              anchorClassName="absolute top-full left-0 mt-1" />}
+            // Approval — turned on from the "…" menu; once on, its state
+            // icon here opens the panel to record a decision.
+            trailing={<ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />}>
+            {/* Sub-elements — Elements under this one, each with its own page. */}
+            <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
+          </PageActionRow>
+        </>}>
+          <ArtifactsSection subject={{ kind: 'element', id: element.id }} canAdd />
+
+          <CodeChangesSection elementId={element.id} />
+
+          <AgentRunPanel
+            agent={agent}
+            onRunAgain={() => void agent.start({ workerId: rerunWorkerId(agent.run?.worker_id), triggeredFrom: 'detail', domainId })}
+          />
+          {checkInOpen && <CheckInDialog element={element} onClose={() => setCheckInOpen(false)}
+            onSaved={() => { setCheckInOpen(false); onRefresh?.(); }} />}
+
+          {/* Linked Note — embedded inline once chosen. */}
+          {element.note_id && (
+            <LinkedNoteEmbed
+              noteId={element.note_id}
+              onUnlink={handleUnlinkNote}
+            />
+          )}
+
+          {/* Linked Elements */}
+          {(edges.incoming.length > 0 || edges.outgoing.length > 0) && (
+            <PageSection title={t('Linked Elements')}>
+              <div>
+                {edges.outgoing.map(edge => (
+                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
+                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">{edge.edge_type.replace('_', ' ')}</span>
+                  </div>
+                ))}
+                {edges.incoming.map(edge => (
+                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
+                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">{t('{relation} this', { relation: edge.edge_type.replace('_', ' ') })}</span>
+                  </div>
+                ))}
+              </div>
+            </PageSection>
+          )}
+
+          {layout === 'reader' && <section className="space-y-3" aria-label={t('History')}>
+            <h2 className={`${FONT.lg} text-foreground`}>{t('History')}</h2>
+            <ActivityFeed entries={activityLog} compact />
+          </section>}
+
+          {/* The reader keeps changes next to their discussion. */}
+          <div>
+            {/* Comments and shared updates are one thread: a plain comment
+                sends with the button, an update from its ▾. */}
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Updates')}</h2>
+            </div>
+            <ElementCommentsPanel
+              key={`comments-${element.id}`}
+              sendOptions={[{ label: t('Share an update'), onSelect: () => setCheckInOpen(true) }]}
+              refreshKey={agent.run ? `${agent.run.id}:${agent.run.status}:${agent.run.step_count}` : null}
+              elementId={element.id}
+              workers={allWorkers}
+              focusCommentId={focusCommentId}
+              waitingOnAnswer={element.status === 'blocked'}
+              onAskAgent={async ({ prompt, commentId, workerId }) => {
+                // Named, else the AI that last worked it, else the assigned one.
+                const id = workerId ?? rerunWorkerId(agent.run?.worker_id);
+                // An AI that works in Claude Code is not run here: the Element
+                // is handed to it, and it reads the comment when it picks it up.
+                const worker = aiWorkers.find((w) => w.id === id);
+                if (worker && runsInClaudeCode(worker.ai_config)) {
+                  try {
+                    await updateElement(element.id, { labels: handOverLabels(element.labels), status: element.status === 'in_progress' ? 'in_progress' : 'todo' });
+                    onRefresh?.();
+                    return 'handed';
+                  } catch {
+                    return 'failed';
+                  }
+                }
+                return agent.start({ mode: 'reply', prompt, replyTo: commentId, workerId: id, triggeredFrom: 'comment', domainId });
+              }}
+            />
+          </div>
+
+          {/* Bottom spacer */}
+          <div className="h-8" />
+        </DetailPage>
       </div>
 
     </div>

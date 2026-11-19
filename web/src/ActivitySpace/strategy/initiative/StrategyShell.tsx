@@ -19,7 +19,7 @@ import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NavSlidesIcon, NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
-import { PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
 import { ItemIconButton, useItemLook } from '@/Function/shared/itemIcon/IconPicker';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IndexList, IndexRow } from '@/Function/shared/IndexList';
@@ -1007,7 +1007,7 @@ function StrategyDetailView({
     <WidgetActionSlotProvider>
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card h-full">
       {/* The path from the top: the Vision it belongs to, the Portfolios it
-          sits inside, then this one — with its "⋯" and follow check. */}
+          sits inside, then this one — with its "⋯" and follow star. */}
       <IslandHeader crumbs={[
         ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : onBack }] : [{ id: 'portfolio', label: t('Portfolio'), onClick: onBack }]),
         ...parentPath.map((p) => ({ id: p.id, label: p.name, onClick: () => onOpenStrategy(p.id) })),
@@ -1077,11 +1077,9 @@ function StrategyDetailView({
             </div>
           </div>
         ) : (
-        <div className={PAGE_FRAME}>
         <InitiativeBoard surface="campaign" defaults={INITIATIVE_BOARD} subjectId={strategy.id} host={host} zones={BOARD_ZONES}>
-        {/* items-start: the island does not stretch the document column. */}
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
+        {/* The island: the Strategy's properties, and whatever else was placed beside it. */}
+        <DetailPage rail={<WidgetZone zone="rail" />} head={<>
           <EmbedHostContext.Provider value={embeds}>
             <PageHead key={strategy.id}
               icon={<ItemIconButton value={look} onChange={changeLook} canEdit={canEdit} defaultIcon={<NavStrategyIcon size={18} />} />}
@@ -1095,7 +1093,7 @@ function StrategyDetailView({
           </EmbedHostContext.Provider>
           {/* The frame's lines the description does not place stand after it. */}
           <UnplacedFrameLines description={liveDescription} />
-
+        </>} actions={
           <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
             filesOf={{ kind: 'strategy', id: strategy.id }}
             moreItems={<>
@@ -1119,6 +1117,7 @@ function StrategyDetailView({
             moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
               onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
               anchorClassName="absolute top-full left-0 mt-1" />} />
+        }>
           {strategy.note_id && <LinkedNoteEmbed noteId={strategy.note_id} onUnlink={canEdit ? () => void linkNote(null) : undefined} />}
 
 
@@ -1357,14 +1356,8 @@ function StrategyDetailView({
                   workers={workers}
                 />
               </PageSection>
-        </div>
-        {/* The island: the Strategy's properties, and whatever else was placed beside it. */}
-        <aside className="min-w-0">
-          <WidgetZone zone="rail" />
-        </aside>
-        </div>
+        </DetailPage>
         </InitiativeBoard>
-        </div>
         )}
         </InitiativeIntentProvider>
       </div>

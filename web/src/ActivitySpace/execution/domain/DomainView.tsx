@@ -44,6 +44,7 @@ import { ElementDrilldown } from '@/ActivitySpace/execution/element/ElementDrill
 import { ObjectIcon } from '@/Frame/icons';
 import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ActionsButton } from '@/Function/shared/ActionMenus';
+import { SectionMenuItems, useSectionItems } from '@/Function/shared/sectionVisibility';
 import { openDomainSettings } from '@/Function/shared/appNavigation';
 import { useDomains } from '@/hooks/useSupabase';
 import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
@@ -171,6 +172,8 @@ interface DomainViewProps {
 export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, onViewChange, surface }: DomainViewProps) {
   const explorerData = useExplorerData();
   const { t } = useI18n();
+  // The Domain page's sections, listed in its "…" to show one hidden from its own.
+  const domainSectionItems = useSectionItems('domain', [{ id: 'domain-artifacts', label: t('Artifacts') }]);
   const { openCreate } = useWorkspaceActions();
   const userId = useCurrentUserId();
   const domainRole = useDomainRole(activeDomainId ?? null);
@@ -467,12 +470,13 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
               object={selectedObject}
               onRefresh={onRefresh}
               onDeleted={() => onNavigate({ objectId: null })}
+              extra={<SectionMenuItems page="object" sections={[{ id: 'object-artifacts', label: t('Artifacts') }]} />}
             />
           ) : activeDomain && surface !== 'objects' ? (
             <ActionsButton label={t('Domain actions')} items={[{
               key: 'settings', label: t('Settings'), icon: <Settings size={14} />,
               onSelect: () => openDomainSettings(activeDomain.id),
-            }]} />
+            }, ...domainSectionItems]} />
           ) : undefined}
           follow={selectedObject ? { kind: 'object', id: selectedObject.id }
             : activeDomain && surface !== 'objects' ? { kind: 'domain', id: activeDomain.id } : undefined}
@@ -573,7 +577,7 @@ function HierarchyHeader({
   /** The "⋯" right after the last crumb: the Object's, or the Domain's on
    *  its own page. */
   menu?: ReactNode;
-  /** The follow check after it. */
+  /** The follow star after it. */
   follow?: { kind: 'object' | 'domain'; id: string };
   actions?: ReactNode;
 }) {

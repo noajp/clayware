@@ -18,7 +18,7 @@ export function CustomThemeRows({ onTheme }: { onTheme: (theme: string) => void 
   };
   return (
     <>
-      <SettingRow label={t('Accent')} desc={t('Buttons, links, selection and the follow check')}>
+      <SettingRow label={t('Accent')} desc={t('Buttons, links and selection')}>
         <ColorField label={t('Accent')} value={value.accent} onChange={(accent) => change({ accent })} />
       </SettingRow>
       <SettingRow label={t('Background')} desc={t('The backdrop every surface is mixed from')}>

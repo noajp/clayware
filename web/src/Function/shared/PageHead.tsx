@@ -46,17 +46,34 @@ export const PAGE_TITLE = 'text-2xl leading-tight tracking-[-0.012em] text-foreg
 export const PAGE_TITLE_WEIGHT = { fontWeight: 600 } as const;
 
 /**
- * Every concept page's layout: the document on the left (icon, title,
- * description, then what you can do), the concept's facts on the right as
- * islands (Properties, …). Below the `lg` breakpoint the rail drops under the
- * document instead of disappearing, so no field is ever out of reach.
+ * Every concept page's body — Vision, Portfolio, Domain, Object, Element —
+ * one structure, so no page builds its own:
+ *
+ *   head      icon, title, description (PageHead; Element passes its own)
+ *   actions   the quiet row under it: reactions, "…" (PageActionRow)
+ *   children  the page's sections (ConceptSection, PageSection), in order
+ *   rail      the concept's facts on the right (Properties, …)
+ *
+ * Below the `lg` breakpoint the rail drops under the document instead of
+ * disappearing, so no field is ever out of reach. `reader` is Element's
+ * narrow reading width, its rail always under the document.
  */
-export function PageLayout({ rail, children }: { rail?: ReactNode; children: ReactNode }) {
+export function DetailPage({ head, actions, rail, reader = false, children }: {
+  head: ReactNode;
+  actions?: ReactNode;
+  rail?: ReactNode;
+  reader?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <div className={PAGE_BODY}>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-8">{children}</div>
-        {rail && <aside className="w-full shrink-0 space-y-4 lg:w-72">{rail}</aside>}
+    <div className={reader ? 'mx-auto w-full max-w-4xl px-5 py-7' : PAGE_BODY}>
+      <div className={`grid grid-cols-1 items-start gap-8 ${reader || !rail ? '' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
+        <div className="flex min-w-0 flex-col gap-6">
+          {head}
+          {actions}
+          {children}
+        </div>
+        {rail && <aside className="min-w-0 space-y-3">{rail}</aside>}
       </div>
     </div>
   );

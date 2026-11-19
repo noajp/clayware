@@ -35,8 +35,11 @@ export function ObjectActionsMenu({
   object,
   onRefresh,
   onDeleted,
+  extra,
 }: {
   object: ClaywareObjectWithChildren;
+  /** After its own items (its page's sections to show or hide). */
+  extra?: React.ReactNode;
   onRefresh?: () => void | Promise<void>;
   /** Navigate away after the Object is deleted or archived (close detail → Domain view). */
   onDeleted?: () => void;
@@ -181,6 +184,7 @@ export function ObjectActionsMenu({
               : <><Archive size={15} className="text-muted-foreground" /> {t('Archive')}</>}
           </DropdownMenuItem>
         )}
+        {extra}
       </EntityActionsMenu>
       {deletedOpen && (
         <DeletedElementsDialog

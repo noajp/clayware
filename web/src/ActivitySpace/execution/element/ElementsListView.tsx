@@ -1,7 +1,9 @@
 'use client';
 
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { IslandHeader } from '@/Function/shared/MainIsland';
+import { Plus } from '@/ui/icons';
+import { useDomainRole } from '@/hooks/domainData';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
@@ -142,6 +144,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
     return isViewMode(migrated) ? migrated : 'elements';
   });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const { data: domainRole } = useDomainRole(activeDomainId ?? null);
   // Section-aware quick-add: null = Domain-direct, otherwise the target Object.
   const [quickAddTargetObjectId, setQuickAddTargetObjectId] = useState<string | null>(null);
   const [quickAddLabel, setQuickAddLabel] = useState<string | null>(null);
@@ -570,6 +573,8 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
           onViewChange?.('objects');
           onNavigate?.({ objectId: null });
         }}
+        // A Domain viewer reads; the add would only be refused.
+        onAdd={domainRole === 'viewer' ? undefined : openQuickAddDomain}
       />
       )}
 
@@ -705,24 +710,22 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
 }
 
 
-function ElementsHierarchyHeader({
-  domainName,
-  onDomainClick,
-}: {
+/** Domain › Elements, with the add on the right — the shell header every
+ *  page uses. */
+function ElementsHierarchyHeader({ domainName, onDomainClick, onAdd }: {
   domainName: string;
   onDomainClick?: () => void;
+  onAdd?: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
-      <SidebarReveal />
-      <button
-        type="button"
-        onClick={onDomainClick}
-        className="px-1.5 py-0.5 rounded text-[13px] font-medium text-muted-foreground truncate max-w-[220px] transition-colors hover:text-foreground hover:bg-muted/40"
-      >
-        {domainName}
-      </button>
-    </div>
+    <IslandHeader
+      crumbs={[{ id: 'domain', label: domainName, onClick: onDomainClick }, { id: 'elements', label: t('Elements') }]}
+      actions={onAdd && (
+        <Button variant="ghost" size="sm" type="button" className="text-muted-foreground" onClick={onAdd}>
+          <Plus size={14} />{t('Add Element')}
+        </Button>
+      )} />
   );
 }
 

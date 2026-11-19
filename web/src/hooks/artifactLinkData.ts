@@ -4,13 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { latestVersions } from '@/Function/shared/fileVersions';
 
-// Artifacts placed on a Vision or a Portfolio (artifact_links): a file, a
+// Artifacts placed on a Vision, a Portfolio, a Domain, an Object or an Element (artifact_links): a file, a
 // notebook or a slide deck from Artifacts, with who placed it. The artifact
 // stays where it lives; a link whose artifact this person cannot see (or that
 // was removed) is not listed.
 
 export type ArtifactKind = 'file' | 'notebook' | 'deck';
-export type ArtifactSubject = { kind: 'vision' | 'strategy'; id: string };
+export type ArtifactSubject = { kind: 'vision' | 'strategy' | 'domain' | 'object' | 'element'; id: string };
 
 export interface LinkedArtifact {
   linkId: string;
@@ -26,7 +26,7 @@ export interface LinkedArtifact {
 
 export interface ArtifactChoice { kind: ArtifactKind; id: string; name: string; mime: string | null; updatedAt: string }
 
-const SUBJECT_COLUMN = { vision: 'vision_id', strategy: 'strategy_id' } as const;
+const SUBJECT_COLUMN = { vision: 'vision_id', strategy: 'strategy_id', domain: 'domain_id', object: 'object_id', element: 'element_id' } as const;
 const ARTIFACT_COLUMN = { file: 'file_id', notebook: 'note_id', deck: 'deck_id' } as const;
 const key = (s: ArtifactSubject) => ['artifact-links', s.kind, s.id] as const;
 

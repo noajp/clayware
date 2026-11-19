@@ -3,7 +3,7 @@
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FileDown, PanelLeft } from '@/ui/icons';
+import { PanelLeft } from '@/ui/icons';
 import { useDomains, type ElementWithDetails } from '@/hooks/useSupabase';
 import {
   NoteEditor,
@@ -13,9 +13,6 @@ import {
 import type { SaveHow } from '@/Function/notebook/noteContentStore';
 import { BulletExtractDialog } from './BulletExtractDialog';
 import { useI18n, translate } from '@/Function/i18n/I18nProvider';
-import { Button, ButtonAppearanceProvider } from '@/ui/button';
-import { DOCX_MIME, writeDocx } from '@/Function/office/docxWriter';
-import { downloadBytes } from '@/Function/office/downloadFile';
 import { PresenceStack } from '@/Function/shared/PresenceStack';
 import { useNotePresence } from '@/hooks/usePresence';
 
@@ -137,12 +134,6 @@ export function PageView({
         )}
         <div className="absolute right-2 top-2 flex items-center gap-2">
           <PresenceStack viewers={viewers} />
-          <ButtonAppearanceProvider appearance="navigation">
-            <Button variant="ghost" size="icon-sm" title={t('Export to Word')} aria-label={t('Export to Word')}
-              onClick={() => { const name = draftTitle.trim() || title || t('Untitled'); void writeDocx(content, name).then((bytes) => downloadBytes(bytes, `${name}.docx`, DOCX_MIME)); }}>
-              <FileDown size={16} />
-            </Button>
-          </ButtonAppearanceProvider>
         </div>
       </div>
       <div className="flex-1 overflow-auto">
