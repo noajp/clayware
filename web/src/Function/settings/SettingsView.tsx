@@ -9,6 +9,8 @@ import { CHART_PALETTES } from '@/Function/shared/chartPalette';
 import { TypeSettings } from './TypeSettings';
 import { StatusSettings } from './StatusSettings';
 import { getCachedChartPalette, setCachedChartPalette, usePreference } from './preferencesStore';
+import { applyCustomTheme, readCustomTheme } from './customTheme';
+import { CustomThemeRows } from './CustomThemeRows';
 import { OPTIONS as THEME_OPTIONS, FONT_SIZES, FONT_SIZE_KEY, DEFAULT_FONT_KEY, applyFontSize } from './appearanceOptions';
 import { TeamSettings } from './TeamSettings';
 import { ActivitySpaceSettings } from './ActivitySpaceSettings';
@@ -152,10 +154,13 @@ function PreferencesPanel() {
     } catch { /* ignore */ }
   }, []);
 
-  const themeLabel = mounted ? (THEME_OPTIONS.find((o) => o.value === theme)?.label ?? 'System') : 'System';
+  const isCustom = theme === 'custom-dark' || theme === 'custom-light';
+  const themeLabel = !mounted ? 'System' : isCustom ? 'Custom'
+    : (THEME_OPTIONS.find((o) => o.value === theme)?.label ?? 'System');
   const setThemeByLabel = (label: string) => {
     const v = THEME_OPTIONS.find((o) => o.label === label)?.value;
-    if (v) setTheme(v);
+    if (v === 'custom') setTheme(applyCustomTheme(readCustomTheme()));
+    else if (v) setTheme(v);
   };
   const chartPalette = usePreference(getCachedChartPalette);
   const fontLabel = FONT_SIZES.find((f) => f.key === fontKey)?.label ?? 'Default';
@@ -216,6 +221,7 @@ function PreferencesPanel() {
           options={THEME_OPTIONS.map((o) => o.label)}
           onChange={setThemeByLabel}
         />
+        {mounted && isCustom && <CustomThemeRows onTheme={setTheme} />}
         <SelectRow
           label={t('Font size')}
           desc={t('Adjust the size of text across the app')}

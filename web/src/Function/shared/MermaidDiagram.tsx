@@ -15,7 +15,7 @@ let loading: Promise<Mermaid> | null = null;
 const load = () => (loading ??= import('mermaid').then((m) => m.default));
 
 /** Whether the app is in a dark theme (globals.css: the `dark` variant). */
-const isDark = () => typeof document !== 'undefined' && !!document.querySelector('.dark, .theme-midnight, .theme-carbon, .theme-graphite');
+const isDark = () => typeof document !== 'undefined' && !!document.querySelector('.dark, .theme-black, .theme-custom-dark');
 
 /** A token's colour as opaque rgb, any alpha laid over the card it sits on
  *  (Mermaid mixes colours itself and reads neither variables nor alpha). */

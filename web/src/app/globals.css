@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *, .theme-midnight *, .theme-carbon *, .theme-graphite *));
+@custom-variant dark (&:is(.dark *, .theme-black *, .theme-custom-dark *));
 
 /* =============================================
    Clayware Design System
@@ -254,9 +254,8 @@
 /* Base dark tokens — shared by "Dark" (.dark) and every dark variant. The
    variant blocks further down only override the surface ramp. */
 .dark,
-.theme-midnight,
-.theme-carbon,
-.theme-graphite {
+.theme-black,
+.theme-custom-dark {
   /* ---- Surface — Dark (neutral dark-gray ramp) ---- */
   /* Neutral grays (R≈G≈B) — the previous ramp leaned cool/blue. Backdrop/
      sidebar (--surface-bg) and island (--surface-raised) sit a notch darker;
@@ -348,53 +347,23 @@
 }
 
 /* ============================================
-   Dark theme variants. next-themes sets a single class (e.g. `theme-midnight`);
-   the shared base block above already gives every `.theme-*` the dark tokens,
-   so these blocks — later in source order — only re-tone the surface ramp.
-   Derived tokens (--card, --sidebar, --muted…) reference the surface vars, so
-   they follow automatically; only --sidebar-accent is hard-set and re-tinted.
-   "Dark" itself is the neutral-gray base above (the plain `.dark` class).
+   Flat themes. "Light" (:root) and "Dark" (.dark) are layered: the backdrop
+   sits a notch darker than the islands on it. White and Black are flat: the
+   backdrop is the islands' own surface, and the islands are told apart by
+   their rims alone. Black is in the dark-context selector lists
+   (`@custom-variant dark`, .app-sidebar, popper) and takes every dark token,
+   re-toning only the surface ramp; White re-tones the light ramp over :root.
    ============================================ */
-.theme-midnight {
-  /* Cool — a trace of blue in a near-black, not a navy. Kept low: a strong
-     tint reads dated, and surfaces this close must differ in lightness, not hue. */
-  --surface-bg:      #0e0f12;
-  --surface-raised:  #15161a;
-  --surface-strong:  #24262c;
-  --surface-muted:   #1c1d22;
-  --surface-overlay: #25262c;
-  --surface-rail:    #1f2025;
-  --sidebar-accent:  #212228;
-}
-.theme-carbon {
-  /* Deep near-black neutral (OLED-friendly). */
-  --surface-bg:      #0d0d0d;
-  --surface-raised:  #131313;
+.theme-black {
+  --surface-bg:      #111111;
+  --surface-raised:  #111111;
   --surface-strong:  #1f1f1f;
   --surface-muted:   #1a1a1a;
-  --surface-overlay: #212121;
-  --surface-rail:    #212121;
+  --surface-overlay: #222222;
+  --surface-rail:    #1c1c1c;
   --sidebar-accent:  #1f1f1f;
 }
-.theme-graphite {
-  /* Warm-neutral gray — red channel slightly above blue. */
-  --surface-bg:      #1a1917;
-  --surface-raised:  #1f1d1b;
-  --surface-strong:  #2b2926;
-  --surface-muted:   #282622;
-  --surface-overlay: #2e2c29;
-  --surface-rail:    #282624;
-  --sidebar-accent:  #2b2926;
-}
-
-/* ============================================
-   Light theme variants. Counterparts to the dark set above — they are NOT in
-   the dark-context selector lists (`@custom-variant dark`, .app-sidebar,
-   popper), so they inherit every light-mode rule from :root and only re-tone
-   the surface ramp. "Light" itself is the :root matte-gray base.
-   ============================================ */
-.theme-snow {
-  /* Pure white — flat, bright (Linear's "Pure Light" feel). */
+.theme-white {
   --surface-bg:      #ffffff;
   --surface-muted:   #f3f3f4;
   --surface-raised:  #ffffff;
@@ -402,25 +371,49 @@
   --surface-overlay: #ffffff;
   --surface-rail:    #f7f7f8;
 }
-.theme-ivory {
-  /* Warm cream — red/green channels sit above blue. */
-  --surface-bg:      #f1eee6;
-  --surface-muted:   #f6f3eb;
-  --surface-raised:  #fffdf6;
-  --surface-strong:  #e4e0d3;
-  --surface-overlay: #fffdf6;
-  --surface-rail:    #faf7ef;
-  --border-default:  #d6d1c2;
+
+/* ============================================
+   Custom: a person's own accent and backdrop (Function/settings/customTheme).
+   --custom-bg is the backdrop; every surface, text and border step is mixed
+   from it, the further apart the higher --custom-contrast (0–100). A dark
+   backdrop takes the dark tokens (.theme-custom-dark is in the dark-context
+   lists), a light one the light tokens.
+   ============================================ */
+.theme-custom-dark,
+.theme-custom-light {
+  --accent-default: var(--custom-accent, #3d5fae);
+  --accent-hover:   color-mix(in oklab, var(--accent-default), black 15%);
+  --accent-subtle:  color-mix(in srgb, var(--accent-default) 15%, transparent);
+  --custom-step:    calc(1% + var(--custom-contrast, 30) * 0.1%);
+  --surface-bg:     var(--custom-bg, #101011);
 }
-.theme-mist {
-  /* Cool, blue-tinted off-white. */
-  --surface-bg:      #e9edf3;
-  --surface-muted:   #f0f3f8;
-  --surface-raised:  #fbfcfe;
-  --surface-strong:  #dbe0e9;
-  --surface-overlay: #fbfcfe;
-  --surface-rail:    #f4f6fa;
-  --border-default:  #cbd2de;
+.theme-custom-dark {
+  --surface-raised:  color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 0.6));
+  --surface-muted:   color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 1));
+  --surface-rail:    color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 1.2));
+  --surface-strong:  color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 2.2));
+  --surface-overlay: color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 2.4));
+  --sidebar-accent:  color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 1.6));
+  --text-secondary:  color-mix(in oklab, white calc(78% + var(--custom-contrast, 30) * 0.15%), var(--surface-bg));
+  --text-tertiary:   color-mix(in oklab, white calc(45% + var(--custom-contrast, 30) * 0.3%), var(--surface-bg));
+  --text-disabled:   color-mix(in oklab, white calc(30% + var(--custom-contrast, 30) * 0.2%), var(--surface-bg));
+  --border-subtle:   color-mix(in srgb, white calc(3% + var(--custom-contrast, 30) * 0.06%), transparent);
+  --border-default:  color-mix(in srgb, white calc(6% + var(--custom-contrast, 30) * 0.1%), transparent);
+  --border-strong:   color-mix(in srgb, white calc(10% + var(--custom-contrast, 30) * 0.14%), transparent);
+  --accent-text:     color-mix(in oklab, var(--accent-default), white 40%);
+}
+.theme-custom-light {
+  --surface-raised:  color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 12));
+  --surface-muted:   color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 6));
+  --surface-rail:    color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 9));
+  --surface-strong:  color-mix(in oklab, var(--surface-bg), black calc(var(--custom-step) * 1.5));
+  --surface-overlay: var(--surface-raised);
+  --text-secondary:  color-mix(in oklab, black calc(75% + var(--custom-contrast, 30) * 0.2%), var(--surface-bg));
+  --text-tertiary:   color-mix(in oklab, black calc(48% + var(--custom-contrast, 30) * 0.3%), var(--surface-bg));
+  --text-disabled:   color-mix(in oklab, black calc(28% + var(--custom-contrast, 30) * 0.2%), var(--surface-bg));
+  --border-subtle:   color-mix(in srgb, black calc(4% + var(--custom-contrast, 30) * 0.06%), transparent);
+  --border-default:  color-mix(in srgb, black calc(8% + var(--custom-contrast, 30) * 0.1%), transparent);
+  --border-strong:   color-mix(in srgb, black calc(14% + var(--custom-contrast, 30) * 0.14%), transparent);
 }
 
 /* ============================================
@@ -805,7 +798,7 @@ button, a, input, select, textarea {
   --muted-foreground:     #5A5A5C;               /* inactive gray */
   --sidebar-foreground:   #5A5A5C;
 }
-:is(.dark, .theme-midnight, .theme-carbon, .theme-graphite) .app-sidebar {
+:is(.dark, .theme-black, .theme-custom-dark) .app-sidebar {
   --foreground:           var(--text-primary);   /* pure white: lch(100) */
   --muted-foreground:     #9a9ea6;               /* inactive gray */
   --sidebar-foreground:   #9a9ea6;
@@ -815,7 +808,7 @@ button, a, input, select, textarea {
    text colour instead. The rail, on the sidebar's ground, keeps the raised
    tone; a dark theme's accent reads on both and stays. */
 .island-sidebar { --sidebar-accent: color-mix(in oklab, var(--text-primary) 7%, transparent); }
-:is(.dark, .theme-midnight, .theme-carbon, .theme-graphite) .island-sidebar { --sidebar-accent: inherit; }
+:is(.dark, .theme-black, .theme-custom-dark) .island-sidebar { --sidebar-accent: inherit; }
 
 :root {
   --rail-active: var(--accent-default); /* accent used by Send buttons and similar primary actions */

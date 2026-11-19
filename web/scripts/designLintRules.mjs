@@ -25,6 +25,8 @@ export const COLOR_ALLOWLIST = [
   'src/Function/settings/AppearanceSettings.tsx',
   // Theme-preview swatch data feeding SettingsView.tsx's theme picker.
   'src/Function/settings/appearanceOptions.ts',
+  // The Custom theme's starting accent and backdrop (the Dark theme's).
+  'src/Function/settings/customTheme.ts',
   // Calendar's event-color picker — same shape as labelColor.ts.
   'src/ActivitySpace/calendar/calendarColorPalette.ts',
   // CustomView.tsx's two color schemes (fixed flag-type legend + the draw

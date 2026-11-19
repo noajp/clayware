@@ -13,15 +13,13 @@ export type ThemeOption = {
 };
 
 export const OPTIONS: ThemeOption[] = [
-  { value: 'system',   label: 'System',   split: ['#ECECEE', '#1a1a1a'] },
-  { value: 'light',    label: 'Light',    swatch: { bg: '#ECECEE', island: '#ffffff' } },
-  { value: 'snow',     label: 'Snow',     swatch: { bg: '#ffffff', island: '#f3f3f4' } },
-  { value: 'ivory',    label: 'Ivory',    swatch: { bg: '#f1eee6', island: '#fffdf6' } },
-  { value: 'mist',     label: 'Mist',     swatch: { bg: '#e9edf3', island: '#fbfcfe' } },
-  { value: 'dark',     label: 'Dark',     swatch: { bg: '#1a1a1a', island: '#222222' } },
-  { value: 'midnight', label: 'Midnight', swatch: { bg: '#181a20', island: '#20232c' } },
-  { value: 'carbon',   label: 'Carbon',   swatch: { bg: '#0d0d0d', island: '#1c1c1c' } },
-  { value: 'graphite', label: 'Graphite', swatch: { bg: '#1a1917', island: '#232120' } },
+  { value: 'system', label: 'System', split: ['#ECECEE', '#101011'] },
+  { value: 'white',  label: 'White',  swatch: { bg: '#ffffff', island: '#ffffff' } },
+  { value: 'light',  label: 'Light',  swatch: { bg: '#ECECEE', island: '#ffffff' } },
+  { value: 'dark',   label: 'Dark',   swatch: { bg: '#101011', island: '#161617' } },
+  { value: 'black',  label: 'Black',  swatch: { bg: '#111111', island: '#111111' } },
+  // Your own accent and backdrop; stored as custom-dark or custom-light.
+  { value: 'custom', label: 'Custom' },
 ];
 
 // ---- Font size (text-only UI scale) --------------------------------------
