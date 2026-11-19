@@ -142,6 +142,8 @@ const SURFACE_MESSAGES: Record<string, Row> = {
   'Add Domain or Object': ['Domain か Object を追加', 'Domain 또는 Object 추가', 'Ajouter un Domain ou un Object', 'Añadir un Domain o un Object'],
   'Add Domain': ['Domain を追加', 'Domain 추가', 'Ajouter un Domain', 'Añadir un Domain'],
   'Display': ['表示', '표시', 'Affichage', 'Visualización'],
+  'Hide section': ['セクションを隠す', '섹션 숨기기', 'Masquer la section', 'Ocultar sección'],
+  '{name} actions': ['{name} の操作', '{name} 작업', 'Actions : {name}', 'Acciones de {name}'],
   'Describe this Vision…': ['Vision について…', '이 Vision에 대한 설명…', 'Décrivez cette Vision…', 'Describe esta Vision…'],
   'Describe this Portfolio…': ['Portfolio について…', '이 Portfolio에 대한 설명…', 'Décrivez ce Portfolio…', 'Describe este Portfolio…'],
   'Describe this Domain…': ['Domain について…', '이 Domain에 대한 설명…', 'Décrivez ce Domain…', 'Describe este Domain…'],

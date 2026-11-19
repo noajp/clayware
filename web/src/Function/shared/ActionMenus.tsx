@@ -17,7 +17,7 @@ export interface ActionItem {
   /** Runs after the menu has closed, so an input or picker it opens keeps focus. */
   onSelect: () => void;
   destructive?: boolean;
-  /** A rule above this item. */
+  /** A rule above this item (none above the first). */
   separatorBefore?: boolean;
 }
 
@@ -32,9 +32,9 @@ export function ActionsContextMenu({ items, children }: { items: ActionItem[]; c
       {/* Focus is not handed back to the row on close: an input or picker
           opened from here must keep it. */}
       <ContextMenuContent onCloseAutoFocus={(e) => e.preventDefault()}>
-        {items.map((item) => (
+        {items.map((item, i) => (
           <Fragment key={item.key}>
-            {item.separatorBefore && <ContextMenuSeparator />}
+            {item.separatorBefore && i > 0 && <ContextMenuSeparator />}
             <ContextMenuItem variant={item.destructive ? 'destructive' : 'default'} onSelect={later(item.onSelect)}>
               {item.icon}{item.label}
             </ContextMenuItem>
@@ -58,9 +58,9 @@ export function ActionsButton({ items, label, align = 'start' }: { items: Action
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-[190px]" onCloseAutoFocus={(e) => e.preventDefault()}>
-        {items.map((item) => (
+        {items.map((item, i) => (
           <Fragment key={item.key}>
-            {item.separatorBefore && <DropdownMenuSeparator />}
+            {item.separatorBefore && i > 0 && <DropdownMenuSeparator />}
             <DropdownMenuItem variant={item.destructive ? 'destructive' : 'default'} onSelect={later(item.onSelect)} className="text-[13px]">
               {item.icon}{item.label}
             </DropdownMenuItem>

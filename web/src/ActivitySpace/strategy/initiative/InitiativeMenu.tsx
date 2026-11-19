@@ -74,12 +74,17 @@ export function InitiativeMenu({ initiative, children }: { initiative: Initiativ
 
 /** The "…" for a Strategy — on its row, or beside its name on its page.
  *  `onDelete` replaces the plain confirm (the page asks in its own dialog). */
-export function InitiativeActionsButton({ initiative, onDelete }: { initiative: InitiativeRef; onDelete?: () => void }) {
+export function InitiativeActionsButton({ initiative, onDelete, extraItems = [] }: {
+  initiative: InitiativeRef;
+  onDelete?: () => void;
+  /** After its own actions (its page's sections to show or hide). */
+  extraItems?: ActionItem[];
+}) {
   const { t } = useI18n();
   const { items, picker } = useInitiativeActions(initiative, { onDelete });
   return (
     <>
-      <ActionsButton items={items} label={t('Strategy actions')} />
+      <ActionsButton items={[...items, ...extraItems]} label={t('Strategy actions')} />
       {picker}
     </>
   );

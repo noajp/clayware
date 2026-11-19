@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Plus, SlidersHorizontal } from '@/ui/icons';
+import { EyeOff, MoreHorizontal, Plus, SlidersHorizontal } from '@/ui/icons';
+import { useHiddenSections } from '@/Function/shared/sectionVisibility';
 import { DisclosureTriangle } from '@/Function/shared/DisclosureTriangle';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { FONT } from '@/shared/designTokens';
 import {
-  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
 
 // =============================================================
@@ -14,12 +15,13 @@ import {
 // Artifacts and Portfolios, a Portfolio's Artifacts, Portfolios, Domains &
 // Objects. One shape for all of them:
 //
-//   Title ▶ 3                                  [display] +
+//   Title ▶ 3                              [display] + …
 //   rows…            (empty: the heading alone)
 //
 // The title folds the section. "Display" picks which columns the rows show
 // (kept in this browser per section); "+" adds — directly, or from a menu
-// when there is more than one way.
+// when there is more than one way; "…" hides the section, which the page's
+// own "…" (beside its name) lists to show again (sectionVisibility).
 // =============================================================
 
 export interface SectionColumn { key: string; label: string }
@@ -37,8 +39,11 @@ function readHidden(id: string, fallback: readonly string[]): Set<string> {
 const HEADER_BUTTON = 'inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground';
 
 export function ConceptSection({
-  id, title, count, columns = [], defaultHidden = [], addLabel, onAdd, addMenu, addAnchor, empty, children,
+  page, id, title, count, columns = [], defaultHidden = [], addLabel, onAdd, addMenu, addAnchor, empty, children,
 }: {
+  /** The kind of page it is on ("vision", "portfolio"): hiding a section
+   *  hides it on every page of that kind. */
+  page: string;
   /** Names the section in this browser's display settings. */
   id: string;
   title: string;
@@ -69,6 +74,8 @@ export function ConceptSection({
     return next;
   });
   const canAdd = !!onAdd || !!addMenu;
+  const visibility = useHiddenSections(page);
+  if (visibility.isHidden(id)) return null;
 
   const addTrigger = (button: ReactNode) => addMenu ? (
     <DropdownMenu>
@@ -110,6 +117,18 @@ export function ConceptSection({
               <Plus size={15} />
             </button>,
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" aria-label={t('{name} actions', { name: title })} title={t('More')} className={HEADER_BUTTON}>
+                <MoreHorizontal size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              <DropdownMenuItem onSelect={() => visibility.toggle(id)} className="gap-2.5 text-[13px]">
+                <EyeOff size={14} />{t('Hide section')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       {addAnchor}
