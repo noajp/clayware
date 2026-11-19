@@ -124,6 +124,9 @@
   /* Right-rail islands — a notch off the white island. The tone is all that
      sets them apart (they draw no outline), so it cannot equal the island. */
   --surface-rail:    #F7F7F8;
+  /* A card, a settings group, the Properties rail: the island's own surface,
+     set apart by rim and shadow. A layered dark theme lifts it a step. */
+  --surface-card:    var(--surface-raised);
 
   /* ---- Border — Light ---- */
   --border-subtle:  rgba(20, 22, 26, 0.10);
@@ -267,6 +270,7 @@
   --surface-overlay: #2a2a2c; /* menus and popovers: a light notch above the island, not a dark hole */
   /* Right-rail cards lift a notch off the main island. */
   --surface-rail:    #222224;
+  --surface-card:    var(--surface-rail);
 
   /* ---- Syntax — Dark ---- */
   --syntax-keyword:  #b9a2f5;
@@ -362,6 +366,8 @@
   --surface-overlay: #1c1c1c;
   --surface-rail:    #141414;
   --sidebar-accent:  #1a1a1a;
+  /* Flat, as White is: cards are the island's black, set apart by their rims. */
+  --surface-card:    var(--surface-raised);
 }
 .theme-white {
   --surface-bg:      #ffffff;
