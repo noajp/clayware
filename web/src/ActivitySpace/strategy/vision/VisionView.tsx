@@ -15,7 +15,7 @@ import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IslandHeader } from '@/Function/shared/MainIsland';
-import { PageHead, PageLayout } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead } from '@/Function/shared/PageHead';
 import { ConceptSection } from '@/Function/shared/ConceptSection';
 import { useSectionItems } from '@/Function/shared/sectionVisibility';
 import { ArtifactsSection } from '../ArtifactsSection';
@@ -84,18 +84,20 @@ export function VisionView({ visionId, onOpenPortfolio, onAddPortfolio }: {
         menu={<ActionsButton items={actions} label={t('Vision actions')} />}
         follow={{ kind: 'vision', id: vision.id }} />
       <div className="flex-1 overflow-auto">
-        <PageLayout>
+        <DetailPage head={
           <PageHead key={vision.id} icon={<ItemIcon icon={vision.icon} fallback={<NavStrategyModeIcon size={20} />} />} title={vision.name} description={vision.description ?? ''} canEdit={canEdit}
             titleLabel={t('Vision name')} titlePlaceholder={t('Vision name')}
             descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Vision…')}
             onSaveTitle={(name) => { if (name.trim() && name !== vision.name) void save({ name: name.trim() }); }}
             onSaveDescription={(description) => void save({ description: description || null })} />
+        } actions={
           <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)} filesOf={null}
             moreItems={
               <DropdownMenuItem onSelect={() => { requestNewDeck(vision.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
                 <NavSlidesIcon size={15} />{t('Slide')}
               </DropdownMenuItem>
             } />
+        }>
           <ArtifactsSection subject={{ kind: 'vision', id: vision.id }} canAdd={canWork} />
           <ConceptSection page="vision" id="vision-portfolios" title={t('Portfolios')} count={portfolios.length}
             columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
@@ -106,7 +108,7 @@ export function VisionView({ visionId, onOpenPortfolio, onAddPortfolio }: {
                 onOpen={() => onOpenPortfolio(s.id, vision.id)} />
             ))}
           </ConceptSection>
-        </PageLayout>
+        </DetailPage>
       </div>
     </div>
   );

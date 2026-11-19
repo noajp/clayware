@@ -23,7 +23,8 @@ import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEm
 import { MilestoneList } from '@/Function/widget/widgets/MilestonesWidget';
 import { ObjectCommentsPanel } from '../ObjectCommentsPanel';
 import { ObjectIcon } from '@/Frame/icons';
-import { PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead, PageSection } from '@/Function/shared/PageHead';
+import { ArtifactsSection } from '@/ActivitySpace/strategy/ArtifactsSection';
 import { ItemIconButton, useItemLook } from '@/Function/shared/itemIcon/IconPicker';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import {
@@ -129,23 +130,15 @@ export function OverviewView({
 
   return (
     <div className="h-full overflow-y-auto bg-card">
-      <div className={PAGE_FRAME}>
-        <WidgetSurface board={board} host={host} zones={SURFACE_ZONES}>
-          {/* items-start: don't let the (often taller) rail stretch the main
-              column. A stretched block column was the layout that made the
-              title/description textareas mis-measure and balloon. */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-start">
-            {/* ───────────── Main column ───────────── */}
-            {/* pl-6: indent the editorial content off the left rail so it
-                reads as a document rather than flush against the sidebar. */}
-            <div className="space-y-6 min-w-0">
+      <WidgetSurface board={board} host={host} zones={SURFACE_ZONES}>
+        <DetailPage rail={<WidgetZone zone="rail" />} head={
               <PageHead key={object.id}
                 icon={<ItemIconButton value={look} onChange={changeLook} defaultIcon={<ObjectIcon size={18} />} />}
                 title={object.name} description={object.description ?? ''} canEdit
                 titleLabel={t('Object name')} titlePlaceholder={t('Object name')}
                 descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Object…')}
                 onSaveTitle={handleTitleSave} onSaveDescription={handleDescriptionSave} />
-
+        } actions={
               <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
                 filesOf={{ kind: 'object', id: object.id }}
                 moreItems={<>
@@ -161,7 +154,8 @@ export function OverviewView({
                 moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
                   onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
                   anchorClassName="absolute top-full left-0 mt-1" />} />
-
+        }>
+          <ArtifactsSection subject={{ kind: 'object', id: object.id }} canAdd />
               {/* The Note pinned to this Object, shown in place. */}
               {object.note_id && <LinkedNoteEmbed noteId={object.note_id} onUnlink={() => void linkNote(null)} />}
 
@@ -180,15 +174,8 @@ export function OverviewView({
               <PageSection title={t('Updates')}>
                 <ObjectCommentsPanel objectId={object.id} objectName={object.name} workers={workers} />
               </PageSection>
-            </div>
-
-            {/* ───────────── Side column ───────────── */}
-            <aside className="min-w-0 space-y-3">
-              <WidgetZone zone="rail" />
-            </aside>
-          </div>
-        </WidgetSurface>
-      </div>
+        </DetailPage>
+      </WidgetSurface>
     </div>
   );
 }

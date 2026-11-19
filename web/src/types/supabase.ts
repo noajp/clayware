@@ -1092,9 +1092,12 @@ export type Database = {
           added_by: string | null
           created_at: string
           deck_id: string | null
+          domain_id: string | null
+          element_id: string | null
           file_id: string | null
           id: string
           note_id: string | null
+          object_id: string | null
           strategy_id: string | null
           vision_id: string | null
         }
@@ -1102,9 +1105,12 @@ export type Database = {
           added_by?: string | null
           created_at?: string
           deck_id?: string | null
+          domain_id?: string | null
+          element_id?: string | null
           file_id?: string | null
           id?: string
           note_id?: string | null
+          object_id?: string | null
           strategy_id?: string | null
           vision_id?: string | null
         }
@@ -1112,9 +1118,12 @@ export type Database = {
           added_by?: string | null
           created_at?: string
           deck_id?: string | null
+          domain_id?: string | null
+          element_id?: string | null
           file_id?: string | null
           id?: string
           note_id?: string | null
+          object_id?: string | null
           strategy_id?: string | null
           vision_id?: string | null
         }

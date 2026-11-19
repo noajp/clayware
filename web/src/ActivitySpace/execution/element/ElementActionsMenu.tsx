@@ -39,8 +39,11 @@ export function ElementActionsMenu({
   onAddDependency,
   onOpenApproval,
   onDelegateToAi,
+  extra,
 }: {
   element: ElementWithDetails;
+  /** After its own items (its page's sections to show or hide). */
+  extra?: React.ReactNode;
   onRefresh?: () => void | Promise<void>;
   /** Navigate away after the Element is deleted (usually onBack). */
   onDeleted?: () => void;
@@ -150,6 +153,7 @@ export function ElementActionsMenu({
           <Bot size={15} className="text-muted-foreground" /> {t('Delegate to AI…')}
         </DropdownMenuItem>
       )}
+      {extra}
     </EntityActionsMenu>
   );
 }

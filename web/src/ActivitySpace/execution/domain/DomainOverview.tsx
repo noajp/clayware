@@ -16,7 +16,8 @@ import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { Button } from '@/ui/button';
-import { PageHead, PageLayout } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead } from '@/Function/shared/PageHead';
+import { ArtifactsSection } from '@/ActivitySpace/strategy/ArtifactsSection';
 import { RailCard } from '@/Function/shared/RailCard';
 import { RailRow } from '@/Function/shared/RailRow';
 import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
@@ -72,7 +73,7 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
     {viewOnly && <div className="flex justify-end px-4 pt-2"><ViewOnlyBadge /></div>}
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <PageLayout rail={
+      <DetailPage rail={
         <RailCard title={t('Properties')}>
           <RailRow icon={domain.privacy === 'private' ? <Lock className="size-3.5 text-muted-foreground" /> : <Users className="size-3.5 text-muted-foreground" />}
             name={t('Access')} label={domain.privacy === 'private' ? t('Private') : 'Space'} dense />
@@ -100,7 +101,7 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
             <RailRow icon={<ElementIcon size={14} />} name="Elements" label={String(elements.length)} dense />
           </button>
         </RailCard>
-      }>
+      } head={<>
         {query.isError && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm"><p>{t('Unable to refresh this Domain. Showing the last loaded data; drafts are retained.')}</p><Button variant="ghost" onClick={() => void query.refetch()}>{t('Retry')}</Button></div>}
         {/* The spine — icon, title, description — is what Element detail opens
             with; the Domain's own readings and relationships sit below it, its
@@ -112,6 +113,7 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
           emptyDescription={t('No description yet.')}
           onSaveTitle={async (name) => { await updateDomain(domain.id, { name }); await query.refetch(); }}
           onSaveDescription={async (description) => { await updateDomain(domain.id, { description: description || null }); await query.refetch(); }} />
+      </>} actions={
         <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
           filesOf={filesRoot.data ? { kind: 'folder', id: filesRoot.data } : null}
           moreItems={<>
@@ -124,10 +126,12 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
               <NavSlidesIcon size={15} />{t('Slide')}
             </DropdownMenuItem>
           </>} />
+      }>
+        <ArtifactsSection subject={{ kind: 'domain', id: domain.id }} canAdd={canAttach} />
         <WidgetSurface key={`board-${domain.id}`} board={board} host={host} zones={['main']}>
           <WidgetZone zone="main" columns={1} />
         </WidgetSurface>
-      </PageLayout>
+      </DetailPage>
     </div>
   </div>;
 }
