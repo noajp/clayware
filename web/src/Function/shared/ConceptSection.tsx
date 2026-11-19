@@ -15,7 +15,7 @@ import {
 // Objects. One shape for all of them:
 //
 //   Title ▶ 3                                  [display] +
-//   rows…            (or, empty: a highlighted "+ Add …" to press)
+//   rows…            (empty: the heading alone)
 //
 // The title folds the section. "Display" picks which columns the rows show
 // (kept in this browser per section); "+" adds — directly, or from a menu
@@ -46,7 +46,7 @@ export function ConceptSection({
   /** The columns "Display" can show or hide. */
   columns?: SectionColumn[];
   defaultHidden?: string[];
-  /** What adding does, in words ("Add Artifact"); the empty state's label. */
+  /** What adding does, in words ("Add Artifact"): the "+" button's name. */
   addLabel: string;
   /** "+" adds at once. */
   onAdd?: () => void;
@@ -54,7 +54,7 @@ export function ConceptSection({
   addMenu?: ReactNode;
   /** Anchored under the header (a picker opened from "+"). */
   addAnchor?: ReactNode;
-  /** Nothing is in it yet: the rows give way to the add button. */
+  /** Nothing is in it yet: no rows, and no "Display". */
   empty: boolean;
   /** The rows, told which columns to show. */
   children: (shows: (column: string) => boolean) => ReactNode;
@@ -113,18 +113,8 @@ export function ConceptSection({
         </div>
       </div>
       {addAnchor}
-      {open && (empty ? (
-        // While something is being added (a picker under the header), the
-        // empty state's button would only repeat it.
-        canAdd && !addAnchor && addTrigger(
-          <button type="button" onClick={onAdd}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-muted px-3 text-[13px] text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground data-[state=open]:text-foreground">
-            <Plus size={14} />{addLabel}
-          </button>,
-        )
-      ) : (
-        <div className="-mx-2">{children((key) => !hidden.has(key))}</div>
-      ))}
+      {/* Empty, the section is its heading alone: "+" is the way in. */}
+      {open && !empty && <div className="-mx-2">{children((key) => !hidden.has(key))}</div>}
     </section>
   );
 }
