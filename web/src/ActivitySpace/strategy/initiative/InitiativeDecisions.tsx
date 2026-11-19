@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useSupabase';
 import type { Intent, IntentBinding, IntentLineage } from '@/types/database';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { translate, useI18n } from '@/Function/i18n/I18nProvider';
 import { DateField } from '@/Function/shared/date';
 import { MenuShell, MENU_SEPARATOR } from '@/Function/shared/menu';
@@ -377,6 +378,7 @@ export function InitiativeDecisions({
   }
 
   async function remove(id: string) {
+    if (!(await appDialog.confirm(t('Delete this decision? This cannot be undone.')))) return;
     setRemoved((prev) => new Set(prev).add(id));
     setFailure(null);
     try {

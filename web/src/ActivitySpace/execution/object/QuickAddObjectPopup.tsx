@@ -165,7 +165,7 @@ export function QuickAddObjectPopup({
         <div className={QUICK_CREATE.header}>
           <span className={QUICK_CREATE.context}>
             <BoxIcon size={12} />
-            <span className="truncate max-w-[200px]">{contextLabel ?? 'New Object'}</span>
+            <span className="truncate max-w-[200px]">{contextLabel ?? t('New Object')}</span>
           </span>
           <div className="flex-1" />
           <button
@@ -199,6 +199,12 @@ export function QuickAddObjectPopup({
           ref={descRef}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              void handleSubmit();
+            }
+          }}
           placeholder={t('Add description…')}
           aria-label={t('Description')}
           rows={2}
@@ -312,8 +318,11 @@ export function QuickAddObjectPopup({
 
         <div className={QUICK_CREATE.footer}>
           {hint && <span className="mr-auto min-w-0 text-[11px] text-muted-foreground">{hint}</span>}
+          <span className="hidden items-center gap-1 text-[11px] text-muted-foreground/70 sm:inline-flex">
+            <kbd className="kbd-key">⌘↵</kbd>
+          </span>
           <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit}>
-            {t('Create')}
+            {busy ? t('Creating…') : t('Create')}
           </Button>
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { SettingField, SettingRow, SettingsIsland } from './SettingsControls';
+import { InlineInput } from '@/Function/shared/InlineField';
 import { DomainIcon } from '@/Function/shared/conceptIcons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { MyInvitations } from '@/Function/membership/MyInvitations';
@@ -317,11 +318,11 @@ export function ProfileSettings() {
             </div>
             <div className="text-[12px] text-muted-foreground truncate">{user?.email}</div>
             <div className="mt-2 flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Button type="button" variant="secondary" size="xs" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                 {uploading ? t('Uploading…') : t('Upload photo')}
               </Button>
               {avatarUrl && (
-                <Button type="button" variant="ghost" size="sm" onClick={handleRemoveAvatar} disabled={uploading}>
+                <Button type="button" variant="ghost" size="xs" onClick={handleRemoveAvatar} disabled={uploading}>
                   {t('Remove')}
                 </Button>
               )}
@@ -330,13 +331,13 @@ export function ProfileSettings() {
         </div>
 
         <SettingRow label={t('Display name')} desc={t('Used in @-mentions, comments, and assignments.')}>
-          <input
+          <InlineInput
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder={t('Your name')}
             aria-label={t('Display name')}
-            className="w-56 px-3 py-2 bg-background border border-border rounded-md text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:bg-muted/40 transition-colors"
+            className="w-56"
           />
         </SettingRow>
         <SettingField label={t('Bio')} hint={t('A short introduction shown on your Profile page.')}>

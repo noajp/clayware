@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
-import { ChevronLeft } from '@/ui/icons';
+import { ChevronLeft, MoreHorizontal, Trash2 } from '@/ui/icons';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { OptionMenu } from '@/Function/shared/OptionMenu';
 import { Switch } from '@/Function/settings/SettingsControls';
 import { useI18n } from '@/Function/i18n/I18nProvider';
@@ -229,8 +231,27 @@ export function AutomationBuilder({ a, spaceId, harnesses, objects, sources, tok
             <Switch label={t('Enabled')} value={a.enabled} disabled={busy}
               onChange={(v) => void act(() => setAutomationEnabled(a, v))} />
           </span>
-          <Button size="xs" variant="ghost" className="text-[var(--status-danger)]" disabled={busy}
-            onClick={() => void act(async () => { await deleteAutomation(a.id); onDeleted(); })}>{t('Delete')}</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-xs" variant="ghost" disabled={busy} aria-label={t('More options')} title={t('More options')}>
+                <MoreHorizontal size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[160px]">
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  void (async () => {
+                    if (!(await appDialog.confirm(t('Delete the automation "{name}"? This cannot be undone.', { name: a.name })))) return;
+                    await act(async () => { await deleteAutomation(a.id); onDeleted(); });
+                  })();
+                }}
+              >
+                <Trash2 size={13} />
+                {t('Delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </span>
       </div>
       {(error || notice) && (
@@ -591,11 +612,11 @@ function RecentStarts({ automationId, spaceId, onOpenElement }: { automationId: 
               {runWaitingOnApproval(e.run_status) && (e.run_id ? (
                 <button type="button" aria-expanded={openRunId === e.run_id}
                   onClick={() => setOpenRunId((o) => (o === e.run_id ? null : e.run_id))}
-                  className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-[var(--status-warning)] hover:bg-muted/40">
+                  className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-warning)] hover:bg-[var(--surface-strong)]">
                   {t('Waiting for approval')}
                 </button>
               ) : (
-                <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-[var(--status-warning)]">
+                <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-warning)]">
                   {t('Waiting for approval')}
                 </span>
               ))}

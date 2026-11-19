@@ -85,56 +85,59 @@ export function ObjectElementsView({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-card">
-      <div className={elements.length ? "flex-1 min-h-0" : "shrink-0"}>
-      {controls ? (
-        // Domain-shell case: route through the shared <ElementsList /> so
-        // filter / grouping behaviour matches the sidebar Elements view.
-        <ElementsList
-          elements={elements}
-          controls={controls}
-          onSelectObject={onSelectObject}
-          onSelectElement={onSelectElement}
-          onRefresh={onRefresh}
-          colStorageKey={`object:${objectId}`}
-          elementTypes={elementTypes}
-          onAddType={onAddType}
-          onRemoveType={onRemoveType}
-          customColumns={customColumns}
-          onCustomColumnValueChange={onColumnValueChange}
-          onAddColumn={onAddColumn}
-          onEditColumn={onEditColumn}
-          selectedElementIds={selectedElementIds}
-          onElementRowSelect={onElementRowSelect}
-          onElementUpdateOverride={handleElementUpdate}
-          // Every section here belongs to the same Object, but grouping still
-          // splits it into status / assignee / label bands — so the section
-          // decides what the new Element inherits, not where it lands.
-          onAddElement={onAddElement}
-        />
+      {elements.length === 0 ? (
+        <ElementsEmptyState onAdd={onAddEmpty} />
       ) : (
-        // Stand-alone fallback when no controls are wired (legacy embedding
-        // without the Domain shell). Preserves the single-section layout.
-        <ListTable
-          sections={[
-            { id: '_all', name: objectName, objects: [], elements } satisfies ListSection,
-          ]}
-          onSelectObject={onSelectObject}
-          onSelectElement={onSelectElement}
-          hideSectionHeaders
-          colStorageKey={`object:${objectId}`}
-          elementTypes={elementTypes}
-          customColumns={customColumns}
-          onCustomColumnValueChange={onColumnValueChange}
-          onAddColumn={onAddColumn}
-          onEditColumn={onEditColumn}
-          onElementUpdate={handleElementUpdate}
-          selectedElementIds={selectedElementIds}
-          onElementRowSelect={onElementRowSelect}
-          onAddElement={onAddElement}
-        />
+        <div className="flex-1 min-h-0">
+          {controls ? (
+            // Domain-shell case: route through the shared <ElementsList /> so
+            // filter / grouping behaviour matches the sidebar Elements view.
+            <ElementsList
+              elements={elements}
+              controls={controls}
+              onSelectObject={onSelectObject}
+              onSelectElement={onSelectElement}
+              onRefresh={onRefresh}
+              colStorageKey={`object:${objectId}`}
+              elementTypes={elementTypes}
+              onAddType={onAddType}
+              onRemoveType={onRemoveType}
+              customColumns={customColumns}
+              onCustomColumnValueChange={onColumnValueChange}
+              onAddColumn={onAddColumn}
+              onEditColumn={onEditColumn}
+              selectedElementIds={selectedElementIds}
+              onElementRowSelect={onElementRowSelect}
+              onElementUpdateOverride={handleElementUpdate}
+              // Every section here belongs to the same Object, but grouping still
+              // splits it into status / assignee / label bands — so the section
+              // decides what the new Element inherits, not where it lands.
+              onAddElement={onAddElement}
+            />
+          ) : (
+            // Stand-alone fallback when no controls are wired (legacy embedding
+            // without the Domain shell). Preserves the single-section layout.
+            <ListTable
+              sections={[
+                { id: '_all', name: objectName, objects: [], elements } satisfies ListSection,
+              ]}
+              onSelectObject={onSelectObject}
+              onSelectElement={onSelectElement}
+              hideSectionHeaders
+              colStorageKey={`object:${objectId}`}
+              elementTypes={elementTypes}
+              customColumns={customColumns}
+              onCustomColumnValueChange={onColumnValueChange}
+              onAddColumn={onAddColumn}
+              onEditColumn={onEditColumn}
+              onElementUpdate={handleElementUpdate}
+              selectedElementIds={selectedElementIds}
+              onElementRowSelect={onElementRowSelect}
+              onAddElement={onAddElement}
+            />
+          )}
+        </div>
       )}
-      </div>
-      {elements.length === 0 && <ElementsEmptyState onAdd={onAddEmpty} />}
     </div>
   );
 }

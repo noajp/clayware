@@ -50,24 +50,39 @@ export function ObjectBoard({ objects, elements, via, orientation, onOpenObject,
     for (const o of objects) {
       const statuses = byObject.get(o.id) ?? [];
       const done = statuses.filter((s) => s === 'done').length;
+      const total = statuses.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
       const from = via?.get(o.id)?.name;
       out[objectStatusOf(statuses)].push({
         key: o.id,
         node: (
           <button type="button" onClick={() => onOpenObject?.(o.id)}
-            className="block w-full rounded-lg border border-border bg-card px-3.5 py-3.5 text-left shadow-[var(--shadow-card)] transition-colors hover:bg-[linear-gradient(color-mix(in_oklab,var(--foreground)_6%,transparent),color-mix(in_oklab,var(--foreground)_6%,transparent))] dark:bg-[var(--surface-rail)]">
+            className="block w-full rounded-[8px] border border-[var(--border-subtle)] bg-card p-3 text-left shadow-[var(--shadow-card)] transition-colors hover:border-[var(--border-strong)] dark:bg-[var(--surface-rail)]">
             <span className="flex min-w-0 items-center gap-2">
               <ItemIcon icon={o.icon ?? null} color={o.color ?? null} size={14} fallback={<ObjectIcon size={14} />} />
-              <span className="min-w-0 flex-1 truncate text-[14px] leading-[22px] text-foreground">{o.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium leading-[19px] text-foreground">{o.name}</span>
+              {total > 0 && (
+                <span className="shrink-0 text-[11px] font-medium tabular-nums text-muted-foreground">{pct}%</span>
+              )}
             </span>
-            <span className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
+            {total > 0 && (
+              <span className="mt-2 block h-1 w-full overflow-hidden rounded-full bg-[var(--surface-strong)]">
+                <span
+                  className="block h-full rounded-full bg-[var(--accent-default)] transition-[width] duration-200"
+                  style={{ width: `${pct}%` }}
+                />
+              </span>
+            )}
+            <span className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
               {from && (
                 <Chip title={from} className="max-w-full">
                   <NavStrategyIcon size={11} className="shrink-0" />
                   <span className="truncate">{from}</span>
                 </Chip>
               )}
-              <Chip>{statuses.length === 0 ? t('No Elements') : t('{done}/{total} done', { done, total: statuses.length })}</Chip>
+              <span className="text-[11.5px] tabular-nums text-muted-foreground">
+                {total === 0 ? t('No Elements') : t('{done}/{total} done', { done, total })}
+              </span>
             </span>
           </button>
         ),

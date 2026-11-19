@@ -74,30 +74,28 @@ export function EntityActionsMenu({
           type="button"
           aria-label={tr(ariaLabel)}
           title={tr(ariaLabel)}
-          className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+          className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-[5px] text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors"
         >
-          {/* In a 50px header the 24px button lands on a half pixel, so the
-              dots blur and read low beside the title; half a pixel up puts
-              them crisp on the middle of its letters. */}
-          <MoreHorizontal size={14} className="-translate-y-[0.5px]" />
+          {/* Centered cleanly inside the 48px header. */}
+          <MoreHorizontal size={14} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[220px]">
-        <DropdownMenuItem onClick={onDuplicate} className="gap-2.5 py-1.5 text-[13px]">
-          <Copy size={15} className="text-muted-foreground" /> {tr('Duplicate')}
+      <DropdownMenuContent align="start" className="min-w-[208px]">
+        <DropdownMenuItem onClick={onDuplicate} className="gap-2 py-1.5 text-[13px]">
+          <Copy size={14} className="text-muted-foreground" /> {tr('Duplicate')}
         </DropdownMenuItem>
 
         {/* Move — re-parent to a different primary */}
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="gap-2.5 py-1.5 text-[13px]">
-            <ArrowRightLeft size={15} className="text-muted-foreground" /> {tr(moveLabel)}
+          <DropdownMenuSubTrigger className="gap-2 py-1.5 text-[13px]">
+            <ArrowRightLeft size={14} className="text-muted-foreground" /> {tr(moveLabel)}
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-[220px] max-h-[320px] overflow-auto">
+          <DropdownMenuSubContent className="min-w-[208px] max-h-[320px] overflow-auto">
             {moveTargets.length === 0 ? (
               <div className="px-2 py-1.5 text-[12px] text-muted-foreground/70">{tr(targetEmptyLabel)}</div>
             ) : (
               moveTargets.map((t) => (
-                <DropdownMenuItem key={t.id} onClick={() => onMove(t.id)} className="gap-2.5 py-1.5 text-[13px]">
+                <DropdownMenuItem key={t.id} onClick={() => onMove(t.id)} className="gap-2 py-1.5 text-[13px]">
                   <span className="truncate">{t.name}</span>
                 </DropdownMenuItem>
               ))
@@ -107,10 +105,10 @@ export function EntityActionsMenu({
 
         {/* Multi-home — toggle secondary memberships; menu stays open */}
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="gap-2.5 py-1.5 text-[13px]">
-            <GitBranch size={15} className="text-muted-foreground" /> {tr(multiHomeLabel)}
+          <DropdownMenuSubTrigger className="gap-2 py-1.5 text-[13px]">
+            <GitBranch size={14} className="text-muted-foreground" /> {tr(multiHomeLabel)}
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-[220px] max-h-[320px] overflow-auto">
+          <DropdownMenuSubContent className="min-w-[208px] max-h-[320px] overflow-auto">
             {targets.length === 0 ? (
               <div className="px-2 py-1.5 text-[12px] text-muted-foreground/70">{tr(targetEmptyLabel)}</div>
             ) : (

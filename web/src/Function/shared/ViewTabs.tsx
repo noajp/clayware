@@ -8,7 +8,7 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 // reordering, adding or closing.
 
 export function ViewTabs<T extends string>({ tabs, active, onSelect, label, actions }: {
-  tabs: readonly { id: T; label: string }[];
+  tabs: readonly { id: T; label: string; icon?: React.ComponentType<{ size?: number }> }[];
   active: T;
   onSelect: (id: T) => void;
   /** What the tabs choose between, for assistive tech. */
@@ -18,13 +18,18 @@ export function ViewTabs<T extends string>({ tabs, active, onSelect, label, acti
 }) {
   const { t } = useI18n();
   return (
-    <div role="tablist" aria-label={label} className="flex shrink-0 items-center gap-1.5 bg-transparent py-2 pl-[19px] pr-4">
-      {tabs.map((v) => (
-        <Button key={v.id} type="button" shape="tab" role="tab" aria-selected={active === v.id}
-          variant={active === v.id ? 'secondary' : 'ghost'} onClick={() => onSelect(v.id)}>
-          {t(v.label)}
-        </Button>
-      ))}
+    <div role="tablist" aria-label={label} className="flex shrink-0 items-center gap-1 border-b border-[var(--gloss-rim)] bg-transparent py-1.5 pl-6 pr-4">
+      {tabs.map((v) => {
+        const Icon = v.icon;
+        const isActive = active === v.id;
+        return (
+          <Button key={v.id} type="button" shape="tab" role="tab" aria-selected={isActive}
+            variant={isActive ? 'secondary' : 'ghost'} onClick={() => onSelect(v.id)}>
+            {Icon && <span className={isActive ? 'text-foreground' : 'text-muted-foreground'}><Icon size={13} /></span>}
+            {t(v.label)}
+          </Button>
+        );
+      })}
       {actions && <div className="ml-auto flex items-center">{actions}</div>}
     </div>
   );

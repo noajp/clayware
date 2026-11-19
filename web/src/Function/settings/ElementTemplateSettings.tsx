@@ -21,6 +21,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/ui/dialog';
 import { MenuShell } from '@/Function/shared/menu';
+import { InlineField, InlineInput, InlineSelect, InlineTextarea } from '@/Function/shared/InlineField';
+import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { SettingRow, SettingsIsland } from './SettingsControls';
 import { useI18n, translate } from '@/Function/i18n/I18nProvider';
 
@@ -37,7 +39,12 @@ function messageOf(e: unknown): string {
 
 export function ElementTemplateSettings() {
   const { t } = useI18n();
-  const { data: domains, loading } = useDomains();
+  const spaceId = useActiveSpaceId();
+  const { data: allDomains, loading } = useDomains();
+  const domains = useMemo(
+    () => allDomains.filter((d) => !spaceId || d.activity_space_id === spaceId),
+    [allDomains, spaceId],
+  );
   useLabelColors();
   // The Template dialog's Labels field reads the same in-memory catalogue
   // ElementDetailView hydrates lazily per-Domain as Elements/Objects are
@@ -240,51 +247,47 @@ function TemplateDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <Field label={t('Name')}>
-            <input
+          <InlineField label={t('Name')}>
+            <InlineInput
               autoFocus
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder={t('e.g. Bug report')}
-              className="w-full text-[13px] bg-muted/40 rounded-md px-2.5 py-1.5 border border-border/60 outline-none focus:bg-muted/70"
             />
-          </Field>
+          </InlineField>
 
           <div className="grid grid-cols-3 gap-2">
-            <Field label={t('Type')}>
-              <select
+            <InlineField label={t('Type')}>
+              <InlineSelect
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                className="w-full text-[13px] bg-muted/40 rounded-md px-2 py-1.5 border border-border/60 outline-none focus:bg-muted/70"
               >
                 <option value="">—</option>
                 {(domain.element_types ?? []).map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
-            </Field>
-            <Field label={t('Status')}>
-              <select
+              </InlineSelect>
+            </InlineField>
+            <InlineField label={t('Status')}>
+              <InlineSelect
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ElementStatus | '' }))}
-                className="w-full text-[13px] bg-muted/40 rounded-md px-2 py-1.5 border border-border/60 outline-none focus:bg-muted/70"
               >
                 <option value="">—</option>
                 {STATUS_ORDER.map((s) => <option key={s} value={s}>{t(statusLabel(s))}</option>)}
-              </select>
-            </Field>
-            <Field label={t('Priority')}>
-              <select
+              </InlineSelect>
+            </InlineField>
+            <InlineField label={t('Priority')}>
+              <InlineSelect
                 value={form.priority}
                 onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as ElementPriority | '' }))}
-                className="w-full text-[13px] bg-muted/40 rounded-md px-2 py-1.5 border border-border/60 outline-none focus:bg-muted/70"
               >
                 <option value="">—</option>
                 {PRIORITY_OPTIONS.map((p) => <option key={p.value} value={p.value}>{t(p.label)}</option>)}
-              </select>
-            </Field>
+              </InlineSelect>
+            </InlineField>
           </div>
 
           {labelOptions.length > 0 && (
-            <Field label={t('Labels')}>
+            <InlineField label={t('Labels')}>
               <div className="flex flex-wrap gap-1.5">
                 {labelOptions.map((name) => {
                   const on = form.labels.has(name);
@@ -293,8 +296,8 @@ function TemplateDialog({
                       key={name}
                       type="button"
                       onClick={() => toggleLabel(name)}
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] transition-colors ${
-                        on ? 'bg-[var(--accent-subtle)] text-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground'
+                      className={`inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-[12px] transition-colors ${
+                        on ? 'bg-[var(--accent-subtle)] text-foreground' : 'bg-[var(--surface-muted)] text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <Tag aria-hidden size={10} className="shrink-0" style={{ color: labelColor(name, domain.id) }} />
@@ -303,32 +306,31 @@ function TemplateDialog({
                   );
                 })}
               </div>
-            </Field>
+            </InlineField>
           )}
 
-          <Field label={t('Description')}>
-            <textarea
+          <InlineField label={t('Description')}>
+            <InlineTextarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={3}
               placeholder={t('Prefilled into the Element on create')}
-              className="w-full text-[13px] bg-muted/40 rounded-md px-2.5 py-1.5 border border-border/60 outline-none focus:bg-muted/70 resize-none"
             />
-          </Field>
+          </InlineField>
 
-          <Field label={t('Estimated hours')} hint={t('Applied to the Element directly after creation')}>
-            <input
+          <InlineField label={t('Estimated hours')} hint={t('Applied to the Element directly after creation')}>
+            <InlineInput
               type="number"
               inputMode="decimal"
               min={0}
               value={form.estimatedHours}
               onChange={(e) => setForm((f) => ({ ...f, estimatedHours: e.target.value }))}
               placeholder="—"
-              className="w-24 text-[13px] bg-muted/40 rounded-md px-2.5 py-1.5 border border-border/60 outline-none focus:bg-muted/70"
+              className="w-24"
             />
-          </Field>
+          </InlineField>
 
-          {error && <div className="text-[12px] text-destructive">{error}</div>}
+          {error && <div className="text-[12px] text-[var(--status-danger)]">{error}</div>}
         </div>
 
         <DialogFooter>
@@ -339,15 +341,5 @@ function TemplateDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <label className="text-[12px] font-medium text-foreground">{label}</label>
-      {children}
-      {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
-    </div>
   );
 }

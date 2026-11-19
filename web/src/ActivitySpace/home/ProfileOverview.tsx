@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { Button } from '@/ui/button';
 import { fetchMyElements } from '@/hooks/myElementsData';
 import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
 import { ActionIcon } from '@/Function/shared/elementAction';
@@ -76,11 +77,19 @@ export function ProfileOverview({ userId, onNavigate, onViewChange }: {
   };
 
   if (!userId || mine.isPending) return <p role="status" className="px-2 text-[13px] text-muted-foreground">{t('Loading…')}</p>;
+  if (mine.isError) {
+    return (
+      <div role="alert" className="flex items-center gap-2 px-2 text-[13px] text-[var(--status-danger)]">
+        <span>{t('Unable to load your overview.')}</span>
+        <Button size="xs" variant="secondary" onClick={() => void mine.refetch()}>{t('Retry')}</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       <Section title={t('Summary')}>
-        <p className="px-2 text-[13px] leading-6 text-foreground/90">
+        <p className="px-2 text-[13px] leading-6 tabular-nums text-foreground/90">
           {t('{open} open Elements · {overdue} overdue · {week} due this week · {turn} waiting on your judgment', {
             open: view.open.length, overdue: view.overdue.length, week: view.thisWeek.length, turn: view.yourTurn.length,
           })}

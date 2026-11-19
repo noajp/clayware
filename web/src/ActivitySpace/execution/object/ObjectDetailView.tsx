@@ -694,7 +694,7 @@ export function ObjectDetailView({ object, onNavigate, onRefresh, tabTypeOverrid
           >
             <button
               type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-destructive hover:bg-accent cursor-pointer"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-left text-destructive hover:bg-[var(--surface-strong)] cursor-pointer"
               onClick={() => { setDeleteTarget({ id: breadcrumbCtx.id, name: breadcrumbCtx.name }); setBreadcrumbCtx(null); }}
             >
               <Trash2 size={12} />

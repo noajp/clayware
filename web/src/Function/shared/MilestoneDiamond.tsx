@@ -30,35 +30,45 @@ export function MilestoneDiamond({ left, top, label, date, onClick, className }:
   const title = onClick ? t('{label} (click to delete)', { label: base }) : base;
   const diamond = (
     <div
+      className="flex items-center justify-center rounded-[2px] shadow-[var(--shadow-card)] transition-transform group-hover/ms:scale-110"
       style={{
-        width: 11,
-        height: 11,
+        width: 12,
+        height: 12,
         transform: 'rotate(45deg)',
-        border: '2px solid var(--status-danger)',
+        border: '2px solid var(--accent-default)',
         background: 'var(--card)',
       }}
-    />
+    >
+      <span className="size-1 rounded-full bg-[var(--accent-default)]" />
+    </div>
   );
   return (
     <div
-      className={cn('absolute', className)}
-      style={{ left, top, transform: 'translateX(-50%)' }}
+      className={cn('group/ms absolute flex items-center gap-1.5', className)}
+      style={{ left, top, transform: 'translateX(-6px)' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {onClick ? (
-        <button type="button" onClick={onClick} title={title} aria-label={t('Milestone')} className="block cursor-pointer">
+        <button type="button" onClick={onClick} title={title} aria-label={t('Milestone')} className="block shrink-0 cursor-pointer">
           {diamond}
         </button>
       ) : (
-        <div role="img" title={title} aria-label={t('Milestone')}>
+        <div role="img" title={title} aria-label={t('Milestone')} className="shrink-0">
           {diamond}
         </div>
       )}
-      {hovered && label && (
-        <div className="absolute left-1/2 -translate-x-1/2 -top-5 px-1.5 py-0.5 text-[10px] text-foreground bg-popover border border-border rounded shadow whitespace-nowrap z-30">
+      {label && (
+        <span
+          className={cn(
+            'pointer-events-none whitespace-nowrap rounded-[5px] border px-1.5 py-0.5 text-[10.5px] font-medium leading-none shadow-[var(--shadow-card)] transition-colors',
+            hovered
+              ? 'border-[var(--accent-default)] bg-popover text-foreground z-30'
+              : 'border-[var(--border-default)] bg-card text-foreground/90',
+          )}
+        >
           {label}
-        </div>
+        </span>
       )}
     </div>
   );

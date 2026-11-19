@@ -142,7 +142,7 @@ interface ElementDetailViewProps {
 
 /** Dependencies can be followed from every detail host, including Inbox and Calendar. */
 /** A chip under the title, in the Label chips' form (listTable LabelChip). */
-const TITLE_CHIP = 'inline-flex h-[22px] items-center gap-1.5 rounded-full border border-[var(--border-default)] px-2 text-[12px] text-[var(--text-secondary)] transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-muted/50';
+const TITLE_CHIP = 'inline-flex h-6 items-center gap-1.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/70 px-2 text-[12px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)] hover:text-foreground data-[state=open]:bg-[var(--surface-strong)]';
 
 export function ElementDetailView(props: ElementDetailViewProps) {
   const userId = useCurrentUserId();
@@ -691,25 +691,25 @@ function ElementDetailBody({
       {/* Breadcrumb — data hierarchy only: Domain > Object > Element. */}
       {/* pl-6 + the crumb's px-1.5: the path starts 30px in, as on every
           island, and the page below starts under it. */}
-      <div className="h-[50px] flex items-center gap-1 pl-6 pr-2 border-b border-border/60 bg-card flex-shrink-0">
+      <div className="gloss-bar flex h-12 flex-shrink-0 items-center gap-1 bg-card pl-6 pr-3">
         <SidebarReveal />
         <div className="flex items-center gap-1 min-w-0 text-[13px] font-medium">
           {rootSegment}
-          <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
+          <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
           {objectPath?.map((seg) => (
             <span key={seg.id} className="flex items-center gap-1 min-w-0">
               <button
                 type="button"
                 onClick={() => onNavigateObject?.(seg.id)}
                 disabled={!onNavigateObject}
-                className="px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[160px] transition-colors enabled:hover:text-foreground enabled:hover:bg-muted/40 disabled:cursor-default"
+                className="px-1.5 py-0.5 rounded-[5px] text-muted-foreground truncate max-w-[160px] transition-colors enabled:hover:text-foreground enabled:hover:bg-[var(--surface-strong)] disabled:cursor-default"
               >
                 {seg.name}
               </button>
-              <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
+              <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
             </span>
           ))}
-          <span className="text-foreground truncate max-w-[240px]">{element.title}</span>
+          <span className="font-semibold text-foreground truncate max-w-[240px]">{element.title}</span>
           {/* ⋯ actions for the lowest breadcrumb item (this Element):
               duplicate / move / multi-home / delete. */}
           <span className="inline-flex">
@@ -744,8 +744,8 @@ function ElementDetailBody({
 
       {/* Scrollable body — Linear-style two-column layout */}
       <div className="flex-1 overflow-auto">
-        <div className={layout === 'reader' ? "mx-auto w-full max-w-4xl px-5 py-7 flex flex-col gap-8" : `${PAGE_FRAME} flex gap-8`}>
-          <div className="flex-1 min-w-0 flex flex-col gap-8">
+        <div className={layout === 'reader' ? "mx-auto w-full max-w-4xl px-6 py-5 flex flex-col gap-5" : `${PAGE_FRAME} flex gap-8`}>
+          <div className={layout === 'reader' ? "flex-1 min-w-0 flex flex-col gap-5" : "flex-1 min-w-0 flex flex-col gap-8"}>
 
           {/* Title & description. An Element's page opens on its title: no icon above it. */}
           <div>
@@ -779,17 +779,72 @@ function ElementDetailBody({
               />
             </div>
             <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
-            {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
-              {/* Status and Priority as chips, in the Label chips' own form. */}
+            {layout === 'reader' && <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              {/* High-density inline metadata bar: Status · Priority · Assignee · Due date · Object */}
               <StatusPicker element={element} onChanged={handleStatusChange} trigger={
-                <button type="button" className={TITLE_CHIP}><ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={11} />{t(currentStatus.label)}</button>
+                <button type="button" className={TITLE_CHIP}><ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={12} />{t(currentStatus.label)}</button>
               } />
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.8]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.85]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {priorityOptions.map(opt => <DropdownMenuItem key={opt.priority} onClick={() => handlePriorityChange(opt.priority)} className="gap-2"><PriorityMark priority={opt.priority} />{t(opt.label)}</DropdownMenuItem>)}
                 </DropdownMenuContent>
               </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className={TITLE_CHIP}>
+                    {element.assignees?.length
+                      ? <><WorkerAvatarStack workers={element.assignees.map(a => a.worker)} size={14} /><span className="max-w-[120px] truncate">{element.assignees.map(a => a.worker?.name || '?').join(', ')}</span></>
+                      : <><User className="size-3 text-muted-foreground" /><span>{t('Assign')}</span></>}
+                  </button>
+                </DropdownMenuTrigger>
+                <AssigneeMenuContent
+                  align="start"
+                  className="w-48"
+                  assignees={element.assignees}
+                  workers={allWorkers}
+                  element={element}
+                  onAdd={handleAddAssignee}
+                  onRemove={handleRemoveAssignee}
+                />
+              </DropdownMenu>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button type="button" className={TITLE_CHIP}>
+                    <Calendar className="size-3 text-muted-foreground" />
+                    <span className="tabular-nums">
+                      {element.start_date || element.due_date
+                        ? `${formatElementDate(element.start_date) ?? '—'} → ${formatElementDate(element.due_date) ?? '—'}`
+                        : t('Date')}
+                    </span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-auto p-0">
+                  <DateCalendar
+                    mode="range"
+                    numberOfMonths={1}
+                    captionLayout="dropdown"
+                    startMonth={new Date(2020, 0)}
+                    endMonth={new Date(2035, 11)}
+                    defaultMonth={parseDateOnly(element.start_date) ?? parseDateOnly(element.due_date)}
+                    selected={{
+                      from: parseDateOnly(element.start_date),
+                      to: parseDateOnly(element.due_date),
+                    }}
+                    onSelect={(range: DateRange | undefined) => {
+                      handleDateChange('start_date', range?.from ? toDateOnlyString(range.from) : '');
+                      handleDateChange('due_date', range?.to ? toDateOnlyString(range.to) : '');
+                    }}
+                    weekStartsOn={weekStartsOn}
+                  />
+                </PopoverContent>
+              </Popover>
+              {element.labels && element.labels.length > 0 && element.labels.slice(0, 3).map(l => (
+                <span key={l} className="inline-flex h-6 items-center gap-1.5 rounded-[6px] bg-[var(--surface-muted)] px-2 text-[11.5px] text-[var(--text-secondary)]">
+                  <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: labelColor(l) }} />
+                  <span className="max-w-[100px] truncate">{l}</span>
+                </span>
+              ))}
             </div>}
             {/* Read and edited in one place: the Markdown is shown formatted and
                 typed into as it is shown, so a click never swaps it for its

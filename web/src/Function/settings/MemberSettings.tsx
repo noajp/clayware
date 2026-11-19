@@ -7,10 +7,11 @@ import { Loader2 } from '@/ui/icons';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useActivitySpaces, fetchSpaceGuests, type SpaceGuestRow } from '@/hooks/useSupabase';
-import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
+import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { Button } from '@/ui/button';
-import { SettingsIsland } from './SettingsControls';
+import { SelectControl, SettingsIsland } from './SettingsControls';
+import { setActiveSettingsSection } from './settingsNav';
 import { useScopeInvitations, useWhenInvitationsSettle } from '@/Function/membership/invitations';
 import { PendingInviteRows } from '@/Function/membership/PendingInviteRows';
 import { membershipErrorMessage } from '@/Function/membership/membershipErrors';
@@ -45,7 +46,7 @@ export function MemberSettings() {
   const { user } = useAuthContext();
   const { t } = useI18n();
   const { data: spaces } = useActivitySpaces();
-  const [activeId] = useState(() => getActiveSpaceId() ?? '');
+  const activeId = useActiveSpaceId() ?? '';
   const active = spaces.find((s) => s.id === activeId) ?? spaces[0];
 
   const [members, setMembers] = useState<SpaceMemberRow[]>([]);
@@ -226,22 +227,19 @@ export function MemberSettings() {
                     <div className="text-[11px] text-muted-foreground">{t(ROLE_LABEL[m.role] ?? m.role)}</div>
                   </div>
                   {isOwner && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      disabled={isPending || isLastOwner}
-                      title={isLastOwner ? t('A Space needs at least one owner') : undefined}
-                      onClick={() => handleRoleChange(m, m.role === 'owner' ? 'member' : 'owner')}
-                    >
-                      {isPending ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : m.role === 'owner' ? (
-                        t('Make member')
-                      ) : (
-                        t('Make owner')
-                      )}
-                    </Button>
+                    isPending ? (
+                      <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <SelectControl
+                        value={ROLE_LABEL[m.role] ?? m.role}
+                        options={['Space owner', 'Member']}
+                        disabled={isLastOwner}
+                        onChange={(label) => {
+                          const nextRole: SpaceRole = label === 'Space owner' ? 'owner' : 'member';
+                          if (nextRole !== m.role) void handleRoleChange(m, nextRole);
+                        }}
+                      />
+                    )
                   )}
                 </div>
                 {rowErrors[m.user_id] && (
@@ -252,6 +250,14 @@ export function MemberSettings() {
           })
         )}
         <PendingInviteRows invitees={invitees} canCancel={(i) => isOwner || i.invitedBy === user?.id} onChanged={() => void refetchInvitees()} />
+        <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
+          <Button type="button" variant="secondary" size="xs" onClick={() => setActiveSettingsSection('workspace')}>
+            {t('Manage Space invites')}
+          </Button>
+          <Button type="button" variant="ghost" size="xs" onClick={() => setActiveSettingsSection('domain')}>
+            {t('Manage Domain members')}
+          </Button>
+        </div>
         </div>
       </SettingsIsland>
 

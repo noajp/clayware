@@ -129,7 +129,7 @@ export function ConnectWorkerAccountDialog({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors shrink-0"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] rounded transition-colors shrink-0"
             aria-label={t('Close')}
           >
             <X size={14} />

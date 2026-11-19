@@ -453,7 +453,7 @@ export function ElementCommentsPanel({ elementId, workers, onCountChange, focusC
                 onMouseEnter={() => setMentionIndex(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => insertMention(c)}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] text-left ${i === mentionIndex ? 'bg-accent' : 'hover:bg-accent'}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] text-left ${i === mentionIndex ? 'bg-[var(--surface-strong)]' : 'hover:bg-[var(--surface-strong)]'}`}
               >
                 {c.worker ? <WorkerAvatar worker={c.worker} size={24} className="shrink-0" /> : (
                   <div className="w-6 h-6 rounded-full bg-primary/10 text-[11px] font-medium text-primary flex items-center justify-center shrink-0">

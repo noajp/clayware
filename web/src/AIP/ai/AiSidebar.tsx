@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, Folder as FolderIcon, FolderInput, FolderPlus, Pencil, Pin, Plus, Search, SquarePen, Trash2 } from '@/ui/icons';
+import { ChevronRight, Folder as FolderIcon, FolderInput, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Search, SquarePen, Trash2 } from '@/ui/icons';
+import { Button } from '@/ui/button';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { SidebarRow } from '@/Function/shared/SidebarRow';
@@ -13,6 +14,10 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent,
   ContextMenuSubTrigger, ContextMenuTrigger,
 } from '@/ui/context-menu';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent,
+  DropdownMenuSubTrigger, DropdownMenuTrigger,
+} from '@/ui/dropdown-menu';
 
 const PINNED = 'pinned';
 const RECENT = 'recent';
@@ -81,7 +86,44 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
         {/* No icon: every row here is a conversation, and a mark that is the
             same on all of them says nothing. The name starts the row; one
             inside a folder starts a step right of the folder's own name. */}
-        <SidebarRow active={session.id === sessionId} size={nested ? 'sm' : 'md'} className={nested ? 'pl-11' : undefined}>
+        <SidebarRow
+          active={session.id === sessionId}
+          size={nested ? 'sm' : 'md'}
+          className={nested ? 'pl-11' : undefined}
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={t('More options')}
+                  className="flex size-5 items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-opacity hover:bg-[var(--surface-strong)] hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                >
+                  <MoreHorizontal size={13} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[180px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+                <DropdownMenuItem onSelect={() => pins.toggle(session.id)}><Pin /> {t(pins.isPinned(session.id) ? 'Unpin' : 'Pin')}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => startRename(session.id)}><Pencil /> {t('Rename')}</DropdownMenuItem>
+                {folders.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger><FolderInput /> {t('Move to')}</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-[160px]">
+                      {folders.filter((f) => f.id !== session.folder_id).map((f) => (
+                        <DropdownMenuItem key={f.id} onSelect={() => void library.moveSession(session.id, f.id)}><FolderIcon /> {f.name}</DropdownMenuItem>
+                      ))}
+                      {session.folder_id && (
+                        <DropdownMenuItem onSelect={() => void library.moveSession(session.id, null)}>{t('No folder')}</DropdownMenuItem>
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => void deleteSession(session)}><Trash2 /> {t('Delete conversation')}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        >
           {nameOrInput(session.id, session.title || t('Untitled'), (v) => void library.renameSession(session.id, v), () => open(session.id))}
         </SidebarRow>
       </ContextMenuTrigger>
@@ -118,14 +160,31 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
 
   return (
     <Panel label={t('Agent')}>
-      <PanelHeader title={t('Agent')} />
+      <PanelHeader
+        title={t('Agent')}
+        count={sessions.length || undefined}
+        actions={
+          <>
+            <Button variant={searching ? 'secondary' : 'ghost'} size="icon-xs" aria-pressed={searching} onClick={() => { setSearching((v) => !v); setQuery(''); }} title={t('Search')} aria-label={t('Search')}>
+              <Search size={13} />
+            </Button>
+            <Button variant="ghost" size="icon-xs" onClick={() => void addFolder()} title={t('New folder')} aria-label={t('New folder')}>
+              <FolderPlus size={13} />
+            </Button>
+            <Button variant="ghost" size="icon-xs" onClick={() => startChat()} title={t('New chat')} aria-label={t('New chat')}>
+              <SquarePen size={13} />
+            </Button>
+          </>
+        }
+      />
       <PanelBody>
-      <div className="flex flex-col">
-        <SidebarRow icon={<Plus size={15} />} label={t('New')} onClick={() => startChat()} />
-        <SidebarRow icon={<Search size={15} />} label={t('Search')} active={searching} onClick={() => { setSearching((v) => !v); setQuery(''); }} />
-        <SidebarRow icon={<FolderPlus size={15} />} label={t('Folder')} onClick={() => void addFolder()} />
+      <div className="mb-2">
+        <Button variant="secondary" size="sm" onClick={() => startChat()} className="w-full justify-start gap-2">
+          <Plus size={14} />
+          <span>{t('New conversation')}</span>
+        </Button>
       </div>
-      {searching && <div className="mt-1.5"><PanelSearch value={query} onChange={setQuery} placeholder={t('Search conversations')} /></div>}
+      {searching && <div className="mb-1.5"><PanelSearch value={query} onChange={setQuery} placeholder={t('Search conversations')} /></div>}
 
       {/* Pinned exists once something is pinned: an empty group is a heading
           about nothing. Pinning itself is on every conversation's menu. */}
@@ -148,7 +207,27 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
                 <ContextMenuTrigger asChild>
                   <SidebarRow
                     icon={<ChevronRight size={13} className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />}
-                    meta={inside.length || undefined}>
+                    meta={inside.length || undefined}
+                    actions={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={t('More options')}
+                            className="flex size-5 items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-opacity hover:bg-[var(--surface-strong)] hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                          >
+                            <MoreHorizontal size={13} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[180px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+                          <DropdownMenuItem onSelect={() => startChat(folder.id)}><SquarePen /> {t('New chat')}</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => startRename(folder.id)}><Pencil /> {t('Rename')}</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" onSelect={() => void deleteFolder(folder.id, folder.name, inside.length)}><Trash2 /> {t('Delete folder')}</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }>
                     {nameOrInput(folder.id, folder.name, (v) => void library.renameFolder(folder.id, v), () => toggle(folder.id))}
                   </SidebarRow>
                 </ContextMenuTrigger>
@@ -165,9 +244,14 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
         })}
       </div>
 
-      <PanelGroup title={t('Recent')} open={q ? true : !closed.has(RECENT)} onToggle={() => toggle(RECENT)}>
-        {recent.map((s) => sessionRow(s, false))}
-      </PanelGroup>
+      {recent.length > 0 && (
+        <PanelGroup title={t('Recent')} open={q ? true : !closed.has(RECENT)} onToggle={() => toggle(RECENT)}>
+          {recent.map((s) => sessionRow(s, false))}
+        </PanelGroup>
+      )}
+      {q && shown.length === 0 && (
+        <p className="px-2.5 py-6 text-center text-[12px] text-muted-foreground">{t('No results.')}</p>
+      )}
       {library.error && <p role="alert" className="px-2.5 pt-2 text-[12px] text-[var(--status-danger)]">{library.error}</p>}
       </PanelBody>
     </Panel>

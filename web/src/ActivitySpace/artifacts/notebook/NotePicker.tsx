@@ -135,7 +135,7 @@ export function NotePicker({
         type="button"
         onClick={handleCreate}
         disabled={creating}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-foreground hover:bg-accent disabled:opacity-50 transition-colors border-b border-border/40"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-foreground hover:bg-[var(--surface-strong)] disabled:opacity-50 transition-colors border-b border-border/40"
       >
         <Plus size={13} className="text-muted-foreground" />
         <span className="font-medium">
@@ -159,7 +159,7 @@ export function NotePicker({
               key={note.id}
               type="button"
               onClick={() => onPick(note.id, { isNew: false, name: note.name })}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-foreground hover:bg-accent transition-colors text-left"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-foreground hover:bg-[var(--surface-strong)] transition-colors text-left"
             >
               <FileText size={13} className="text-muted-foreground shrink-0" />
               <span className="truncate flex-1 min-w-0">{note.name || t('Untitled')}</span>

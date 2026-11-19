@@ -4,13 +4,13 @@ import { useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from '@/ui/icons';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
+import { InlineField, InlineInput, InlineSelect, InlineTextarea } from '@/Function/shared/InlineField';
 import type { CustomColumnWithValues } from '@/hooks/useSupabase';
 import type { CustomColumnType, SelectOption } from '@/types/database';
 import { COLUMN_TYPES } from './columnTypes';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { CHOICE_TYPES, FIELD_COLORS, formatFieldNumber, optionLabel, validateField, type FieldDraft } from './fieldModel';
 
-const INPUT = 'border-none w-full rounded-md bg-muted px-3 py-2 text-sm focus:bg-accent';
 const SUPPORTED: CustomColumnType[] = ['text', 'select', 'multi_select', 'status', 'number', 'date', 'person', 'checkbox', 'url', 'email', 'phone'];
 const COLOR_NAMES = ['Gray', 'Accent', 'Green', 'Amber', 'Red'];
 const FORMAT_LABELS: Record<string, string> = { number: 'Number', currency: 'Currency', percent: 'Percent', custom: 'Custom' };
@@ -58,38 +58,51 @@ export function ObjectFieldDialog({ column, onClose, onSave, onDelete, onDuplica
           <DialogDescription>{deleting ? t('This deletes the field and its saved values. Hide the column instead to keep its data.') : t('Custom fields belong to this Object. Tags stay with the Element across views.')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); if (!deleting) save(); }}>
-          <fieldset disabled={busy} className="space-y-4 max-h-[60vh] overflow-y-auto px-1 pb-4">
-            {deleting ? <label className="block space-y-2 text-sm">{t('Type “{name}” to confirm', { name: column?.name ?? '' })}<input autoFocus aria-label={t('Confirm field name')} className={INPUT} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} /></label> : <>
-              <label className="block space-y-2 text-sm">{t('Field name')}<input autoFocus aria-label={t('Field name')} className={INPUT} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t('e.g. Approval stage')} /></label>
-              <label className="block space-y-2 text-sm">{t('Description')}<textarea aria-label={t('Field description')} className={INPUT} rows={2} value={draft.options.description ?? ''} onChange={(e) => patchOptions({ description: e.target.value })} placeholder={t('Explain what this field tracks')} /></label>
-              <label className="block space-y-2 text-sm">{t('Field type')}<select aria-label={t('Field type')} className={INPUT} disabled={!!column} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CustomColumnType })}>
-                {COLUMN_TYPES.filter((type) => SUPPORTED.includes(type.type) || type.type === draft.type).map((type) => <option key={type.type} value={type.type}>{t(type.label)}</option>)}
-              </select></label>
-              {column && <p className="text-xs text-muted-foreground">{t('The type is fixed to preserve existing values.')}</p>}
+          <fieldset disabled={busy} className="space-y-3.5 max-h-[60vh] overflow-y-auto px-0.5 pb-4">
+            {deleting ? (
+              <InlineField label={t('Type “{name}” to confirm', { name: column?.name ?? '' })}>
+                <InlineInput autoFocus aria-label={t('Confirm field name')} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
+              </InlineField>
+            ) : <>
+              <InlineField label={t('Field name')}>
+                <InlineInput autoFocus aria-label={t('Field name')} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t('e.g. Approval stage')} />
+              </InlineField>
+              <InlineField label={t('Description')}>
+                <InlineTextarea aria-label={t('Field description')} rows={2} value={draft.options.description ?? ''} onChange={(e) => patchOptions({ description: e.target.value })} placeholder={t('Explain what this field tracks')} />
+              </InlineField>
+              <InlineField label={t('Field type')} hint={column ? t('The type is fixed to preserve existing values.') : undefined}>
+                <InlineSelect aria-label={t('Field type')} disabled={!!column} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CustomColumnType })}>
+                  {COLUMN_TYPES.filter((type) => SUPPORTED.includes(type.type) || type.type === draft.type).map((type) => <option key={type.type} value={type.type}>{t(type.label)}</option>)}
+                </InlineSelect>
+              </InlineField>
               {CHOICE_TYPES.includes(draft.type) && <div className="space-y-2">
-                <p className="text-sm font-medium">{t('Options')}</p>
-                {choices.map((choice, index) => <div key={choice.value} className="flex items-center gap-1">
-                  <select aria-label={t('Color for option {n}', { n: index + 1 })} className="w-8 h-8 rounded-md bg-muted" style={{ color: choice.color }} value={choice.color ?? FIELD_COLORS[0]} onChange={(e) => updateChoice(index, { color: e.target.value })}>
+                <p className="text-[12px] font-medium text-[var(--text-tertiary)]">{t('Options')}</p>
+                {choices.map((choice, index) => <div key={choice.value} className="flex items-center gap-1.5">
+                  <select aria-label={t('Color for option {n}', { n: index + 1 })} className="h-8 w-8 shrink-0 rounded-[var(--control-field-radius)] bg-[var(--surface-muted)] border border-[var(--border-subtle)] text-[13px]" style={{ color: choice.color }} value={choice.color ?? FIELD_COLORS[0]} onChange={(e) => updateChoice(index, { color: e.target.value })}>
                     {FIELD_COLORS.map((color, i) => <option key={color} value={color}>{`● ${t(COLOR_NAMES[i])}`}</option>)}
                   </select>
-                  <input aria-label={t('Option {n}', { n: index + 1 })} className={INPUT} value={optionLabel(choice)} onChange={(e) => updateChoice(index, { label: e.target.value })} />
+                  <InlineInput aria-label={t('Option {n}', { n: index + 1 })} value={optionLabel(choice)} onChange={(e) => updateChoice(index, { label: e.target.value })} />
                   <Button type="button" variant="ghost" size="icon-xs" aria-label={t('Move option {n} up', { n: index + 1 })} disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp size={12} /></Button>
                   <Button type="button" variant="ghost" size="icon-xs" aria-label={t('Move option {n} down', { n: index + 1 })} disabled={index === choices.length - 1} onClick={() => move(index, 1)}><ArrowDown size={12} /></Button>
                   <Button type="button" variant="ghost" size="xs" onClick={() => updateChoice(index, { archived: !choice.archived })}>{choice.archived ? t('Restore') : t('Retire')}</Button>
                 </div>)}
                 <Button type="button" variant="secondary" size="sm" onClick={() => patchOptions({ options: [...choices, { value: crypto.randomUUID(), label: '', color: FIELD_COLORS[0] }] })}><Plus size={14} />{t('Add option')}</Button>
-                <p className="text-xs text-muted-foreground">{t('Retired options remain on existing Elements but cannot be newly selected.')}</p>
+                <p className="text-[11.5px] text-muted-foreground">{t('Retired options remain on existing Elements but cannot be newly selected.')}</p>
               </div>}
               {['number', 'budget'].includes(draft.type) && <div className="space-y-3">
-                <label className="block text-sm space-y-2">{t('Format')}<select aria-label={t('Number format')} className={INPUT} value={draft.options.format ?? 'number'} onChange={(e) => patchOptions({ format: e.target.value })}>{['number', 'currency', 'percent', 'custom'].map((f) => <option key={f} value={f}>{t(FORMAT_LABELS[f])}</option>)}</select></label>
-                <label className="block text-sm space-y-2">{t('Decimal places')}<select aria-label={t('Decimal places')} className={INPUT} value={draft.options.decimals ?? 2} onChange={(e) => patchOptions({ decimals: Number(e.target.value) })}>{[0, 1, 2, 3, 4, 5, 6].map((n) => <option key={n}>{n}</option>)}</select></label>
-                {draft.options.format === 'currency' && <select aria-label={t('Currency')} className={INPUT} value={draft.options.currency ?? 'JPY'} onChange={(e) => patchOptions({ currency: e.target.value })}>{['JPY', 'USD', 'EUR', 'GBP'].map((c) => <option key={c}>{c}</option>)}</select>}
-                {draft.options.format === 'custom' && <input aria-label={t('Unit')} placeholder={t('e.g. hours')} className={INPUT} value={draft.options.unit ?? ''} onChange={(e) => patchOptions({ unit: e.target.value })} />}
-                <p className="text-sm text-muted-foreground">{t('Preview: {value}', { value: formatFieldNumber(1234.567, draft.options) })}</p>
+                <InlineField label={t('Format')}>
+                  <InlineSelect aria-label={t('Number format')} value={draft.options.format ?? 'number'} onChange={(e) => patchOptions({ format: e.target.value })}>{['number', 'currency', 'percent', 'custom'].map((f) => <option key={f} value={f}>{t(FORMAT_LABELS[f])}</option>)}</InlineSelect>
+                </InlineField>
+                <InlineField label={t('Decimal places')}>
+                  <InlineSelect aria-label={t('Decimal places')} value={draft.options.decimals ?? 2} onChange={(e) => patchOptions({ decimals: Number(e.target.value) })}>{[0, 1, 2, 3, 4, 5, 6].map((n) => <option key={n}>{n}</option>)}</InlineSelect>
+                </InlineField>
+                {draft.options.format === 'currency' && <InlineSelect aria-label={t('Currency')} value={draft.options.currency ?? 'JPY'} onChange={(e) => patchOptions({ currency: e.target.value })}>{['JPY', 'USD', 'EUR', 'GBP'].map((c) => <option key={c}>{c}</option>)}</InlineSelect>}
+                {draft.options.format === 'custom' && <InlineInput aria-label={t('Unit')} placeholder={t('e.g. hours')} value={draft.options.unit ?? ''} onChange={(e) => patchOptions({ unit: e.target.value })} />}
+                <p className="text-[12px] tabular-nums text-muted-foreground">{t('Preview: {value}', { value: formatFieldNumber(1234.567, draft.options) })}</p>
               </div>}
             </>}
           </fieldset>
-          {error && <p role="alert" className="text-sm text-destructive pb-4">{error}</p>}
+          {error && <p role="alert" className="text-[12.5px] text-destructive pb-3">{error}</p>}
           <DialogFooter>
             {column && !deleting && <div className="flex flex-1 gap-1"><Button type="button" variant="ghost" size="icon-sm" aria-label={t('Delete field')} disabled={busy} onClick={() => setDeleting(true)}><Trash2 size={14} /></Button><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { if (onDuplicate) void run(onDuplicate); }}>{t('Duplicate')}</Button></div>}
             <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => deleting ? setDeleting(false) : onClose()}>{t('Cancel')}</Button>

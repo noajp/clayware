@@ -7,7 +7,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/ui/dropdown-menu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
+import { SETTINGS_ISLAND } from '@/shared/designTokens';
 
 // The row primitives of a settings panel — the single home every settings
 // surface builds from (settings redesign §4.1): a property island with its
@@ -23,10 +23,10 @@ export function SettingsIsland({
   return (
     <section aria-label={title || undefined}>
       {(title || description) && (
-        <div className="mb-2">
-          {title && <h2 className={`${FONT.lg} text-foreground`}>{title}</h2>}
+        <div className="mb-2.5">
+          {title && <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-foreground">{title}</h2>}
           {description && (
-            <p className="text-[12px] text-muted-foreground mt-0.5">{description}</p>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">{description}</p>
           )}
         </div>
       )}
@@ -42,16 +42,23 @@ export function SettingsIsland({
  *  horizontal padding so hairlines run full-bleed; `flush` drops it for a
  *  row embedded in another padded container (a dialog). */
 export function SettingRow({
-  label, desc, caption, children, flush = false,
+  label, desc, caption, icon, children, flush = false,
 }: {
-  label: string; desc?: string; caption?: string; children: React.ReactNode; flush?: boolean;
+  label: string; desc?: string; caption?: string; icon?: React.ReactNode; children: React.ReactNode; flush?: boolean;
 }) {
   return (
-    <div className={`flex items-center justify-between gap-6 py-3.5 ${flush ? '' : 'px-5'}`}>
-      <div className="min-w-0 max-w-xl">
-        <div className="text-[13px] font-medium text-foreground">{label}</div>
-        {desc && <div className="text-[12px] text-muted-foreground mt-0.5">{desc}</div>}
-        {caption && <div className="text-[11px] text-muted-foreground/80 mt-1">{caption}</div>}
+    <div className={`flex items-center justify-between gap-6 py-3 ${flush ? '' : 'px-5'}`}>
+      <div className="flex min-w-0 max-w-xl items-start gap-2.5">
+        {icon && (
+          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-muted-foreground">
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0">
+          <div className="text-[13px] font-medium text-foreground">{label}</div>
+          {desc && <div className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{desc}</div>}
+          {caption && <div className="mt-1 text-[11px] text-muted-foreground/80">{caption}</div>}
+        </div>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -67,9 +74,9 @@ export function SettingField({
 }: { label: string; hint?: string; children: React.ReactNode; flush?: boolean; htmlFor?: string }) {
   return (
     <div className={flush ? '' : 'px-5 py-3.5'}>
-      <label htmlFor={htmlFor} className="block text-[12px] font-medium text-foreground mb-1.5">{label}</label>
+      <label htmlFor={htmlFor} className="mb-1.5 block text-[12px] font-medium text-[var(--text-tertiary)]">{label}</label>
       {children}
-      {hint && <div className="text-[11px] text-muted-foreground mt-1.5">{hint}</div>}
+      {hint && <div className="mt-1.5 text-[11.5px] text-muted-foreground">{hint}</div>}
     </div>
   );
 }
@@ -87,13 +94,15 @@ export function Switch({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!value)}
-      className={`relative inline-flex h-[18px] w-8 items-center rounded-full transition-colors disabled:opacity-50 disabled:pointer-events-none ${
-        value ? 'bg-primary' : 'bg-muted-foreground/30'
+      className={`relative inline-flex h-[18px] w-8 items-center rounded-full border transition-colors disabled:opacity-50 disabled:pointer-events-none ${
+        value
+          ? 'border-transparent bg-primary'
+          : 'border-[var(--border-default)] bg-[var(--surface-strong)]'
       }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-          value ? 'translate-x-[15px]' : 'translate-x-[3px]'
+        className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
+          value ? 'translate-x-[15px]' : 'translate-x-[2px]'
         }`}
       />
     </button>
@@ -120,7 +129,7 @@ export function SegmentedControl({
     <div
       role="radiogroup"
       aria-label={label}
-      className={`inline-flex items-center gap-0.5 rounded-lg bg-muted/40 p-0.5 ${disabled ? 'opacity-50' : ''}`}
+      className={`inline-flex items-center gap-0.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5 ${disabled ? 'opacity-50' : ''}`}
     >
       {options.map((opt, i) => {
         const selected = opt === value;
@@ -141,9 +150,9 @@ export function SegmentedControl({
               else if (e.key === 'Home') { e.preventDefault(); onChange(options[0]); optionRefs.current[0]?.focus(); }
               else if (e.key === 'End') { e.preventDefault(); onChange(options[options.length - 1]); optionRefs.current[options.length - 1]?.focus(); }
             }}
-            className={`h-6 px-2.5 rounded-md text-[12px] font-medium transition-colors ${
+            className={`h-6 px-2.5 rounded-[4px] text-[12px] font-medium transition-colors ${
               selected
-                ? 'bg-card dark:bg-[var(--surface-rail)] shadow-[var(--shadow-island)] text-foreground'
+                ? 'bg-card dark:bg-[var(--surface-rail)] shadow-[var(--shadow-card)] text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -192,7 +201,7 @@ export function SelectControl({
         <button
           type="button"
           disabled={disabled}
-          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium border border-border/60 bg-muted/40 text-foreground hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2.5 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)]/60 disabled:pointer-events-none disabled:opacity-50"
         >
           {t(value)}
           <ChevronDown size={12} className="opacity-60" />
@@ -200,7 +209,7 @@ export function SelectControl({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[160px]">
         {options.map((opt) => (
-          <DropdownMenuItem key={opt} onSelect={() => onChange(opt)} className="gap-2 text-[12px]">
+          <DropdownMenuItem key={opt} onSelect={() => onChange(opt)} className="gap-2 text-[12.5px]">
             <span className="flex-1">{t(opt)}</span>
             {value === opt && <Check size={12} />}
           </DropdownMenuItem>
@@ -211,13 +220,13 @@ export function SelectControl({
 }
 
 export function ToggleRow({
-  label, desc, caption, value, onChange, disabled = false, flush = false,
+  label, desc, caption, icon, value, onChange, disabled = false, flush = false,
 }: {
-  label: string; desc?: string; caption?: string; value: boolean;
+  label: string; desc?: string; caption?: string; icon?: React.ReactNode; value: boolean;
   onChange: (v: boolean) => void; disabled?: boolean; flush?: boolean;
 }) {
   return (
-    <SettingRow label={label} desc={desc} caption={caption} flush={flush}>
+    <SettingRow label={label} desc={desc} caption={caption} icon={icon} flush={flush}>
       <Switch label={label} value={value} onChange={onChange} disabled={disabled} />
     </SettingRow>
   );

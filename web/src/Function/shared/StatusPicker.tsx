@@ -166,8 +166,8 @@ export function StatusPicker({ element, size = 16, progress: progressOverride, t
                 }
               }}
               className={cn(
-                'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] transition-colors cursor-pointer select-none',
-                isCurrent ? 'bg-accent/60 text-foreground' : 'text-foreground hover:bg-accent/40 focus-visible:bg-accent/40',
+                'w-full flex items-center gap-2 px-2 py-1.5 rounded-[5px] text-[13px] transition-colors cursor-pointer select-none',
+                isCurrent ? 'bg-[var(--surface-strong)] text-foreground font-medium' : 'text-foreground hover:bg-[var(--surface-strong)]/70 focus-visible:bg-[var(--surface-strong)]/70',
               )}
             >
               <span className="flex items-center justify-center w-[18px] h-[18px] shrink-0">

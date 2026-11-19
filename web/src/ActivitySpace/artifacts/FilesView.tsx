@@ -304,10 +304,10 @@ function ArtifactsBrowser({ navigation, onNavigate, onViewChange }: {
                 <FolderRow key={f.id} folder={f} where={whereOf(f.id)} onOpen={() => go({ tab: TAB_OF[f.scope], domainId: f.domain_id, objectId: f.object_id, folderId: f.id })} />
               ))}
               {shownNotebooks.map((n) => (
-                <ItemRow key={n.id} where={whereOf(n.folder_id)} icon={<NavNoteIcon size={15} />} name={n.name} kind={t('Notebook')} updated={n.updated_at} onOpen={() => openNotebook(n.id)} />
+                <ItemRow key={n.id} compact={!!open} where={whereOf(n.folder_id)} icon={<NavNoteIcon size={15} />} name={n.name} kind={t('Notebook')} updated={n.updated_at} onOpen={() => openNotebook(n.id)} />
               ))}
               {shownDecks.map((d) => (
-                <ItemRow key={d.id} where={whereOf(d.artifact_folder_id)} icon={<NavSlidesIcon size={15} />} name={d.name} kind={t('Slide')} updated={d.updated_at} onOpen={() => openSlides(d.id)} />
+                <ItemRow key={d.id} compact={!!open} where={whereOf(d.artifact_folder_id)} icon={<NavSlidesIcon size={15} />} name={d.name} kind={t('Slide')} updated={d.updated_at} onOpen={() => openSlides(d.id)} />
               ))}
               {shownFiles.map((f) => {
                 const owner = ownerOf(f);
@@ -384,21 +384,24 @@ function FolderRow({ folder, where, onOpen }: { folder: Folder; where?: React.Re
           <DropdownMenuItem className="text-[13px]" onSelect={() => void appDialog.prompt(t('Folder name'), folder.name).then((name) => {
             if (name?.trim() && name.trim() !== folder.name) rename.mutate({ id: folder.id, name }, { onError: fail });
           })}>{t('Rename')}</DropdownMenuItem>
-          <DropdownMenuItem className="text-[13px] text-[var(--status-danger)]" onSelect={() => remove.mutate(folder.id, { onError: fail })}>{t('Delete')}</DropdownMenuItem>
+          <DropdownMenuItem className="text-[13px] text-[var(--status-danger)]" onSelect={() => void (async () => {
+            if (!(await appDialog.confirm(t('Delete the folder "{name}"? This cannot be undone.', { name: folder.name })))) return;
+            remove.mutate(folder.id, { onError: fail });
+          })()}>{t('Delete')}</DropdownMenuItem>
         </MenuShell>
       </DropdownMenu>
     </div>
   );
 }
 
-/** Whose a row is (a Domain or an Object): its mark and name in the same
- *  outlined pill as a list's Object and Label chips, opening its page. */
+/** Whose a row is (a Domain or an Object): its mark and name in a clean
+ *  inline chip, opening its page. */
 function WhereCell({ icon, name, onOpen }: { icon: React.ReactNode; name: string; onOpen: () => void }) {
   return (
     // A span, not a button: it sits inside a row that is itself a button.
     <span role="link" tabIndex={0} onClick={(e) => { e.stopPropagation(); onOpen(); }}
       onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onOpen(); } }} title={name}
-      className="inline-flex h-[22px] cursor-pointer min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[var(--border-default)] px-2 text-[12px] font-normal text-[var(--text-secondary)] transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
+      className="inline-flex h-[22px] cursor-pointer min-w-0 max-w-full items-center gap-1.5 rounded-[5px] px-1.5 text-[12px] font-normal text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground">
       <span className="shrink-0">{icon}</span>
       <span className="truncate">{name}</span>
     </span>
@@ -406,7 +409,7 @@ function WhereCell({ icon, name, onOpen }: { icon: React.ReactNode; name: string
 }
 
 /** A notebook or a deck in the list: opens in its editor. */
-function ItemRow({ icon, name, kind, updated, where, onOpen }: { icon: React.ReactNode; name: string; kind: string; updated: string; where?: React.ReactNode; onOpen: () => void }) {
+function ItemRow({ icon, name, kind, updated, where, compact, onOpen }: { icon: React.ReactNode; name: string; kind: string; updated: string; where?: React.ReactNode; compact?: boolean; onOpen: () => void }) {
   return (
     <button type="button" onClick={onOpen} className="flex h-9 w-full items-center gap-3 rounded-md px-[18px] text-left hover:bg-foreground/[0.05]">
       <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -414,8 +417,8 @@ function ItemRow({ icon, name, kind, updated, where, onOpen }: { icon: React.Rea
         <span className="truncate text-[13.5px] text-foreground">{name}</span>
       </span>
       {where !== undefined && <span className="w-40 shrink-0" onClick={(e) => e.stopPropagation()}>{where}</span>}
-      <span className="hidden w-36 shrink-0 truncate text-[12.5px] text-muted-foreground md:block">{kind}</span>
-      <span className="hidden w-24 shrink-0 lg:block" />
+      {!compact && <span className="hidden w-36 shrink-0 truncate text-[12.5px] text-muted-foreground md:block">{kind}</span>}
+      {!compact && <span className="hidden w-24 shrink-0 lg:block" />}
       <span className="w-16 shrink-0 text-right text-[12px] tabular-nums text-muted-foreground">{formatAge(updated, true)}</span>
     </button>
   );

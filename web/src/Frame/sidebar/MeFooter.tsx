@@ -38,19 +38,19 @@ export function MeFooter({ active, onOpen, onOpenView, onSettings }: {
   const me = useMemo(() => ({ name, avatar_url: avatarUrl }), [name, avatarUrl]);
   const online = useSyncExternalStore(subscribe, () => navigator.onLine, () => true);
   return (
-    <div className="mx-1 mb-1.5 flex shrink-0 items-center gap-1">
+    <div className="flex shrink-0 items-center gap-1 border-t border-[var(--border-subtle)] px-2 py-2">
     <Popover open={menuOpen} onOpenChange={setMenuOpen}>
     <PopoverTrigger asChild>
     <button type="button" aria-pressed={active} aria-haspopup="menu" title={t('Profile')}
-      className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors ${active ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'}`}>
+      className={`flex min-w-0 flex-1 items-center gap-2 rounded-[6px] px-1.5 py-1 text-left transition-colors ${active ? 'bg-sidebar-accent shadow-[inset_0_0_0_1px_var(--border-subtle)]' : 'hover:bg-sidebar-accent/60'}`}>
       <span className="relative shrink-0">
-        <WorkerAvatar worker={me} size={26} />
-        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 border-[var(--sidebar)]"
+        <WorkerAvatar worker={me} size={24} />
+        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full border-[1.5px] border-[var(--sidebar)]"
           style={{ background: online ? 'var(--status-success)' : 'var(--text-tertiary)' }} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-foreground">{name ?? t('Profile')}</span>
-        <span className="block text-[11px] text-muted-foreground">{online ? t('Online') : t('Offline')}</span>
+        <span className="block truncate text-[12.5px] font-medium leading-tight text-foreground">{name ?? t('Profile')}</span>
+        <span className="block text-[10.5px] leading-tight text-muted-foreground">{online ? t('Online') : t('Offline')}</span>
       </span>
     </button>
     </PopoverTrigger>
@@ -72,7 +72,7 @@ export function MeFooter({ active, onOpen, onOpenView, onSettings }: {
     </Popover>
     {onSettings && (
       <button type="button" onClick={onSettings} title={t('Settings')} aria-label={t('Settings')}
-        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-foreground">
+        className="flex size-7 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground">
         <Settings size={15} />
       </button>
     )}

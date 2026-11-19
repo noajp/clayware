@@ -13,6 +13,7 @@ import {
 } from '@/hooks/useSupabase';
 import type { IntentBinding, Worker } from '@/types/database';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { translate, useI18n } from '@/Function/i18n/I18nProvider';
 import { STATUS } from '@/shared/designTokens';
 import { MenuShell } from '@/Function/shared/menu';
@@ -202,6 +203,7 @@ export function InitiativeAssumptions({
   }
 
   async function remove(id: string) {
+    if (!(await appDialog.confirm(t('Delete this assumption? This cannot be undone.')))) return;
     setRemoved((prev) => new Set(prev).add(id));
     setFailure(null);
     try {
@@ -283,7 +285,7 @@ export function InitiativeAssumptions({
               setComposing(true);
               setFailure(null);
             }}
-            className="flex items-center justify-center size-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/40 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            className="flex items-center justify-center size-6 rounded-[6px] text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] disabled:opacity-40 disabled:pointer-events-none transition-colors"
           >
             <Plus size={13} />
           </button>

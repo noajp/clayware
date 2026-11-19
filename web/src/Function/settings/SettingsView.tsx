@@ -3,6 +3,7 @@
 import { AutomationSettings } from '@/Function/automation/AutomationSettings';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { Check } from '@/ui/icons';
 import { ProfileSettings } from './ProfileSettings';
 import { AccountSettings } from './AccountSettings';
 import { CHART_PALETTES } from '@/Function/shared/chartPalette';
@@ -78,6 +79,7 @@ export function SettingsView() {
     handledNonce.current = nonce;
     const item = SETTINGS_ITEMS[section];
     if (item?.tabs && revealTab) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reveal tab from settingsNav store
       setAreaTabs((prev) => (prev[section] === revealTab ? prev : { ...prev, [section]: revealTab }));
     }
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -126,7 +128,7 @@ export function SettingsView() {
   const group = SETTINGS_NAV.find((g) => g.items.some((i) => i.id === item.id));
   return (
     <div ref={scrollRef} className="h-full overflow-y-auto bg-background">
-      <div className="max-w-3xl mx-auto px-10 py-10">
+      <div className={`mx-auto px-8 py-8 ${item.id === 'automation' ? 'max-w-6xl' : 'max-w-3xl'}`}>
         <AreaShell key={item.id} item={item} group={group ? t(group.title) : undefined} description={AREA_DESCRIPTIONS[item.id]}>
           {renderArea(item)}
         </AreaShell>
@@ -137,8 +139,7 @@ export function SettingsView() {
 
 // =============================================================
 // Area shell — the page's heading: the nav group it sits in, the
-// area's name and one-line description above its body (Linear's
-// pattern: the heading sits outside the islands).
+// area's icon + name and one-line description above its body.
 // =============================================================
 function AreaShell({
   item, group, description, children,
@@ -147,13 +148,19 @@ function AreaShell({
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
+  const Icon = item.icon;
   return (
     <section data-settings-area={item.id} aria-label={t(item.label)}>
       <div className="mb-6">
-        {group && <div className="text-[12px] text-muted-foreground/80">{group}</div>}
-        <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-foreground">{t(item.label)}</h1>
+        {group && <div className="text-[11.5px] font-medium text-muted-foreground/80">{group}</div>}
+        <div className="mt-1.5 flex items-center gap-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/80 text-foreground/85">
+            <Icon size={16} />
+          </span>
+          <h1 className="text-[20px] font-semibold leading-tight tracking-[-0.015em] text-foreground">{t(item.label)}</h1>
+        </div>
         {description && (
-          <p className="text-[13px] text-muted-foreground mt-1">{t(description)}</p>
+          <p className="mt-2 text-[13px] text-muted-foreground">{t(description)}</p>
         )}
       </div>
       {children}
@@ -238,21 +245,21 @@ function PreferencesPanel() {
     try {
       const saved = window.localStorage.getItem(FONT_SIZE_KEY);
       if (saved && FONT_SIZES.some((f) => f.key === saved)) setFontKey(saved);
-      setPointerCursors(window.localStorage.getItem(POINTER_CURSOR_KEY) === '1');
+      const pointer = window.localStorage.getItem(POINTER_CURSOR_KEY) === '1';
+      setPointerCursors(pointer);
+      document.documentElement.dataset.pointerCursors = pointer ? '1' : '';
     } catch { /* ignore */ }
   }, []);
 
   const setPointerCursorsPersisted = (v: boolean) => {
     setPointerCursors(v);
+    document.documentElement.dataset.pointerCursors = v ? '1' : '';
     try { window.localStorage.setItem(POINTER_CURSOR_KEY, v ? '1' : '0'); } catch { /* ignore */ }
   };
 
-  const themeLabel = mounted ? (THEME_OPTIONS.find((o) => o.value === theme)?.label ?? 'System') : 'System';
-  const setThemeByLabel = (label: string) => {
-    const v = THEME_OPTIONS.find((o) => o.label === label)?.value;
-    if (v) setTheme(v);
-  };
+  const activeThemeValue = mounted ? (theme ?? 'system') : 'system';
   const chartPalette = usePreference(getCachedChartPalette);
+  const activeChartPalette = CHART_PALETTES.find((p) => p.key === chartPalette) ?? CHART_PALETTES[0];
   const fontLabel = FONT_SIZES.find((f) => f.key === fontKey)?.label ?? 'Default';
   const setFontByLabel = (label: string) => {
     const f = FONT_SIZES.find((x) => x.label === label);
@@ -263,7 +270,7 @@ function PreferencesPanel() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {error && (
         <div className="text-[12px] text-destructive px-1">
           {t("Couldn't save: {error}", { error })}
@@ -311,18 +318,57 @@ function PreferencesPanel() {
       </SettingsIsland>
 
       <SettingsIsland title={t('Interface and theme')}>
-        <SelectRow
-          label={t('Theme')}
-          desc={t('Match the system or pick a colour theme')}
-          value={themeLabel}
-          options={THEME_OPTIONS.map((o) => o.label)}
-          onChange={setThemeByLabel}
-        />
-        <SettingRow label={t('App sidebar')} desc={t('Customize sidebar item visibility, ordering, and badge style')}>
-          <button type="button" className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-            {t('Customize')}
-          </button>
-        </SettingRow>
+        {/* Visual Theme Swatch Grid — 1-click surface preview for every theme */}
+        <div className="px-5 py-4">
+          <div className="mb-3">
+            <div className="text-[13px] font-medium text-foreground">{t('Theme')}</div>
+            <div className="mt-0.5 text-[12px] text-muted-foreground">{t('Match the system or pick a colour theme')}</div>
+          </div>
+          <div role="radiogroup" aria-label={t('Theme')} className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {THEME_OPTIONS.map((opt) => {
+              const selected = activeThemeValue === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setTheme(opt.value)}
+                  className={`group flex flex-col items-start gap-1.5 rounded-[7px] border p-1.5 text-left transition-colors ${
+                    selected
+                      ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]/50'
+                      : 'border-[var(--border-subtle)] bg-[var(--surface-muted)]/40 hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)]'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="relative flex h-9 w-full items-end justify-end overflow-hidden rounded-[4px] border border-[var(--border-subtle)] p-1"
+                    style={
+                      opt.split
+                        ? { background: `linear-gradient(135deg, ${opt.split[0]} 50%, ${opt.split[1]} 50%)` }
+                        : { backgroundColor: opt.swatch?.bg }
+                    }
+                  >
+                    {opt.swatch && (
+                      <span
+                        className="h-5 w-3/4 rounded-[3px] border border-black/10"
+                        style={{ backgroundColor: opt.swatch.island }}
+                      />
+                    )}
+                    {selected && (
+                      <span className="absolute right-1 top-1 flex size-3.5 items-center justify-center rounded-full bg-[var(--accent-default)] text-white">
+                        <Check size={9} strokeWidth={3} />
+                      </span>
+                    )}
+                  </span>
+                  <span className={`w-full truncate px-0.5 text-[11.5px] font-medium ${selected ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                    {t(opt.label)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <SelectRow
           label={t('Font size')}
           desc={t('Adjust the size of text across the app')}
@@ -330,13 +376,21 @@ function PreferencesPanel() {
           options={FONT_SIZES.map((f) => f.label)}
           onChange={setFontByLabel}
         />
-        <SelectRow
-          label={t('Chart colors')}
-          desc={t('The colors charts draw in, across the app')}
-          value={(CHART_PALETTES.find((p) => p.key === chartPalette) ?? CHART_PALETTES[0]).label}
-          options={CHART_PALETTES.map((p) => p.label)}
-          onChange={(label) => { const p = CHART_PALETTES.find((x) => x.label === label); if (p) setCachedChartPalette(p.key); }}
-        />
+        <SettingRow label={t('Chart colors')} desc={t('The colors charts draw in, across the app')}>
+          <div className="flex items-center gap-2.5">
+            <span className="hidden items-center gap-1 sm:inline-flex" aria-hidden="true">
+              {activeChartPalette.colors.slice(0, 4).map((c, idx) => (
+                <span key={idx} className="size-2.5 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+              ))}
+            </span>
+            <SegmentedControl
+              label={t('Chart colors')}
+              value={activeChartPalette.label}
+              options={CHART_PALETTES.map((p) => p.label)}
+              onChange={(label) => { const p = CHART_PALETTES.find((x) => x.label === label); if (p) setCachedChartPalette(p.key); }}
+            />
+          </div>
+        </SettingRow>
         <ToggleRow
           label={t('Use pointer cursors')}
           desc={t('Change the cursor to a pointer over interactive elements')}

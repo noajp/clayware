@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Check, CheckCheck, Code, Copy, FileText, Globe, Loader2, Pencil, Plus, RotateCcw, Search, Trash2, Wrench } from '@/ui/icons';
+import { AiGraph, Check, CheckCheck, Code, Copy, FileText, Globe, Loader2, Pencil, Plus, RotateCcw, Search, Trash2, Wrench, X } from '@/ui/icons';
 import { formatAge } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { MarkdownLite } from '@/Function/shared/MarkdownLite';
@@ -54,14 +54,14 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
       <div className="group flex flex-col items-end gap-1 animate-fade-in">
         {message.attachments?.length ? <AttachmentChips files={message.attachments} /> : null}
         {message.content && (
-          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-lg border border-primary/20 bg-primary/15 px-2.5 py-1.5 text-foreground">
+          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3.5 py-2.5 text-[13.5px] leading-[1.55] text-foreground">
             {message.content}
           </div>
         )}
         {/* The latest question keeps its row in view; earlier ones show it on hover. */}
         <div className={`flex items-center gap-0.5 transition-opacity ${onEdit ? '' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
           <CheckCheck size={12} className="text-muted-foreground/70" aria-label={t('Sent')} />
-          {message.at != null && <span className="px-1 text-[11px] text-muted-foreground/70">{formatAge(new Date(message.at), true)}</span>}
+          {message.at != null && <span className="px-1 text-[11px] tabular-nums text-muted-foreground/70">{formatAge(new Date(message.at), true)}</span>}
           {message.content && <CopyButton text={message.content} />}
           {onEdit && <ActionButton label={t('Edit')} onClick={onEdit}><Pencil size={12} /></ActionButton>}
         </div>
@@ -71,12 +71,18 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
   const events = message.toolEvents ?? [];
   const settled = message.done && !streaming;
   return (
-    <div className="group space-y-1.5">
+    <div className="group space-y-2.5">
+      <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground">
+        <span className="flex size-5 items-center justify-center rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-well)] text-[var(--accent-default)]">
+          <AiGraph size={12} />
+        </span>
+        <span>{t('Agent')}</span>
+      </div>
       {events.length > 0 && <ToolSteps events={events} live={streaming} answered={!!message.content} />}
       {message.content
         ? <Answer content={message.content} chartColors={message.chartColors} settled={settled}
             onChartColors={settled ? onChartColors : undefined} />
-        : streaming && events.length === 0 && <Working label="Thinking" />}
+        : streaming && events.length === 0 && <Working label="Thinking" since={message.at} />}
       {message.approvals?.map((a) => (
         <ApprovalCard key={a.inputHash} approval={a} canRemember={canRememberApproval}
           onDecide={onDecideApproval ? (approve, opts) => onDecideApproval(a, approve, opts) : undefined} />
@@ -165,7 +171,7 @@ function ApprovalCard({ approval, onDecide, canRemember }: {
       const key = `${c.display.integration} · ${c.display.operation || t('write')}`;
       groups.set(key, (groups.get(key) ?? 0) + 1);
     }
-    const summary = [...groups.entries()].map(([k, n]) => (n > 1 ? `${k} × ${n}` : k)).join('、');
+    const summary = [...groups.entries()].map(([k, n]) => (n > 1 ? `${k} × ${n}` : k)).join(', ');
     return {
       id: approval.actionId ?? approval.inputHash,
       run_id: approval.runId ?? '',
@@ -255,17 +261,19 @@ function Answer({ content, chartColors, settled, onChartColors }: {
   );
 }
 
-export function AttachmentChips({ files, onRemove }: { files: CopilotAttachment[]; onRemove?: (index: number) => void }) {
+export function AttachmentChips({ files, onRemove, align = 'end' }: { files: CopilotAttachment[]; onRemove?: (index: number) => void; align?: 'start' | 'end' }) {
   const { t } = useI18n();
   return (
-    <div className="flex max-w-full flex-wrap justify-end gap-1">
+    <div className={`flex max-w-full flex-wrap gap-1 ${align === 'start' ? 'justify-start' : 'justify-end'}`}>
       {files.map((f, i) => (
         <span key={`${f.name}-${i}`} className="inline-flex max-w-[220px] items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 py-0.5 pl-1.5 pr-1 text-[11.5px] text-foreground animate-scale-in">
           <FileText size={12} className="shrink-0 text-muted-foreground" />
           <span className="truncate" title={f.name}>{f.name}</span>
           {onRemove && (
             <button type="button" onClick={() => onRemove(i)} aria-label={t('Remove {name}', { name: f.name })}
-              className="shrink-0 rounded px-1 text-muted-foreground hover:bg-muted hover:text-foreground">×</button>
+              className="flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground">
+              <X size={11} />
+            </button>
           )}
         </span>
       ))}

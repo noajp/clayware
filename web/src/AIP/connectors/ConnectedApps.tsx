@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { MoreHorizontal } from '@/ui/icons';
 import { Button } from '@/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { FONT } from '@/shared/designTokens';
@@ -58,14 +60,25 @@ export function ConnectedApps() {
                 </div>
               </div>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="xs"
                 onClick={() => changeAccess(app, app.access === 'read_write' ? 'read' : 'read_write')}
                 disabled={setAccess.isPending}
               >
                 {app.access === 'read_write' ? t('Make read only') : t('Allow writes')}
               </Button>
-              <Button variant="danger" size="xs" onClick={() => confirmDisconnect(app)} disabled={disconnect.isPending}>{t('Disconnect')}</Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-xs" aria-label={t('More options')} disabled={disconnect.isPending}>
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[160px]">
+                  <DropdownMenuItem variant="destructive" onSelect={() => void confirmDisconnect(app)}>
+                    {t('Disconnect')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))}
         </div>

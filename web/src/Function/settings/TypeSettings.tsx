@@ -5,6 +5,7 @@ import { MoreHorizontal, Plus } from '@/ui/icons';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { ItemIconButton } from '@/Function/shared/itemIcon/IconPicker';
 import { typeFallbackIcon, type TypeKind } from '@/Function/shared/elementTypeIcon';
@@ -35,9 +36,15 @@ export function TypeSettings({ kind }: { kind: TypeKind }) {
           ? t('Types say what kind of Object something is. Each Domain keeps its own list, and an icon for each.')
           : t('Types say what kind of Element something is. Each Domain keeps its own list, and an icon for each.')}
       </p>
-      {loading && mine.length === 0
-        ? <div className="text-[13px] text-muted-foreground">{t('Loading…')}</div>
-        : mine.map((domain) => <DomainTypes key={domain.id} domain={domain} kind={kind} />)}
+      {loading && mine.length === 0 ? (
+        <div className="text-[13px] text-muted-foreground">{t('Loading…')}</div>
+      ) : mine.length === 0 ? (
+        <p className="text-[12.5px] text-muted-foreground">
+          {t('No Domains in this Space yet. Types are set per Domain.')}
+        </p>
+      ) : (
+        mine.map((domain) => <DomainTypes key={domain.id} domain={domain} kind={kind} />)
+      )}
     </div>
   );
 }
@@ -58,25 +65,25 @@ function DomainTypes({ domain, kind }: { domain: Domain; kind: TypeKind }) {
     setCreating(false); setDraft('');
     if (name) void run(() => (kind === 'object' ? addDomainObjectType(domain.id, name) : addDomainElementType(domain.id, name)));
   };
-  const ROW = 'flex h-12 items-center gap-3 border-b border-border/50 last:border-b-0';
+  const ROW = 'flex h-10 items-center gap-2.5 border-b border-[var(--border-subtle)] last:border-b-0';
 
   return (
     <SettingsIsland title={domain.name}>
       <div className="px-5 py-1">
         <div className={ROW}>
-          <span className="flex size-8 items-center justify-center rounded-md bg-muted/50 text-muted-foreground">{typeFallbackIcon(kind, 15)}</span>
-          <span className="text-[14px] text-foreground">{kind === 'object' ? 'Object' : 'Element'}</span>
-          <span className="text-[12px] text-muted-foreground">{t('(default)')}</span>
+          <span className="flex size-7 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-muted-foreground">{typeFallbackIcon(kind, 14)}</span>
+          <span className="text-[13px] font-medium text-foreground">{kind === 'object' ? t('Object') : t('Element')}</span>
+          <span className="rounded-[4px] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('(default)')}</span>
         </div>
         {types.map((name) => (
           <div key={name} className={ROW}>
-            <span className="flex size-8 items-center justify-center rounded-md bg-muted/50">
-              <ItemIconButton size={15} label={t('Change icon')}
+            <span className="flex size-7 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]">
+              <ItemIconButton size={14} label={t('Change icon')}
                 value={{ icon: icons[name] ?? null, color: null }}
                 onChange={(next) => void run(() => setDomainTypeIcon(domain.id, kind, name, next.icon))}
-                defaultIcon={typeFallbackIcon(kind, 15)} />
+                defaultIcon={typeFallbackIcon(kind, 14)} />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[14px] text-foreground">{name}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{name}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-xs" aria-label={name}><MoreHorizontal size={14} /></Button>
@@ -84,6 +91,7 @@ function DomainTypes({ domain, kind }: { domain: Domain; kind: TypeKind }) {
               <DropdownMenuContent align="end" className="min-w-[160px]">
                 <DropdownMenuItem className="text-[13px] text-[var(--status-danger)]"
                   onSelect={() => void run(async () => {
+                    if (!(await appDialog.confirm(t('Delete the type "{name}"? Existing items keep their value.', { name })))) return;
                     await (kind === 'object' ? removeDomainObjectType(domain.id, name) : removeDomainElementType(domain.id, name));
                     if (icons[name]) await setDomainTypeIcon(domain.id, kind, name, null);
                   })}>

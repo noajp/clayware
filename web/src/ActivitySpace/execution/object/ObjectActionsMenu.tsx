@@ -4,7 +4,7 @@ import { appDialog } from '@/Function/shared/appDialogStore';
 
 import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, Pencil, Trash2 } from '@/ui/icons';
+import { Archive, ArchiveRestore, History, Pencil } from '@/ui/icons';
 import {
   createObject,
   deleteObject,
@@ -168,17 +168,17 @@ export function ObjectActionsMenu({
         onToggleMultiHome={toggleMultiHome}
         onDelete={del}
       >
-        <DropdownMenuItem onClick={() => setRenameOpen(true)} className="gap-2.5 py-1.5 text-[13px]">
-          <Pencil size={15} className="text-muted-foreground" /> Rename ID prefix
+        <DropdownMenuItem onClick={() => setRenameOpen(true)} className="gap-2 py-1.5 text-[13px]">
+          <Pencil size={14} className="text-muted-foreground" /> {t('Rename ID prefix')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setDeletedOpen(true)} className="gap-2.5 py-1.5 text-[13px]">
-          <Trash2 size={15} className="text-muted-foreground" /> Deleted Elements
+        <DropdownMenuItem onClick={() => setDeletedOpen(true)} className="gap-2 py-1.5 text-[13px]">
+          <History size={14} className="text-muted-foreground" /> {t('Deleted Elements')}
         </DropdownMenuItem>
         {managesObject(object) && (
-          <DropdownMenuItem onClick={() => { void toggleArchive(); }} className="gap-2.5 py-1.5 text-[13px]">
+          <DropdownMenuItem onClick={() => { void toggleArchive(); }} className="gap-2 py-1.5 text-[13px]">
             {archived
-              ? <><ArchiveRestore size={15} className="text-muted-foreground" /> {t('Restore')}</>
-              : <><Archive size={15} className="text-muted-foreground" /> {t('Archive')}</>}
+              ? <><ArchiveRestore size={14} className="text-muted-foreground" /> {t('Restore')}</>
+              : <><Archive size={14} className="text-muted-foreground" /> {t('Archive')}</>}
           </DropdownMenuItem>
         )}
       </EntityActionsMenu>

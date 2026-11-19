@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/ui/button';
+import { InlineField, InlineInput } from '@/Function/shared/InlineField';
 
 import { useState } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -79,48 +80,45 @@ export function AuthPage() {
             {t(mode === 'signin' ? 'Sign in to your Activity Space' : 'Get started with Alcon')}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === 'signup' && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">{t('Name')}</label>
-                <input
+              <InlineField label={t('Name')}>
+                <InlineInput
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t('Your name')}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                  className="h-9"
                 />
-              </div>
+              </InlineField>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">{t('Email')}</label>
-              <input
+            <InlineField label={t('Email')}>
+              <InlineInput
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                className="h-9"
               />
-            </div>
+            </InlineField>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">{t('Password')}</label>
-              <input
+            <InlineField label={t('Password')}>
+              <InlineInput
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('At least 6 characters')}
                 required
                 minLength={6}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                className="h-9"
               />
-            </div>
+            </InlineField>
 
             {error && (
-              <div className="p-3 bg-[var(--status-danger-subtle)] dark:bg-[var(--status-danger)]/20 border border-[var(--status-danger)] dark:border-[var(--status-danger)] rounded-lg">
-                <p className="text-sm text-[var(--status-danger)] dark:text-[var(--status-danger)]">{error}</p>
+              <div role="alert" className="rounded-md border border-[var(--status-danger)]/35 bg-[var(--status-danger-subtle)] px-3 py-2">
+                <p className="text-[12.5px] text-[var(--status-danger)]">{error}</p>
               </div>
             )}
 

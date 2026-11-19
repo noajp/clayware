@@ -27,7 +27,7 @@ export function ReactionPicker({ onToggle }: { onToggle: (emoji: string) => void
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
             <div className="absolute left-0 top-full z-50 mt-1 flex gap-0.5 rounded-md border border-border bg-popover p-1 shadow-lg">
               {QUICK_EMOJI.map((e) => (
-                <button key={e} type="button" onClick={() => pick(e)} className="h-7 w-7 rounded text-base hover:bg-accent">{e}</button>
+                <button key={e} type="button" onClick={() => pick(e)} className="h-7 w-7 rounded-[5px] text-base hover:bg-[var(--surface-strong)]">{e}</button>
               ))}
             </div>
           </>

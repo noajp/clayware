@@ -16,6 +16,7 @@ import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { DOCX_MIME, writeDocx } from '@/Function/office/docxWriter';
 import { downloadBytes } from '@/Function/office/downloadFile';
 import { PresenceStack } from '@/Function/shared/PresenceStack';
+import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { useNotePresence } from '@/hooks/usePresence';
 
 interface PageViewProps {
@@ -121,20 +122,20 @@ export function PageView({
 
   return (
     <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--card)]">
-      {/* No bar over the page: its few controls sit in the corners. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-11 [&>*]:pointer-events-auto">
-        {onToggleFilesPane && (
-          <div className="absolute left-2 top-2">
-            {/* The same mark and weight as the title row's sidebar button. */}
+      {/* Quiet 48px floating corner controls aligned with every page header. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-between px-3 [&>*]:pointer-events-auto">
+        <div className="flex items-center gap-1">
+          <SidebarReveal />
+          {onToggleFilesPane && (
             <button type="button" onClick={onToggleFilesPane} aria-pressed={filesPaneOpen}
               title={filesPaneOpen ? t('Hide page list') : t('Show page list')}
               aria-label={filesPaneOpen ? t('Hide page list') : t('Show page list')}
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground">
               <PanelLeft size={15} />
             </button>
-          </div>
-        )}
-        <div className="absolute right-2 top-2 flex items-center gap-2">
+          )}
+        </div>
+        <div className="flex items-center gap-2">
           <PresenceStack viewers={viewers} />
           <ButtonAppearanceProvider appearance="navigation">
             <Button variant="ghost" size="icon-sm" title={t('Export to Word')} aria-label={t('Export to Word')}

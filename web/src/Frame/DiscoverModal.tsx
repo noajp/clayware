@@ -84,28 +84,32 @@ export function DiscoverModal({ open, onOpenChange }: DiscoverModalProps) {
           <DialogTitle className="text-sm font-semibold">{t('Discover')}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-[var(--border-subtle)] px-2 pt-1 gap-1">
           <button
             type="button"
             onClick={() => setTab('domains')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-[12.5px] font-medium transition-colors ${
               tab === 'domains'
                 ? 'text-foreground border-b-2 border-foreground -mb-px'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t('Domains')} ({domains.length})
+            <DomainIcon size={13} />
+            <span>{t('Domains')}</span>
+            <span className="tabular-nums text-[11px] text-muted-foreground">{domains.length}</span>
           </button>
           <button
             type="button"
             onClick={() => setTab('objects')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-[12.5px] font-medium transition-colors ${
               tab === 'objects'
                 ? 'text-foreground border-b-2 border-foreground -mb-px'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t('Objects')} ({objects.length})
+            <ObjectIcon size={13} />
+            <span>{t('Objects')}</span>
+            <span className="tabular-nums text-[11px] text-muted-foreground">{objects.length}</span>
           </button>
         </div>
 

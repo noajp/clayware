@@ -4,7 +4,8 @@ import dynamic from 'next/dynamic';
 import { Button } from '@/ui/button';
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minimize2, Paperclip, Square } from '@/ui/icons';
+import { AiGraph, AlertCircle, X, Maximize2, Minimize2, Paperclip, Plus, Square } from '@/ui/icons';
+import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { SendIcon } from '@/Function/shared/SendIcon';
 import { buildCopilotContext, type CopilotAttachment, type CopilotContext, type CopilotSubject } from './useAlconCopilot';
 import { useStrategies } from '@/hooks/strategyData';
@@ -90,7 +91,8 @@ export function AlconCopilotPanel({ open, onOpenChange, subject = null, variant 
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
-  const { messages, streaming, error, send, cancel, newConversation, retry, truncate, decideApproval, setChartColors } = useCopilotConversation();
+  const { messages, streaming, error, send, cancel, newConversation, retry, truncate, decideApproval, setChartColors, library, sessionId } = useCopilotConversation();
+  const activeSessionTitle = sessionId ? library.sessions.find((s) => s.id === sessionId)?.title : null;
   // A standing approval on an approval card is the Space owner's to give.
   const canRememberApproval = useIsSpaceOwner(useActiveSpaceId()) === true;
   const listRef = useRef<HTMLDivElement>(null);
@@ -271,20 +273,38 @@ export function AlconCopilotPanel({ open, onOpenChange, subject = null, variant 
         <div key={edge} data-edge={edge} onPointerDown={startEdge} className={`absolute z-10 ${EDGE_CLASS[edge]}`} aria-hidden />
       ))}
 
-      {/* Header. On the AI screen it is h-[50px], like every page's header;
-          as a pop-up it is a title bar that moves it. */}
+      {/* Header. On the AI screen it is h-12 (48px), aligned with every page's
+          PageHeader; as a pop-up it is a draggable title bar. */}
       <div
         onPointerDown={floating ? (e) => { if (!(e.target as HTMLElement).closest('button')) startFloat(e, 'move'); } : undefined}
-        className={`flex flex-shrink-0 items-center gap-2 bg-card ${floating ? 'h-12 cursor-grab pl-4 pr-2 active:cursor-grabbing' : 'h-[50px] px-3 border-b border-border/60'}`}
+        className={`flex flex-shrink-0 items-center gap-2 bg-card ${floating ? 'gloss-bar h-12 cursor-grab pl-3.5 pr-2 active:cursor-grabbing' : 'gloss-bar h-12 px-4'}`}
       >
-        {/* On its own screen the list beside it carries the name; only the
-            pop-up, which stands alone, says what it is. */}
-        {floating && <span className="text-[13px] font-semibold text-foreground">{t('Agent')}</span>}
-        {subject?.kind === 'slides' && <span className="text-[12px] text-muted-foreground">{floating ? '· ' : ''}Slides</span>}
-        {subject?.kind === 'strategy' && <span className="max-w-40 truncate text-[12px] text-muted-foreground">{floating ? '· ' : ''}{strategyName ?? t('Strategy')}</span>}
+        {page && <SidebarReveal />}
+        {floating ? (
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+            <AiGraph size={15} className="text-[var(--accent-default)]" />
+            {t('Agent')}
+          </span>
+        ) : (
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
+            <AiGraph size={15} className="shrink-0 text-[var(--accent-default)]" />
+            <span className="truncate">{activeSessionTitle || t('Agent')}</span>
+          </span>
+        )}
+        {subject?.kind === 'slides' && (
+          <span className="inline-flex h-5 items-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium text-muted-foreground">
+            {t('Slides')}
+          </span>
+        )}
+        {subject?.kind === 'strategy' && (
+          <span className="inline-flex h-5 max-w-44 items-center truncate rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium text-muted-foreground">
+            {strategyName ?? t('Strategy')}
+          </span>
+        )}
         <div className="flex-1" />
         {subject?.kind !== 'slides' && messages.length > 0 && (
-          <Button size="sm" type="button" variant="ghost" onClick={() => newConversation()} title={t('Start a new conversation')}>
+          <Button size="xs" type="button" variant="ghost" onClick={() => newConversation()} title={t('Start a new conversation')}>
+            <Plus size={13} />
             {t('New conversation')}
           </Button>
         )}
@@ -311,32 +331,62 @@ export function AlconCopilotPanel({ open, onOpenChange, subject = null, variant 
       {/* One AI panel across the app: on Slides it is the open deck's
           assistant (its conversation and composer), elsewhere Alcon's. */}
       {subject?.kind === 'slides' ? <SlidesAssistant /> : <>
-      {/* Conversation — empty state is intentionally blank; the placeholder
-          in the composer is the only nudge. */}
-      <div ref={listRef} className={`flex-1 overflow-y-auto pb-4 pt-3 text-[12.5px] leading-relaxed ${page ? 'px-8' : 'px-3'}`}>
-        <div className={`space-y-4 ${column}`}>
-          {messages.map((m, i) => (
-            <CopilotMessageView key={i} message={m} streaming={streaming && i === messages.length - 1 && !m.done}
-              onRetry={!streaming && m.role === 'assistant' && i === messages.length - 1 ? () => retry({ context: contextNow() }) : undefined}
-              onEdit={!streaming && i === lastUser ? editLast : undefined}
-              canRememberApproval={canRememberApproval}
-              spaceId={getActiveSpaceId()}
-              onContinueConnection={!streaming && m.role === 'assistant' ? (c) => send(`${c.waitingFor}を続けてください（${c.names.join('、')}を接続しました）`, { context: contextNow() }) : undefined}
-              onContinueCredential={!streaming && m.role === 'assistant' ? (c) => send(`${c.waitingFor || '待っていた作業'}を続けてください（${c.label}の認証情報を入力しました）`, { context: contextNow() }) : undefined}
-              onChartColors={m.role === 'assistant' ? (chartIndex, colors) => setChartColors(i, chartIndex, colors) : undefined}
-              onDecideApproval={!streaming && m.role === 'assistant' ? (a, approve, opts) => void decideApproval(a, approve, opts) : undefined} />
-          ))}
-          {error && (
-            <div role="alert" className="text-[11.5px] text-[var(--status-danger)]">
-              {error}
+      {/* Conversation — Antigravity-style clean turns & structured empty state */}
+      <div ref={listRef} className={`flex-1 overflow-y-auto pb-6 pt-5 text-[13.5px] leading-[1.65] ${page ? 'px-8' : 'px-3.5'}`}>
+        {messages.length === 0 && !error ? (
+          <div className={`flex h-full min-h-[260px] flex-col items-center justify-center text-center ${column}`}>
+            <span className="mb-3.5 flex size-10 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-well)] text-[var(--accent-default)] shadow-[var(--shadow-card)]">
+              <AiGraph size={19} />
+            </span>
+            <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-foreground">
+              {t('How can I help?')}
+            </h2>
+            <p className="mt-1 max-w-sm text-[12.5px] leading-relaxed text-muted-foreground">
+              {t('Ask about your Elements, Strategies, or schedule — or delegate work directly.')}
+            </p>
+            <div className={`mt-5 grid w-full gap-2 ${page ? 'max-w-xl sm:grid-cols-3' : 'grid-cols-1'}`}>
+              {[
+                { label: t('Review priorities'), prompt: t('Summarize my highest-priority and overdue Elements right now.') },
+                { label: t('Check Strategy progress'), prompt: t('Summarize current progress and blockers across our Strategies.') },
+                { label: t('Plan today'), prompt: t('Suggest a focused plan for what I should tackle today.') },
+              ].map((starter) => (
+                <button
+                  key={starter.label}
+                  type="button"
+                  onClick={() => send(starter.prompt, { context: contextNow() })}
+                  className="group/starter flex flex-col items-start gap-1 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-well)] px-3 py-2.5 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)]/60"
+                >
+                  <span className="text-[12.5px] font-medium text-foreground">{starter.label}</span>
+                  <span className="line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">{starter.prompt}</span>
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={`space-y-6 ${column}`}>
+            {messages.map((m, i) => (
+              <CopilotMessageView key={i} message={m} streaming={streaming && i === messages.length - 1 && !m.done}
+                onRetry={!streaming && m.role === 'assistant' && i === messages.length - 1 ? () => retry({ context: contextNow() }) : undefined}
+                onEdit={!streaming && i === lastUser ? editLast : undefined}
+                canRememberApproval={canRememberApproval}
+                spaceId={getActiveSpaceId()}
+                onContinueConnection={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (connected {names}).', { work: c.waitingFor, names: c.names.join(', ') }), { context: contextNow() }) : undefined}
+                onContinueCredential={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (entered credentials for {label}).', { work: c.waitingFor || t('the pending work'), label: c.label }), { context: contextNow() }) : undefined}
+                onChartColors={m.role === 'assistant' ? (chartIndex, colors) => setChartColors(i, chartIndex, colors) : undefined}
+                onDecideApproval={!streaming && m.role === 'assistant' ? (a, approve, opts) => void decideApproval(a, approve, opts) : undefined} />
+            ))}
+            {error && (
+              <div role="alert" className="flex items-start gap-2 rounded-[8px] border border-[var(--status-danger)]/25 bg-[var(--status-danger-subtle)] px-3 py-2 text-[12.5px] text-[var(--status-danger)]">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span className="min-w-0 flex-1">{error}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Composer — a soft-bordered box at the foot: files picked, dropped or
-          pasted show as chips above the text; Enter sends. */}
-      <div className={`pb-3 pt-3 ${page ? 'px-8 pb-6' : 'px-3'}`}>
+      {/* Antigravity-style two-tier composer island */}
+      <div className={`pt-2 ${page ? 'px-8 pb-6' : 'px-3.5 pb-3.5'}`}>
         <div className={column}>
           <CredentialChatHint requestIds={credentialRequestIds} />
         </div>
@@ -345,59 +395,67 @@ export function AlconCopilotPanel({ open, onOpenChange, subject = null, variant 
           onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true); } }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); void addFiles(e.dataTransfer.files); } }}
-          className={`flex flex-col gap-1 rounded-lg border bg-[var(--surface-rail)] px-1.5 py-1.5 shadow-[var(--shadow-island)] transition-colors focus-within:border-border ${dragging ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]' : 'border-border/30'} ${column}`}
+          className={`flex flex-col rounded-[10px] border bg-[var(--surface-raised)] dark:bg-[var(--surface-rail)] shadow-[var(--shadow-card)] transition-colors focus-within:border-[var(--accent-default)]/55 ${dragging ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]' : 'border-[var(--border-default)]'} ${column}`}
         >
-          {files.length > 0 && <div className="flex px-1 pt-0.5"><AttachmentChips files={files} onRemove={(i) => setFiles((prev) => prev.filter((_, k) => k !== i))} /></div>}
-          <div className="flex items-end gap-1">
-            <input ref={fileInputRef} type="file" accept={ATTACH_ACCEPT} multiple hidden
-              onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
-            <Button size="icon-sm" type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={streaming}
-              title={t('Attach a file (PDF, Markdown, text)')} aria-label={t('Attach a file (PDF, Markdown, text)')} className="text-muted-foreground">
-              <Paperclip size={14} />
-            </Button>
-            <AlconFilePicker disabled={streaming || files.length >= MAX_FILES} onPick={(f) => { setFileError(null); setFiles((prev) => [...prev, f]); }} />
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                // Grows with what is written, up to the cap.
-                e.target.style.height = 'auto';
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-                // No scrollbar until the text outgrows the cap.
-                e.target.style.overflowY = e.target.scrollHeight > 160 ? 'auto' : 'hidden';
-              }}
-              onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void addFiles(e.clipboardData.files); } }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              rows={1}
-              placeholder={streaming ? '…' : t('Type anything')}
-              aria-label={t('Message AI')}
-              disabled={streaming}
-              className="max-h-40 min-h-[24px] flex-1 resize-none overflow-hidden bg-transparent px-0.5 py-1 text-[12.5px] leading-[1.5] disabled:opacity-60"
-              style={{ fontWeight: 400 }}
-            />
-            {streaming ? (
-              // One Stop face on every chat surface: the Square — an X
-              // here read as "close the panel", which has its own X in
-              // the header.
-              <Button size="icon-sm" type="button" onClick={cancel} title={t('Stop')} aria-label={t('Stop')} variant="ghost">
-                <Square size={14} />
+          {files.length > 0 && (
+            <div className="flex px-3 pt-2.5">
+              <AttachmentChips files={files} align="start" onRemove={(i) => setFiles((prev) => prev.filter((_, k) => k !== i))} />
+            </div>
+          )}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+              e.target.style.overflowY = e.target.scrollHeight > 180 ? 'auto' : 'hidden';
+            }}
+            onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void addFiles(e.clipboardData.files); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={1}
+            placeholder={streaming ? '…' : t('Type anything')}
+            aria-label={t('Message AI')}
+            disabled={streaming}
+            className="max-h-44 min-h-[42px] w-full resize-none overflow-hidden bg-transparent px-3.5 pb-1.5 pt-2.5 text-[13.5px] leading-[1.55] text-foreground placeholder:text-muted-foreground/65 disabled:opacity-60"
+            style={{ fontWeight: 400 }}
+          />
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/70 px-2 pb-1.5 pt-1.5">
+            <div className="flex items-center gap-0.5">
+              <input ref={fileInputRef} type="file" accept={ATTACH_ACCEPT} multiple hidden
+                onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
+              <Button size="icon-xs" type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={streaming}
+                title={t('Attach a file (PDF, Markdown, text)')} aria-label={t('Attach a file (PDF, Markdown, text)')} className="text-muted-foreground hover:text-foreground">
+                <Paperclip size={14} />
               </Button>
-            ) : (
-              // Same rectangular send as the Updates composer; mb-0.5 centres
-              // its 24px against the 28px row while one line is written.
-              <Button size="xs" type="submit" disabled={!input.trim() && files.length === 0} title={t('Send (Enter)')} aria-label={t('Send')} variant="primary"
-                className="mb-0.5 rounded-md px-2">
-                <SendIcon size={13} />
-              </Button>
-            )}
+              <AlconFilePicker disabled={streaming || files.length >= MAX_FILES} onPick={(f) => { setFileError(null); setFiles((prev) => [...prev, f]); }} />
+            </div>
+            <div className="flex items-center gap-2">
+              {page && !streaming && (
+                <span className="hidden items-center gap-1 text-[11px] text-muted-foreground/75 sm:inline-flex">
+                  <kbd className="kbd-key">↵</kbd>
+                  <span>{t('Send')}</span>
+                </span>
+              )}
+              {streaming ? (
+                <Button size="xs" type="button" onClick={cancel} title={t('Stop')} aria-label={t('Stop')} variant="secondary">
+                  <Square size={12} />
+                  <span>{t('Stop')}</span>
+                </Button>
+              ) : (
+                <Button size="xs" type="submit" disabled={!input.trim() && files.length === 0} title={t('Send (Enter)')} aria-label={t('Send')} variant="primary"
+                  className="px-2.5">
+                  <SendIcon size={13} />
+                </Button>
+              )}
+            </div>
           </div>
-          {fileError && <span role="alert" className="truncate px-1 text-[11px] text-[var(--status-danger)]" title={fileError}>{fileError}</span>}
+          {fileError && <span role="alert" className="truncate px-3 pb-2 text-[11px] text-[var(--status-danger)]" title={fileError}>{fileError}</span>}
         </form>
       </div>
       </>}

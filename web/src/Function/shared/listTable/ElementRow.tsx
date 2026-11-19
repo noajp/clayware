@@ -187,8 +187,8 @@ export const ElementRow = memo(function ElementRow({
           slides under it at one edge. */}
       <td className="sticky left-13 z-10 bg-card pl-3.5 pr-0 py-2 min-w-0 max-w-0">
         <div className="list-row-inner flex items-center min-w-0 min-h-[1.875rem]">
-          {el.icon && <ItemIcon icon={el.icon} color={el.color} size={15} className="mr-2" />}
-          <span className="list-row-title text-[15px] font-medium truncate flex-1 min-w-0 text-foreground">{el.title}</span>
+          {el.icon && <ItemIcon icon={el.icon} color={el.color} size={14} className="mr-1.5" />}
+          <span className="list-row-title text-[13.5px] font-medium truncate flex-1 min-w-0 text-foreground">{el.title}</span>
         </div>
       </td>
       {/* Signals: who holds it, comments, what it waits on, labels. One
@@ -196,21 +196,21 @@ export const ElementRow = memo(function ElementRow({
           so the labels end 20px before the first data column (pl-5 is the
           same 20px after the title). */}
       <td className="p-0 max-w-0 overflow-hidden">
-        <div data-row-signals className="ml-auto flex w-max items-center gap-5 pl-5 pr-0.5">
+        <div data-row-signals className="ml-auto flex w-max items-center gap-3.5 pl-5 pr-0.5">
           {/* Comments themselves are the Updates column, shown when it is
               toggled on; the row only says when there is one the viewer has
               not read, as the Inbox marks it. */}
           {/* First, so it is the last thing a narrow column cuts: the work
               is stopped until this person answers. */}
           {needsAnswer && (
-            <span className="inline-flex h-[22px] shrink-0 items-center rounded-full border border-[var(--status-info)] px-2 text-[12px] font-normal text-[var(--status-info)]"
+            <span className="inline-flex h-[20px] shrink-0 items-center rounded-[5px] bg-[var(--status-info-subtle)] px-1.5 text-[11.5px] font-medium text-[var(--status-info)]"
               title={t('A question about this Element is waiting for your answer, in the Inbox.')}>
               {t('Needs you')}
             </span>
           )}
           {!showsActivityColumn && unreadComments && (
-            <span className="relative flex size-3 shrink-0 items-center justify-center text-muted-foreground/70" title={t('New comments')}>
-              <MessageIcon size={12} />
+            <span className="relative flex size-3.5 shrink-0 items-center justify-center text-muted-foreground/70" title={t('New comments')}>
+              <MessageIcon size={13} />
               <UnreadDot className="-right-1 -top-1" />
             </span>
           )}
@@ -218,11 +218,11 @@ export const ElementRow = memo(function ElementRow({
             // Waiting on an unfinished dependency — the same quiet register:
             // a row that cannot be started is not an error.
             <span
-              className="shrink-0 flex items-center gap-1 text-[11px] text-muted-foreground/70"
+              className="shrink-0 flex items-center gap-1.5 text-[11.5px] text-muted-foreground/75"
               title={t('Waiting on {list}', { list: blockers.map(describeBlocker).join(', ') })}
               aria-label={blockers.length === 1 ? t('Waiting on 1 unfinished Element') : t('Waiting on {n} unfinished Elements', { n: blockers.length })}
             >
-              <Lock size={11} />
+              <Lock size={12} />
               <span className="tabular-nums">{blockers.length}</span>
             </span>
           )}
@@ -232,7 +232,7 @@ export const ElementRow = memo(function ElementRow({
           {!!el.labels?.length && <span className="flex items-center gap-1" title={el.labels.join(', ')}>
             {labelsShown.shown.map(label => <LabelChip key={label} label={label} />)}
             {labelsShown.more > 0 && (
-              <span className="inline-flex h-[22px] shrink-0 items-center rounded-full border border-[var(--border-default)] px-2 text-[12px] font-normal tabular-nums text-[var(--text-secondary)]"
+              <span className="inline-flex h-[20px] shrink-0 items-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11.5px] font-normal tabular-nums text-[var(--text-secondary)]"
                 aria-label={t('{n} more labels', { n: labelsShown.more })}>+{labelsShown.more}</span>
             )}
           </span>}

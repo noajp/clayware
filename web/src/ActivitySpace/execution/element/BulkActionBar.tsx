@@ -7,6 +7,7 @@ import { useEscapeLayer } from '@/Function/shared/keyboard';
 import type { AlconObjectWithChildren } from '@/hooks/useSupabase';
 import type { ElementStatus, ElementPriority } from '@/types/database';
 import { ObjectIcon } from '@/Frame/icons';
+import { Button } from '@/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/ui/tooltip';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
@@ -77,12 +78,12 @@ function BarButton({
           onClick={onClick}
           disabled={disabled}
           aria-label={label}
-          className={`flex items-center justify-center size-8 rounded-full transition-colors disabled:opacity-40 ${
+          className={`flex items-center justify-center size-7 rounded-[6px] transition-colors disabled:opacity-40 ${
             danger
               ? 'text-[var(--status-danger)] hover:text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10'
               : active
-              ? 'bg-muted/60 text-foreground'
-              : 'text-foreground/80 hover:text-foreground hover:bg-muted/40'
+              ? 'bg-[var(--surface-strong)] text-foreground'
+              : 'text-foreground/80 hover:text-foreground hover:bg-[var(--surface-strong)]'
           }`}
         >
           {icon}
@@ -182,7 +183,7 @@ export function BulkActionBar({
             {notice}
           </p>
         )}
-        <div className="flex items-center gap-0.5 rounded-full bg-popover/95 backdrop-blur-md shadow-2xl ring-1 ring-border px-2 py-1.5">
+        <div className="gloss-overlay flex items-center gap-0.5 rounded-[10px] px-2 py-1.5 shadow-2xl">
           <span className="pl-2 pr-2 text-[12px] font-medium text-foreground tabular-nums whitespace-nowrap">
             {t(count === 1 ? '{n} Element selected' : '{n} Elements selected', { n: count })}
           </span>
@@ -190,22 +191,26 @@ export function BulkActionBar({
           {/* Bulk field edits (status / priority / due date) — Asana's
               "edit fields" cluster. Each only renders when the host wires it. */}
           {(onSetStatus || onSetPriority || onSetDueDate || onSetAssignee) && (
-            <span className="w-px h-5 bg-border/60 mx-0.5" />
+            <span className="w-px h-4 bg-border/60 mx-1" />
           )}
 
           {onSetStatus && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title={t('Set status')}
-                  aria-label={t('Set status')}
-                  className="flex items-center justify-center size-8 rounded-full text-foreground/80 hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40"
-                >
-                  <CircleDashed size={15} />
-                </button>
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={t('Set status')}
+                      className="flex items-center justify-center size-7 rounded-[6px] text-foreground/80 hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors disabled:opacity-40"
+                    >
+                      <CircleDashed size={15} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{t('Set status')}</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="start" side="top" sideOffset={8} className="min-w-[180px]">
                 {STATUS_OPTIONS.map((o) => (
                   <DropdownMenuItem
@@ -223,17 +228,21 @@ export function BulkActionBar({
 
           {onSetPriority && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title={t('Set priority')}
-                  aria-label={t('Set priority')}
-                  className="flex items-center justify-center size-8 rounded-full text-foreground/80 hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40"
-                >
-                  <PriorityMark priority="high" />
-                </button>
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={t('Set priority')}
+                      className="flex items-center justify-center size-7 rounded-[6px] text-foreground/80 hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors disabled:opacity-40"
+                    >
+                      <PriorityMark priority="high" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{t('Set priority')}</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="start" side="top" sideOffset={8} className="min-w-[160px]">
                 {PRIORITY_OPTIONS.map((o) => (
                   <DropdownMenuItem
@@ -255,17 +264,21 @@ export function BulkActionBar({
 
           {onSetDueDate && (
             <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title={t('Set due date')}
-                  aria-label={t('Set due date')}
-                  className="flex items-center justify-center size-8 rounded-full text-foreground/80 hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40"
-                >
-                  <CalendarIcon size={15} />
-                </button>
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={t('Set due date')}
+                      className="flex items-center justify-center size-7 rounded-[6px] text-foreground/80 hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors disabled:opacity-40"
+                    >
+                      <CalendarIcon size={15} />
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{t('Set due date')}</TooltipContent>
+              </Tooltip>
               <PopoverContent align="start" side="top" sideOffset={8} className="w-auto p-0 rounded-lg">
                 <Calendar
                   mode="single"
@@ -276,7 +289,7 @@ export function BulkActionBar({
                 <button
                   type="button"
                   onClick={() => onSetDueDate(null)}
-                  className="w-full px-3 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:bg-muted/40 border-t border-border/60 transition-colors"
+                  className="w-full px-3 py-2 text-[12px] text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] border-t border-border/60 transition-colors"
                 >
                   {t('Clear due date')}
                 </button>
@@ -286,17 +299,21 @@ export function BulkActionBar({
 
           {onSetAssignee && (
             <DropdownMenu onOpenChange={(open) => { if (!open) setAssigneeQuery(''); }}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  disabled={busy}
-                  title={t('Set assignee')}
-                  aria-label={t('Set assignee')}
-                  className="flex items-center justify-center size-8 rounded-full text-foreground/80 hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40"
-                >
-                  <UserRound size={15} />
-                </button>
-              </DropdownMenuTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-label={t('Set assignee')}
+                      className="flex items-center justify-center size-7 rounded-[6px] text-foreground/80 hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors disabled:opacity-40"
+                    >
+                      <UserRound size={15} />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{t('Set assignee')}</TooltipContent>
+              </Tooltip>
               <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-[240px]">
                 <input
                   autoFocus
@@ -369,6 +386,8 @@ export function BulkActionBar({
             />
           )}
 
+          <span className="w-px h-4 bg-border/60 mx-1" />
+
           <BarButton
             icon={<Trash2 size={15} />}
             label={t('Delete')}
@@ -378,7 +397,7 @@ export function BulkActionBar({
             active={confirmDelete}
           />
 
-          <span className="w-px h-5 bg-border/60 mx-0.5" />
+          <span className="w-px h-4 bg-border/60 mx-1" />
 
           {/* Borderless ✕ at the far right — same "deselect all" intent as Esc. */}
           <BarButton
@@ -433,22 +452,12 @@ export function BulkActionBar({
               {count === 1 ? t('This permanently removes it and can’t be undone.') : t('This permanently removes them and can’t be undone.')}
             </div>
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setOverlay(null)}
-                disabled={busy}
-                className="px-3 py-1.5 text-[12px] rounded-md text-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setOverlay(null)} disabled={busy}>
                 {t('Cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={runDelete}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-md bg-[var(--status-danger)] text-white hover:bg-[var(--status-danger)] transition-colors disabled:opacity-50"
-              >
+              </Button>
+              <Button variant="danger" size="sm" onClick={runDelete} disabled={busy}>
                 <Trash2 size={12} /> {t('Delete')}
-              </button>
+              </Button>
             </div>
           </div>
         )}

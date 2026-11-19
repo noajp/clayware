@@ -163,7 +163,7 @@ export function DomainAgentSettings({
                 type="button"
                 onClick={handleTest}
                 disabled={ping.status === 'checking'}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] bg-card border border-border/60 hover:bg-accent transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] bg-card border border-border/60 hover:bg-[var(--surface-strong)] transition-colors disabled:opacity-50"
               >
                 {ping.status === 'checking' ? (
                   <Loader2 size={12} className="animate-spin" />

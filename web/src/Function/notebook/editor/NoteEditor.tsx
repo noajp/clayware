@@ -1829,7 +1829,7 @@ function TblMenuItem({ label, onSelect, danger }: { label: string; onSelect: () 
       onClick={onSelect}
       className={[
         'w-full text-left px-2.5 py-1 text-[12px] rounded transition-colors',
-        danger ? 'text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10' : 'text-foreground/80 hover:bg-accent hover:text-foreground',
+        danger ? 'text-[var(--status-danger)] hover:bg-[var(--status-danger)]/10' : 'text-foreground/80 hover:bg-[var(--surface-strong)] hover:text-foreground',
       ].join(' ')}
     >
       {t(label)}
@@ -1966,7 +1966,7 @@ function TbBtn({
       title={t(title)}
       aria-label={t(title)}
       onClick={onClick}
-      className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-accent text-foreground/80 hover:text-foreground"
+      className="inline-flex items-center justify-center h-7 w-7 rounded hover:bg-[var(--surface-strong)] text-foreground/80 hover:text-foreground"
     >
       <Icon size={14} />
     </button>
@@ -2013,7 +2013,7 @@ function TbStyleDropdown({
         title={t('Text style')}
         aria-label={t('Text style')}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center justify-center gap-0.5 h-7 px-1.5 rounded hover:bg-accent text-foreground/80 hover:text-foreground"
+        className="inline-flex items-center justify-center gap-0.5 h-7 px-1.5 rounded hover:bg-[var(--surface-strong)] text-foreground/80 hover:text-foreground"
       >
         <span className="text-[13px] font-semibold leading-none">Aa</span>
         <ChevronDown size={11} />
@@ -2025,7 +2025,7 @@ function TbStyleDropdown({
               key={opt.tag}
               type="button"
               onClick={() => { onToggleBlock(opt.tag); setOpen(false); }}
-              className={`w-full flex items-center px-3 py-1.5 text-foreground hover:bg-accent transition-colors ${opt.className}`}
+              className={`w-full flex items-center px-3 py-1.5 text-foreground hover:bg-[var(--surface-strong)] transition-colors ${opt.className}`}
             >
               {t(opt.label)}
             </button>

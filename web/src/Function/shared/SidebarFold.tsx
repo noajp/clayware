@@ -16,13 +16,13 @@ export function SidebarFold({ id, label, children }: { id: string; label: string
     return !o;
   });
   return (
-    <div className="mt-4 first:mt-1">
+    <div className="mt-3.5 first:mt-1">
       <button type="button" onClick={toggle} aria-expanded={open}
-        className="mb-0.5 flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] font-medium text-muted-foreground/80 transition-colors hover:text-foreground">
+        className="mb-1 flex h-6 items-center gap-1.5 rounded-[5px] px-2 text-[11.5px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground">
         {label}
         <DisclosureTriangle open={open} />
       </button>
-      {open && children}
+      {open && <div className="space-y-0.5">{children}</div>}
     </div>
   );
 }

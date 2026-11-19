@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ExternalLink } from '@/ui/icons';
+import { AiGraph, ExternalLink } from '@/ui/icons';
 import { FONT } from '@/shared/designTokens';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { answerQuestionTicket, fetchQuestionTicketById, useQuestionTicket } from '@/AIP/ai/agentData';
@@ -79,65 +79,75 @@ export function QuestionTicketInboxCard({ ticketId, onAnswered, nextWaiting, onW
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold">{view.question}</h1>
-      <p className={`mt-3 ${FONT.sm} ${statusTone}`}>{statusLine}</p>
-      {view.decision && (
-        <p className="mt-6 whitespace-pre-wrap text-[15px] leading-7 text-foreground/90">{view.decision}</p>
-      )}
-      {view.links.length > 0 && (
-        <ul className="mt-4 space-y-1.5">
-          {view.links.map((l, i) => (
-            <li key={i} className={FONT.sm}>
-              {l.url ? (
-                <a href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-default)] hover:underline">
-                  {l.label}<ExternalLink size={12} />
-                </a>
-              ) : (
-                <span className="text-foreground/80">{l.label}</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="mt-6">
-        <h2 className="text-[13px] font-medium text-foreground">{t('What the agent tried first')}</h2>
-        <p className={`mt-1 whitespace-pre-wrap ${FONT.sm} text-muted-foreground`}>{view.tried}</p>
-      </div>
+    <div className="space-y-6">
+      <section className="ai-surface p-5">
+        <div className="mb-2 flex items-center gap-1.5 text-[11.5px] font-medium text-[var(--accent-default)]">
+          <AiGraph size={13} />
+          <span>{t('Agent')}</span>
+        </div>
+        <h1 className="text-[20px] font-semibold tracking-[-0.015em] text-foreground">{view.question}</h1>
+        <p className={`mt-2 ${FONT.sm} ${statusTone}`}>{statusLine}</p>
+        {view.decision && (
+          <p className="mt-4 whitespace-pre-wrap text-[13.5px] leading-relaxed text-foreground/90">{view.decision}</p>
+        )}
+        {view.links.length > 0 && (
+          <ul className="mt-3 space-y-1">
+            {view.links.map((l, i) => (
+              <li key={i} className={FONT.sm}>
+                {l.url ? (
+                  <a href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--accent-default)] hover:underline">
+                    {l.label}<ExternalLink size={12} />
+                  </a>
+                ) : (
+                  <span className="text-foreground/80">{l.label}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
+          <h2 className="text-[12px] font-medium text-foreground">{t('What the agent tried first')}</h2>
+          <p className={`mt-1 whitespace-pre-wrap ${FONT.sm} text-muted-foreground`}>{view.tried}</p>
+        </div>
+      </section>
 
       {view.status === 'answered' && view.answer && (
-        <div className="mt-8">
-          <h2 className="text-[13px] font-medium text-foreground">{t('Your answer')}</h2>
-          <p className="mt-1 whitespace-pre-wrap text-[15px] leading-7 text-foreground/90">{view.answer}</p>
+        <div>
+          <h2 className="text-[12.5px] font-medium text-muted-foreground">{t('Your answer')}</h2>
+          <p className="mt-1 whitespace-pre-wrap text-[13.5px] leading-relaxed text-foreground/95">{view.answer}</p>
         </div>
       )}
 
       {/* Answered: say what else waits, and take the person there — the
           list is not something to go back and hunt through. */}
       {view.status === 'answered' && nextWaiting !== undefined && (
-        <div className="mt-6">
+        <div>
           {nextWaiting
-            ? <Button onClick={nextWaiting.open}>{t('Next question ({count} waiting)', { count: nextWaiting.count })}</Button>
+            ? <Button variant="primary" size="sm" onClick={nextWaiting.open}>{t('Next question ({count} waiting)', { count: nextWaiting.count })}</Button>
             : <p className={`${FONT.sm} text-muted-foreground`}>{t('Nothing else is waiting on you.')}</p>}
         </div>
       )}
 
       {view.status === 'open' && !canAnswer && (
-        <p className={`mt-8 ${FONT.sm} text-muted-foreground`}>
+        <p className={`${FONT.sm} text-muted-foreground`}>
           {t('Only the person who started this run can answer it.')}
         </p>
       )}
 
       {view.status === 'open' && canAnswer && (
-        <div className="mt-8 space-y-4">
+        <div className="space-y-4">
           {view.options.length > 0 && (
             <div className="flex flex-col items-start gap-2">
               {view.options.map((o) => (
-                <Button key={o.label} variant={sending === o.label ? 'primary' : 'secondary'} disabled={working}
+                <Button key={o.label} variant={sending === o.label || o.recommended ? 'primary' : 'secondary'} disabled={working}
                   aria-pressed={sending === o.label}
                   onClick={() => void answer({ option: o.label })} className="gap-2">
                   <span>{o.label}</span>
-                  {o.recommended && <span className="text-[11px] text-muted-foreground">{t('Recommended')}</span>}
+                  {o.recommended && (
+                    <span className={`rounded-[4px] px-1.5 py-0.5 text-[10.5px] font-medium ${sending === o.label || o.recommended ? 'bg-white/20 text-white' : 'bg-[var(--surface-muted)] text-muted-foreground'}`}>
+                      {t('Recommended')}
+                    </span>
+                  )}
                 </Button>
               ))}
             </div>
@@ -147,11 +157,21 @@ export function QuestionTicketInboxCard({ ticketId, onAnswered, nextWaiting, onW
               {t(view.options.length ? 'Or answer in your own words' : 'Answer in your own words')}
             </label>
             <Textarea id={`question-free-${ticket.id}`} value={freeText} rows={3} disabled={working}
-              onChange={(e) => setFreeText(e.target.value)} className="mt-1.5" />
-            <div className="mt-2">
-              <Button disabled={working || !freeText.trim()} onClick={() => void answer({ text: freeText })}>
+              onChange={(e) => setFreeText(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && freeText.trim() && !working) {
+                  e.preventDefault();
+                  void answer({ text: freeText });
+                }
+              }}
+              className="mt-1.5" />
+            <div className="mt-2 flex items-center gap-2">
+              <Button variant="primary" size="sm" disabled={working || !freeText.trim()} onClick={() => void answer({ text: freeText })}>
                 {t('Send answer')}
               </Button>
+              <span className="text-[11px] text-muted-foreground/75">
+                <kbd className="kbd-key">⌘↵</kbd>
+              </span>
             </div>
           </div>
           {view.standingTopic && (

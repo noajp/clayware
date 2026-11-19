@@ -9,7 +9,7 @@ import { ActivitySignal } from '@/Function/shared/element/ActivitySignal';
 import { Button } from '@/ui/button';
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { DateRange } from 'react-day-picker';
-import { Plus, Check, ChevronLeft, ChevronRight, Tag, X } from '@/ui/icons';
+import { Plus, Check, ChevronLeft, ChevronRight, X } from '@/ui/icons';
 import { TypeMark, useTypeIcons } from '@/Function/shared/elementTypeIcon';
 import type { AlconObjectWithChildren, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { addElementAssignee, removeElementAssignee, fetchAssignableWorkers, useWorkerById, noticeAssignmentFailed } from '@/hooks/useSupabase';
@@ -35,6 +35,7 @@ import { type ElementUpdate, formatDateShort } from './shared';
 import { completionOf } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldDisplayLabel } from '@/Function/property/fieldModel';
+import { EntityChip, TagBadge } from '@/Function/shared/EntityChip';
 import { PRIORITY, statusLabel } from '@/shared/designTokens';
 
 const PRIORITY_LABELS: Record<string, string> = Object.fromEntries(Object.entries(PRIORITY).map(([key, value]) => [key, value.label]));
@@ -383,20 +384,11 @@ function DateRangeCellPopover({
   );
 }
 
-// Label chip — the label's coloured tag (the same mark as the Element page's
-// Label island) + its text in an outlined pill, shown left of the Type column. The mark colour comes from the Domain colour catalogue
-// (picked colour, else an auto colour derived from the name).
+// Label chip — low-saturation colour dot + concise label (TagBadge),
+// visually distinct from borderless Object references (EntityChip).
 export function LabelChip({ label }: { label: string }) {
   useLabelColors(); // re-render when a colour is picked / the catalogue loads
-  return (
-    <span
-      className="inline-flex h-[22px] items-center gap-1.5 shrink-0 max-w-[140px] px-2 rounded-full border border-[var(--border-default)] text-[12px] font-normal text-[var(--text-secondary)]"
-      title={label}
-    >
-      <Tag aria-hidden size={10} className="shrink-0" style={{ color: labelColor(label) }} />
-      <span className="truncate">{label}</span>
-    </span>
-  );
+  return <TagBadge label={label} color={labelColor(label)} />;
 }
 
 // (ColumnMenu removed — the trailing header "+" now opens the add-property
@@ -476,16 +468,15 @@ export function ElementCell({
         {empty ? (
           <span className={`${CELL_TRIGGER_BASE} ${CELL_TRIGGER_EMPTY}`}><EmptyCellMark /></span>
         ) : (
-          <span className="inline-flex items-center gap-1 max-w-full overflow-hidden">
+          <span className="inline-flex items-center gap-1.5 max-w-full overflow-hidden">
             {homes.slice(0, 2).map((o) => (
-              <span
+              <EntityChip
                 key={o.id}
-                className="inline-flex h-[22px] items-center gap-1.5 min-w-0 max-w-[140px] px-2 rounded-full border border-[var(--border-default)] text-[12px] font-normal text-[var(--text-secondary)]"
+                icon={<ObjectIcon size={12} />}
+                label={o.name}
                 title={o.name}
-              >
-                <span className="shrink-0 inline-flex"><ObjectIcon size={10} /></span>
-                <span className="truncate">{o.name}</span>
-              </span>
+                className="max-w-[140px]"
+              />
             ))}
             {homes.length > 2 && (
               <span className="shrink-0 text-[11px] text-muted-foreground/70 tabular-nums">

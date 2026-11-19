@@ -491,7 +491,7 @@ function ObjectPickerList({
                 type="button"
                 key={o.id}
                 onClick={() => onToggle(o.id)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-strong)] text-left"
               >
                 <span
                   className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${
@@ -952,17 +952,17 @@ function StrategyDetailView({
     />
     <WidgetActionSlotProvider>
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card h-full">
-      {/* Drawn as the shared IslandHeader is (Function/shared/MainIsland). */}
-      <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
+      {/* Drawn as the shared PageHeader (48px). */}
+      <div className="gloss-bar flex h-12 flex-shrink-0 items-center gap-1 bg-card pl-6 pr-3">
         <SidebarReveal />
         <button
           type="button"
           onClick={onBack}
-          className="px-1.5 py-0.5 rounded text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+          className="px-1.5 py-0.5 rounded-[5px] text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors"
         >
           {t('Strategy')}
         </button>
-        <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
+        <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
         <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground truncate max-w-[240px]">
           {strategy.name}
         </span>
@@ -982,10 +982,17 @@ function StrategyDetailView({
         )}
         <div className="ml-auto flex min-w-0 items-center gap-2">
           {(deleteError || saveError) && (
-            <span role="status" className="text-[11px] text-muted-foreground truncate">
+            <span role="alert" className="truncate text-[11.5px] font-medium text-[var(--status-danger)]">
               {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
             </span>
           )}
+          <Button
+            size="xs"
+            variant={talking ? 'primary' : 'secondary'}
+            onClick={() => setTalking((v) => !v)}
+          >
+            {t('Talk it through')}
+          </Button>
         </div>
       </div>
 

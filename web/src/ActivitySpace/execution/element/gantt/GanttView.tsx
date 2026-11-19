@@ -1021,37 +1021,85 @@ export function GanttView({
 
                   return (
                     <React.Fragment key={element.id}>
-                    {objectRows && (
+                    {objectRows && (() => {
+                      const dueParsed = element.due_date ? parseDateOnly(element.due_date, null) : null;
+                      const overdue = !isDone && !!dueParsed && dueParsed < startOfDay(new Date());
+                      const pct = Math.round(isDone ? 100 : progress);
+                      return (
                       // The name rides above its bar and stays in view while
                       // any of the bar is: the wrapper spans the bar, the
                       // name sticks to the pane's left edge inside it.
-                      <div className="pointer-events-none absolute" style={{ left: barPos.left, width: Math.max(barWidth, 260), top: top + OBJECT_TITLE_TOP }}>
-                        <span className="sticky left-3 inline-flex max-w-full items-center gap-1.5 text-[13px] font-medium text-foreground">
+                      <div className="pointer-events-none absolute" style={{ left: barPos.left, width: Math.max(barWidth, 280), top: top + OBJECT_TITLE_TOP }}>
+                        <span className="sticky left-3 inline-flex max-w-full items-center gap-1.5 text-[13px] font-semibold text-foreground">
                           <span className="flex shrink-0 text-muted-foreground"><ItemIcon icon={element.icon ?? null} color={element.color ?? null} size={13} fallback={<ObjectIcon size={13} />} /></span>
                           <span className="truncate">{element.title}</span>
                           {assignedWorkers.length > 0 && <WorkerAvatarStack workers={assignedWorkers} max={2} size={16} itemClassName="border-card" />}
-                          {progress > 0 && <span className="shrink-0 text-[11px] font-normal tabular-nums text-muted-foreground">{Math.round(progress)}%</span>}
-                          {element.due_date && (
-                            <span className="flex shrink-0 items-center gap-1 text-[11px] font-normal tabular-nums text-muted-foreground">
+                          {pct > 0 && (
+                            <span
+                              className="inline-flex h-[18px] shrink-0 items-center rounded-[5px] px-1.5 text-[10.5px] font-semibold tabular-nums"
+                              style={{
+                                color: isDone ? 'var(--status-success)' : barColor,
+                                backgroundColor: `color-mix(in oklab, ${isDone ? 'var(--status-success)' : barColor} 15%, transparent)`,
+                              }}
+                            >
+                              {pct}%
+                            </span>
+                          )}
+                          {dueParsed && (
+                            <span className={`flex shrink-0 items-center gap-1 text-[11px] font-medium tabular-nums ${overdue ? 'text-[var(--status-danger)]' : 'text-muted-foreground'}`}>
                               <CalendarDays size={10} />
-                              {formatDate(parseDateOnly(element.due_date, null)!, 'pill', locale)}
+                              {formatDate(dueParsed, 'pill', locale)}
                             </span>
                           )}
                         </span>
                       </div>
-                    )}
+                      );
+                    })()}
                     {objectRows && milestones.filter((m) => m.object_id === element.id).map((m) => {
                       const date = parseDateOnly(m.date, null);
                       if (!date) return null;
                       const left = daysBetween(dateRange.start, date) * pxPerDay + pxPerDay / 2;
                       if (left < 0 || left > timelineWidth) return null;
+                      const barEnd = barPos.left + barWidth;
+                      const barCenterY = barTopOf(top) + BAR_H / 2;
+                      const pastDue = !isDone && date < startOfDay(new Date());
+                      const tone = pastDue ? 'var(--status-danger)' : 'var(--accent-default)';
+                      const connLeft = left > barEnd ? barEnd : left < barPos.left ? left : null;
+                      const connWidth = left > barEnd ? left - barEnd : left < barPos.left ? barPos.left - left : 0;
+                      const shortDate = formatDate(date, 'pill', locale);
                       return (
-                        // A milestone is a diamond on its Object's bar, named under it.
-                        <div key={m.id} className="pointer-events-none absolute z-20 flex -translate-x-1/2 flex-col items-center" style={{ left, top: barTopOf(top) + (BAR_H - 8) / 2 }}
-                          title={m.label ?? undefined}>
-                          <span className="size-2 rotate-45 rounded-[1px] bg-[var(--text-secondary)]" />
-                          {m.label && <span className="mt-[9px] max-w-[120px] truncate text-[10px] text-muted-foreground">{m.label}</span>}
-                        </div>
+                        <React.Fragment key={m.id}>
+                          {/* Dashed connector linking the Milestone back to its Object bar */}
+                          {connLeft !== null && connWidth > 4 && (
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute z-10 border-t border-dashed"
+                              style={{
+                                left: connLeft,
+                                width: connWidth,
+                                top: barCenterY,
+                                borderColor: `color-mix(in oklab, ${tone} 55%, transparent)`,
+                              }}
+                            />
+                          )}
+                          {/* Crisp Milestone diamond + readable label & date pill */}
+                          <div
+                            className="pointer-events-none absolute z-20 flex -translate-x-1/2 flex-col items-center"
+                            style={{ left, top: barCenterY - 6 }}
+                            title={m.label ? `${m.label} · ${shortDate}` : shortDate}
+                          >
+                            <span
+                              className="flex size-3 rotate-45 items-center justify-center rounded-[2px] border-[2px] bg-card shadow-[var(--shadow-card)]"
+                              style={{ borderColor: tone }}
+                            >
+                              <span className="size-1 rounded-full" style={{ backgroundColor: tone }} />
+                            </span>
+                            <span className="mt-2 inline-flex max-w-[140px] items-center gap-1 whitespace-nowrap rounded-[5px] border border-[var(--border-default)] bg-card px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-foreground shadow-[var(--shadow-card)]">
+                              <span className="truncate">{m.label || t('Milestone')}</span>
+                              <span className="shrink-0 tabular-nums text-muted-foreground">{shortDate}</span>
+                            </span>
+                          </div>
+                        </React.Fragment>
                       );
                     })}
                     {isDraggingThis && (() => {
@@ -1069,13 +1117,12 @@ export function GanttView({
                         </>
                       );
                     })()}
-                    {/* A bar is a quiet surface with a fine edge, as a card is:
-                        the status speaks through its mark and the wash of
-                        its progress, not by painting the whole bar. */}
+                    {/* High-contrast Linear Roadmap bar: crisp rim, status accent
+                        leading cap, proportional fill + 2px solid bottom progress bar. */}
                     <div
-                      className={`absolute rounded-md cursor-pointer group border ${objectRows ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)]' : 'bg-[var(--surface-strong)]'} transition-[border-color,box-shadow] overflow-hidden ${
+                      className={`absolute rounded-[6px] cursor-pointer group border bg-[var(--surface-muted)] transition-[border-color,box-shadow] overflow-hidden ${
                         selectedElement === element.id ? 'border-[var(--accent-default)] ring-1 ring-[var(--accent-default)]/40'
-                          : isBlocked ? 'border-[var(--status-danger)]/50' : 'border-border/70 hover:border-[var(--border-strong)]'
+                          : isBlocked ? 'border-[var(--status-danger)]/60' : 'border-[var(--border-default)] hover:border-[var(--border-strong)]'
                       } ${isDraggingThis ? 'border-[var(--accent-default)] shadow-lg' : ''}`}
                       data-bar-id={element.id}
                       style={{
@@ -1083,6 +1130,8 @@ export function GanttView({
                         width: barWidth,
                         height: BAR_H,
                         top: barTopOf(top),
+                        borderLeftWidth: 3,
+                        borderLeftColor: isDone ? 'var(--status-success)' : barColor,
                         boxShadow: isDraggingThis ? undefined : '0 1px 2px var(--gantt-bar-shadow)',
                       }}
                       onClick={() => { if (!draggedRef.current) activateElement(element); }}
@@ -1099,16 +1148,30 @@ export function GanttView({
                       }}
                       onMouseLeave={() => setTooltip(null)}
                     >
-                      {/* Progress fill — a lighter wash over the status color,
-                          not a second hue, so the bar's color keeps meaning
-                          "status" and the fill alone reads as "how much". */}
-                      {/* Done needs no wash: its mark and muted title say so. */}
-                      {progress > 0 && !isDone && (
-                        <div
-                          className="absolute inset-y-0 left-0 pointer-events-none"
-                          style={{ width: `${Math.min(100, progress)}%`, backgroundColor: `color-mix(in oklab, ${barColor} 16%, transparent)` }}
-                        />
-                      )}
+                      {/* Proportional progress fill + crisp 2px bottom progress rule
+                          (also fills cleanly at 100% done so 18% vs 100% pops instantly). */}
+                      {(progress > 0 || isDone) && (() => {
+                        const fillPct = Math.min(100, isDone ? 100 : progress);
+                        const fillHue = isDone ? 'var(--status-success)' : barColor;
+                        return (
+                          <>
+                            <div
+                              className="absolute inset-y-0 left-0 pointer-events-none"
+                              style={{
+                                width: `${fillPct}%`,
+                                backgroundColor: `color-mix(in oklab, ${fillHue} 26%, transparent)`,
+                              }}
+                            />
+                            <div
+                              className="absolute bottom-0 left-0 h-[2px] pointer-events-none"
+                              style={{
+                                width: `${fillPct}%`,
+                                backgroundColor: fillHue,
+                              }}
+                            />
+                          </>
+                        );
+                      })()}
 
                       {/* Resize handles */}
                       <div

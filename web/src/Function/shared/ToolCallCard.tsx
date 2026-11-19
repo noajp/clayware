@@ -77,9 +77,9 @@ export function ToolCallCard({
       <button type="button" aria-expanded={open} aria-controls={`${id}-body`}
         onClick={() => { setAutoOpened(false); setOpen(!open); }}
         className={cn(
-          'group/head flex min-h-11 w-full items-center gap-2.5 px-3.5 text-left transition-colors hover:bg-muted/40',
+          'group/head flex min-h-[34px] w-full items-center gap-2 px-2.5 text-left transition-colors hover:bg-[var(--surface-strong)]/60',
           open ? 'rounded-t-[var(--radius-md)]' : 'rounded-[var(--radius-md)]',
-          'focus-visible:bg-muted/60',
+          'focus-visible:bg-[var(--surface-strong)]/60',
         )}>
         <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&>svg]:size-4" aria-hidden="true">
           {icon ?? <Wrench strokeWidth={1.6} />}

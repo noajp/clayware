@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/ui/button';
+import { InlineField, InlineInput } from '@/Function/shared/InlineField';
+import { useI18n } from '@/Function/i18n/I18nProvider';
 
 /**
  * Full-screen first-run onboarding card (Linear "Create a workspace" shape).
@@ -27,47 +30,58 @@ export function OnboardingCreate({
   /** Shown under the form — e.g. invitations to join an existing Space. */
   children?: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     const next = name.trim();
     if (!next || busy) return;
     setBusy(true);
+    setError(null);
     try {
       await onCreate(next);
     } catch (e) {
       console.error('Onboarding create failed', e);
+      setError(e instanceof Error ? e.message : t('Something went wrong'));
       setBusy(false); // leave the form usable on error; success unmounts us
     }
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-[var(--content-bg)] px-6">
-      <div className="w-full max-w-sm">
-        <h1 className="text-center text-[20px] font-semibold text-foreground tracking-tight">{title}</h1>
-        <p className="text-center text-[13px] text-muted-foreground mt-1.5 mb-8">{subtitle}</p>
+    <div className="flex h-screen items-center justify-center bg-[var(--content-bg)] px-6">
+      <div className="w-full max-w-sm rounded-lg border border-border/40 bg-card p-8 shadow-[var(--shadow-island)]">
+        <h1 className="text-center text-[19px] font-semibold tracking-tight text-foreground">{title}</h1>
+        <p className="mb-6 mt-1.5 text-center text-[13px] text-muted-foreground">{subtitle}</p>
 
-        <label className="block text-[12px] font-medium text-muted-foreground mb-1.5">{label}</label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); void submit(); }
-          }}
-          placeholder={placeholder}
-          className="w-full rounded-lg bg-card border border-border px-3 py-2 text-[14px] text-foreground placeholder:text-muted-foreground/50 outline-none"
-        />
+        <InlineField label={label}>
+          <InlineInput
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void submit(); }
+            }}
+            placeholder={placeholder}
+            className="h-9"
+          />
+        </InlineField>
 
-        <button
+        {error && (
+          <p role="alert" className="mt-2.5 text-[12px] text-[var(--status-danger)]">{error}</p>
+        )}
+
+        <Button
+          variant="primary"
+          size="lg"
           type="button"
           onClick={() => void submit()}
           disabled={!name.trim() || busy}
-          className="mt-6 w-full rounded-lg bg-primary text-primary-foreground text-[14px] font-medium py-2.5 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="mt-5 w-full"
         >
-          {busy ? 'Creating…' : cta}
-        </button>
+          {busy ? t('Creating…') : cta}
+        </Button>
         {children}
       </div>
     </div>

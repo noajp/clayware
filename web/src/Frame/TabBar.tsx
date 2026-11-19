@@ -116,7 +116,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
   };
 
   return (
-    <div className="flex items-center gap-1.5 py-2 pl-[19px] pr-4 bg-transparent">
+    <div className="flex items-center gap-1.5 border-b border-[var(--gloss-rim)] bg-transparent py-1.5 pl-6 pr-4">
       {/* Tabs — a quiet strip, folded into one menu when they do not fit */}
       <CollapsingTabs
         menuLabel={t('Views')}
@@ -132,7 +132,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
         }}>
           <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
             <div className="min-w-0 overflow-x-auto">
-              <div className="flex w-max items-center gap-1.5">
+              <div className="flex w-max items-center gap-1">
               {tabs.map(tab => <SortableViewTab key={tab.id} tab={tab} active={tab.id === activeTabId}
                 sortable={!!onTabReorder} onSelect={() => onTabSelect(tab.id)} onContextMenu={e => handleContextMenu(e, tab)} />)}
               </div>
@@ -158,7 +158,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
           {showCreateMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowCreateMenu(false)} />
-              <div className="absolute top-full left-0 mt-1 py-1 bg-popover border border-border rounded-lg shadow-xl z-50 min-w-[150px]">
+              <div className="gloss-overlay absolute top-full left-0 z-50 mt-1 min-w-[164px] rounded-lg p-1 text-popover-foreground">
                 {visibleCreateOptions.map((type) => {
                   const meta = OBJECT_TAB_META[type];
                   const OptionIcon = meta.Icon;
@@ -166,9 +166,9 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
                     <button
                       key={type}
                       onClick={() => handleCreate(type)}
-                      className="w-full flex items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors"
+                      className="flex w-full items-center gap-2 whitespace-nowrap rounded-[5px] px-2 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-[var(--surface-strong)]"
                     >
-                      <span className="text-muted-foreground"><OptionIcon size={16} /></span>
+                      <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"><OptionIcon size={14} /></span>
                       {t(createTitle?.(type) ?? meta.title)}
                     </button>
                   );
@@ -188,7 +188,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
           <div className="fixed inset-0 z-40" />
           <div
             ref={contextMenuRef}
-            className="fixed z-50 py-1 bg-popover border border-border rounded-lg shadow-xl min-w-[160px]"
+            className="gloss-overlay fixed z-50 min-w-[164px] rounded-lg p-1 text-popover-foreground"
             style={getMenuStyle()}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -200,13 +200,13 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
                   onTabClose(contextMenu.tabId);
                   setContextMenu(null);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
               >
                 <Trash2 size={14} />
                 {t('Delete tab')}
               </button>
             ) : (
-              <div className="px-3 py-2 text-[12px] text-muted-foreground">
+              <div className="px-2 py-1.5 text-[12px] text-muted-foreground">
                 {t('The List tab cannot be deleted')}
               </div>
             )}
@@ -223,10 +223,12 @@ function SortableViewTab({ tab, active, sortable, onSelect, onContextMenu }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id, disabled: !sortable });
   const { t } = useI18n();
+  const TabIcon = (OBJECT_TAB_META[tab.tab_type] ?? OBJECT_TAB_META.elements).Icon;
   return <Button ref={setNodeRef} type="button" shape="tab" variant={active ? 'secondary' : 'ghost'}
     {...attributes} {...listeners} aria-pressed={active} onClick={onSelect} onContextMenu={onContextMenu}
     style={{ transform: CSS.Transform.toString(transform), transition }}
     className={sortable ? `touch-none ${isDragging ? 'relative z-10 opacity-70' : ''}` : undefined}>
+    <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
     {t(tab.title)}
   </Button>;
 }

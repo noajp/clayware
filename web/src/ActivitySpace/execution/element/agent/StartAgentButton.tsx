@@ -52,7 +52,7 @@ export function StartAgentButton({
         ? 'text-[var(--status-danger)] hover:bg-[var(--status-danger-subtle)]'
         : isDone
           ? 'text-[var(--status-success)] hover:bg-[var(--status-success-subtle)]'
-          : 'text-muted-foreground hover:text-primary hover:bg-accent';
+          : 'text-muted-foreground hover:text-primary hover:bg-[var(--surface-strong)]';
     return (
       <button
         type="button"
@@ -84,7 +84,7 @@ export function StartAgentButton({
           <button
             type="button"
             onClick={onCancel}
-            className="px-2 py-1.5 rounded-md text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="px-2 py-1.5 rounded-md text-[12px] text-muted-foreground hover:bg-[var(--surface-strong)] hover:text-foreground transition-colors"
           >
             {t('Stop')}
           </button>

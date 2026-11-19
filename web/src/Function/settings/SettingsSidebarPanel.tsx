@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search } from '@/ui/icons';
+import { Search, X } from '@/ui/icons';
 import {
   SETTINGS_NAV,
   useActiveSettingsSection,
@@ -47,21 +47,34 @@ export function SettingsSidebarPanel() {
 
   return (
     <div className="pt-1">
-      <div className="pb-2">
+      <div className="pb-2.5">
         <div className="relative">
-          <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70" />
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/75" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('Search settings…')}
-            className="w-full h-8 pl-[35px] pr-2.5 text-[12px] bg-muted/40 rounded-md placeholder:text-muted-foreground/60 border-none"
+            aria-label={t('Search settings…')}
+            className="h-[30px] w-full rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-well)] pl-7 pr-7 text-[12.5px] text-foreground placeholder:text-muted-foreground/65 transition-colors hover:border-[var(--border-default)] focus:bg-[var(--accent-subtle)]"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label={t('Clear')}
+              className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
       </div>
 
-      {filtered.map((section) => (
+      {filtered.length === 0 ? (
+        <p className="px-2 py-6 text-center text-[12px] text-muted-foreground">{t('No results.')}</p>
+      ) : filtered.map((section) => (
         <div key={section.title} className="mb-3">
-          <SidebarSectionLabel className="mb-1">{t(section.title)}</SidebarSectionLabel>
+          <SidebarSectionLabel className="mb-0.5 mt-1">{t(section.title)}</SidebarSectionLabel>
           <div className="space-y-0.5">
             {section.items.map(({ item, tab }) => {
               const Icon = item.icon;
@@ -69,7 +82,7 @@ export function SettingsSidebarPanel() {
                 <SidebarRow
                   key={item.id}
                   active={active === item.id}
-                  icon={<Icon size={16} />}
+                  icon={<Icon size={15} />}
                   label={t(item.label)}
                   meta={tab ? t(item.tabs!.find((x) => x.id === tab)!.label) : undefined}
                   onClick={() => setActiveSettingsSection(item.id, tab)}

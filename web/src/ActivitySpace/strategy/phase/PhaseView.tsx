@@ -1,8 +1,9 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { PageHeader } from '@/Function/shared/PageHeader';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, CirclePlay, Plus, RotateCcw, Search, X } from '@/ui/icons';
+import { Check, ChevronDown, CirclePlay, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from '@/ui/icons';
 import { isCommitEnter, useEscapeLayer } from '@/Function/shared/keyboard';
 import { NavPhaseIcon } from '@/Frame/sidebar/NavIcons';
 import { EmptyState } from '@/Function/shared/EmptyState';
@@ -171,20 +172,16 @@ export function PhaseView({
 
   return (
     <div className="flex flex-col h-full bg-card">
-      <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
-        <SidebarReveal />
-        <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground">{t('Phase')}</span>
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => setNewOpen(true)}
-          title={t('Add Phase')}
-          aria-label={t('Add Phase')}
-          className="inline-flex items-center justify-center w-6 h-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
-        >
-          <Plus size={14} />
-        </button>
-      </div>
+      <PageHeader
+        title={t('Phase')}
+        icon={<NavPhaseIcon size={14} />}
+        primaryAction={
+          <Button variant="primary" size="sm" onClick={() => setNewOpen(true)} title={t('Add Phase')}>
+            <Plus size={14} />
+            <span className="hidden sm:inline">{t('Add Phase')}</span>
+          </Button>
+        }
+      />
 
       <div className="flex-1 overflow-hidden">
         {loading ? null : !activeDomainId ? (
@@ -366,6 +363,7 @@ function PhaseDetailView({
   const [pickerFor, setPickerFor] = useState<'objects' | 'elements' | null>(null);
   const [query, setQuery] = useState('');
   const [closing, setClosing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(phase.name);
@@ -423,8 +421,13 @@ function PhaseDetailView({
   };
 
   const handleDelete = async () => {
+    if (!(await appDialog.confirm(t('Delete the Phase "{name}"? Its Objects and Elements stay, just unassigned.', { name: phase.name })))) return;
+    setActionError(null);
     try { await deletePhase(phase.id); onSaved(); onBack(); }
-    catch (e) { console.error('Failed to delete Phase', e); }
+    catch (e) {
+      console.error('Failed to delete Phase', e);
+      setActionError(e instanceof Error ? e.message : t('Failed to delete Phase'));
+    }
   };
 
   // planned ⇄ active are just the row; complete goes through the dialog, which
@@ -432,42 +435,49 @@ function PhaseDetailView({
   const setStatus = async (next: PhaseStatus) => {
     if (next === phase.status) return;
     if (next === 'complete') { setClosing(true); return; }
+    setActionError(null);
     try { await reopenPhase(phase.id, next); onSaved(); }
-    catch (e) { console.error('Failed to change Phase status', e); }
+    catch (e) {
+      console.error('Failed to change Phase status', e);
+      setActionError(e instanceof Error ? e.message : t('Failed to update Phase'));
+    }
   };
 
   const closePicker = () => { setPickerFor(null); setQuery(''); };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-card h-full">
-      {/* Drawn as the shared IslandHeader is (Function/shared/MainIsland). */}
-      <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
-        <SidebarReveal />
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-1.5 py-0.5 rounded text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-        >
-          {t('Phase')}
-        </button>
-        <ChevronRight size={12} className="text-muted-foreground/40 flex-shrink-0" />
-        <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground truncate max-w-[240px]">
-          {phase.name}
-        </span>
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => void handleDelete()}
-          title={t('Delete Phase')}
-          aria-label={t('Delete Phase')}
-          className="inline-flex items-center justify-center w-6 h-6 text-muted-foreground hover:text-[var(--status-danger)] hover:bg-muted rounded-md transition-colors"
-        >
-          <X size={13} />
-        </button>
-      </div>
+      <PageHeader
+        crumbs={[
+          { id: 'phase', label: t('Phase'), icon: <NavPhaseIcon size={14} />, onClick: onBack },
+          { id: phase.id, label: phase.name },
+        ]}
+        more={
+          <ButtonAppearanceProvider appearance="navigation">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={t('More options')} title={t('More options')}>
+                  <MoreHorizontal size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <MenuShell as="dropdown" align="end">
+                <DropdownMenuItem variant="destructive" onSelect={() => void handleDelete()}>
+                  <Trash2 size={14} />
+                  {t('Delete Phase')}
+                </DropdownMenuItem>
+              </MenuShell>
+            </DropdownMenu>
+          </ButtonAppearanceProvider>
+        }
+      />
 
       <div className="flex-1 overflow-auto">
         <div className={`${PAGE_FRAME} space-y-5`}>
+          {actionError && (
+            <p role="alert" className="rounded-md border border-[var(--status-danger)]/30 bg-[var(--status-danger-subtle)] px-3 py-2 text-[12px] text-[var(--status-danger)]">
+              {actionError}
+            </p>
+          )}
           <div>
             <PageIcon><NavPhaseIcon size={18} /></PageIcon>
             <input

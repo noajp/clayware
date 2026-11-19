@@ -12,7 +12,7 @@ import { useElementById } from '@/hooks/elementData';
 import { useObjectById } from '@/hooks/useObjectArchive';
 import { useStrategies } from '@/hooks/strategyData';
 import { useCodeChangeById } from '@/hooks/codeChangeData';
-import { GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft } from '@/ui/icons';
+import { ChevronRight, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft } from '@/ui/icons';
 import type { CodeChange, ElementStatus } from '@/types/database';
 import { CHART_CARD_CLASS } from './chartColors';
 import { flattenCreated } from './copilotSteps';
@@ -52,8 +52,9 @@ function CardShell({ onOpen, muted, children }: {
     return <div className={`${face} ${muted ? 'opacity-60' : ''}`}>{children}</div>;
   }
   return (
-    <button type="button" onClick={onOpen} className={`${face} ${CARD_HOVER}`}>
+    <button type="button" onClick={onOpen} className={`group/created ${face} ${CARD_HOVER}`}>
       {children}
+      <ChevronRight size={13} className="shrink-0 text-muted-foreground/50 transition-transform group-hover/created:translate-x-0.5 group-hover/created:text-foreground" />
     </button>
   );
 }
@@ -96,11 +97,14 @@ function ObjectCreatedCard({ entity }: { entity: CreatedEntity }) {
     <CardShell muted={gone}
       onOpen={gone ? undefined : () => openInApp('objects', { objectId: entity.id })}>
       <ObjectIcon size={15} className="shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{object?.name ?? entity.title}</span>
-      {object?.prefix && (
-        <span className="shrink-0 text-[11.5px] tabular-nums text-muted-foreground">{object.prefix}</span>
-      )}
-      {gone && <span className="shrink-0 text-[11.5px] text-muted-foreground">{t('Deleted')}</span>}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="min-w-0 truncate text-[13px] text-foreground">{object?.name ?? entity.title}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+          <span>{t('Object')}</span>
+          {object?.prefix && <span className="tabular-nums">· {object.prefix}</span>}
+          {gone && <span>· {t('Deleted')}</span>}
+        </span>
+      </span>
     </CardShell>
   );
 }
@@ -117,8 +121,13 @@ function StrategyCreatedCard({ entity }: { entity: CreatedEntity }) {
       {Glyph && (
         <span className="shrink-0 text-muted-foreground"><Glyph size={15} /></span>
       )}
-      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{live?.name ?? entity.title}</span>
-      {gone && <span className="shrink-0 text-[11.5px] text-muted-foreground">{t('Deleted')}</span>}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="min-w-0 truncate text-[13px] text-foreground">{live?.name ?? entity.title}</span>
+        <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+          <span>{t('Strategy')}</span>
+          {gone && <span>· {t('Deleted')}</span>}
+        </span>
+      </span>
     </CardShell>
   );
 }

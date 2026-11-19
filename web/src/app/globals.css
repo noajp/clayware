@@ -103,42 +103,43 @@
   --chart-completed: #5a67d8;
 
   /* ---- Surface — Light (neutral grays: matte white / pure white / gray-white) ---- */
-  --surface-bg:      #ECECEE;
-  --surface-muted:   #F3F3F5;
+  --surface-bg:      #EBEBEF;
+  --content-bg:      var(--surface-bg);
+  --surface-muted:   #F3F3F6;
   --surface-raised:  #ffffff;
-  --surface-strong:  #DEDEE2;
+  --surface-strong:  #E2E2E7;
   --surface-overlay: #ffffff;
   /* Right-rail islands — a notch off the white island. The tone is all that
      sets them apart (they draw no outline), so it cannot equal the island. */
-  --surface-rail:    #F7F7F8;
+  --surface-rail:    #F7F7F9;
 
   /* ---- Border — Light ---- */
-  --border-subtle:  rgba(20, 22, 26, 0.10);
-  --border-default: #D0D0D4;
-  --border-strong:  #B5B5BA;
+  --border-subtle:  rgba(15, 20, 30, 0.08);
+  --border-default: rgba(15, 20, 30, 0.14);
+  --border-strong:  rgba(15, 20, 30, 0.24);
 
   /* ---- Text — Light ---- */
-  --text-primary:   #14161a;
-  --text-secondary: #3a3d44;
-  --text-tertiary:  #6c707a;
-  --text-disabled:  #a8aab0;
+  --text-primary:   #121418;
+  --text-secondary: #3b3f47;
+  --text-tertiary:  #696e79;
+  --text-disabled:  #a5a8b0;
 
   /* ---- Spacing ---- */
   --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
   --space-4: 16px;  --space-5: 24px;  --space-6: 32px;
   --space-7: 48px;  --space-8: 64px;
 
-  /* ---- Radius (per design spec) ---- */
-  --radius-xs:  5px;
-  --radius-sm:  8px;
-  --radius-md:  10px;
-  --radius-lg:  12px;
+  /* ---- Radius (sharp Linear / Raycast geometry) ---- */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius-md:  8px;
+  --radius-lg:  10px;
   --radius-xl:  50px;
   --radius-full: 9999px;
 
   /* ---- Motion (per design spec) ---- */
   --motion-instant: 50ms  ease-out;
-  --motion-fast:    150ms ease-out;
+  --motion-fast:    140ms ease-out;
   --motion-base:    150ms cubic-bezier(0.4, 0, 0.2, 1);
   --motion-slow:    220ms cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -147,27 +148,27 @@
      rim whose top edge catches the light, a sheen that fades down its face,
      and a soft layered shadow under it. On the light themes the lit edge is
      white on white, so the shadow does the lifting; on the dark themes the
-     shadow sinks into the ground, so the edge and the sheen do. Only
-     surfaces carry it — islands, cards and overlays. Buttons and other
-     controls stay flat: a lit button reads as chrome from another era. */
-  --gloss-edge:    rgba(255, 255, 255, 0.9);   /* inner top highlight of an overlay */
-  --gloss-rim:     rgba(20, 22, 26, 0.09);     /* an island's outline */
-  --gloss-rim-top: rgba(20, 22, 26, 0.06);     /* …and its top edge */
-  --gloss-sheen:   none;
-  /* Menus, popovers, dialogs and toasts are glass: the page shows through, blurred. */
-  --overlay-glass: color-mix(in srgb, var(--surface-overlay) 80%, transparent);
-  --overlay-blur:  blur(20px) saturate(170%);
+     shadow sinks into the ground, so the edge and the sheen do. */
+  --gloss-edge:    rgba(255, 255, 255, 0.95);  /* inner top highlight of an overlay */
+  --gloss-rim:     rgba(15, 20, 30, 0.09);     /* an island's crisp hairline outline */
+  --gloss-rim-top: rgba(15, 20, 30, 0.07);     /* …and its top edge */
+  --gloss-sheen:   linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 18%);
+  /* Menus, popovers, dialogs and toasts are crisp translucent glass. */
+  --overlay-glass: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
+  --overlay-blur:  blur(20px) saturate(180%);
 
-  --shadow-1: 0 1px 1px rgba(15, 17, 22, 0.04), 0 2px 4px -1px rgba(15, 17, 22, 0.05), 0 12px 24px -14px rgba(15, 17, 22, 0.12);
+  --shadow-1: 0 1px 1px rgba(15, 17, 22, 0.04), 0 2px 6px -1px rgba(15, 17, 22, 0.06), 0 10px 22px -14px rgba(15, 17, 22, 0.12);
   --shadow-island: var(--shadow-1);
   /* A card beside the page (the rail's Properties, Label, Activity): a
      quieter lift than an island, so the rail does not stand above the page. */
-  --shadow-card: 0 1px 1px rgba(15, 17, 22, 0.02), 0 6px 12px -10px rgba(15, 17, 22, 0.05);
+  --shadow-card: 0 1px 1px rgba(15, 17, 22, 0.03), 0 4px 10px -8px rgba(15, 17, 22, 0.06);
+  /* Primary CTA specular highlight + crisp edge depth (Linear / Raycast). */
+  --shadow-primary-btn: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(15, 20, 30, 0.16);
   /* A colored CTA button's own lift (e.g. the Copilot send button) — stronger
      than --shadow-island, which is reserved for cards. */
   --shadow-button: 0 1px 4px rgba(0, 0, 0, 0.35);
-  --surface-well: color-mix(in srgb, var(--surface-rail) 70%, transparent);
-  --shadow-overlay: 0 1px 2px rgba(15, 17, 22, 0.06), 0 6px 16px -2px rgba(15, 17, 22, 0.10), 0 24px 48px -12px rgba(15, 17, 22, 0.20);
+  --surface-well: color-mix(in srgb, var(--surface-rail) 72%, transparent);
+  --shadow-overlay: inset 0 1px 0 var(--gloss-edge), 0 1px 2px rgba(15, 17, 22, 0.06), 0 8px 20px -4px rgba(15, 17, 22, 0.12), 0 24px 48px -14px rgba(15, 17, 22, 0.22);
 
   /* ---- Structural overlays ----
      Translucent tints layered onto an already-colored surface (a Gantt bar,
@@ -261,20 +262,21 @@
   --syntax-tag:      #f08a96;
 
   /* ---- Gloss — Dark ---- */
-  --gloss-edge:    rgba(255, 255, 255, 0.03);
-  --gloss-rim:     rgba(255, 255, 255, 0.06);
-  --gloss-rim-top: rgba(255, 255, 255, 0.06);
-  --gloss-sheen:   none;
-  --overlay-glass: color-mix(in srgb, var(--surface-overlay) 74%, transparent);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.36), 0 14px 28px -16px rgba(0, 0, 0, 0.7);
-  --shadow-card: 0 1px 1px rgba(0, 0, 0, 0.1), 0 6px 14px -12px rgba(0, 0, 0, 0.18);
+  --gloss-edge:    rgba(255, 255, 255, 0.07);
+  --gloss-rim:     rgba(255, 255, 255, 0.075);
+  --gloss-rim-top: rgba(255, 255, 255, 0.115);
+  --gloss-sheen:   linear-gradient(180deg, rgba(255, 255, 255, 0.028) 0%, rgba(255, 255, 255, 0) 24%);
+  --overlay-glass: color-mix(in srgb, var(--surface-overlay) 82%, transparent);
+  --shadow-1: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 1px 2px rgba(0, 0, 0, 0.42), 0 14px 28px -16px rgba(0, 0, 0, 0.78);
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 14px -12px rgba(0, 0, 0, 0.28);
+  --shadow-primary-btn: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.36);
   --surface-well: color-mix(in srgb, var(--surface-rail) 45%, transparent);
-  --shadow-overlay: inset 0 1px 0 var(--gloss-edge), 0 2px 6px rgba(0, 0, 0, 0.3), 0 12px 28px -4px rgba(0, 0, 0, 0.45), 0 32px 64px -16px rgba(0, 0, 0, 0.6);
+  --shadow-overlay: inset 0 1px 0 var(--gloss-edge), 0 2px 6px rgba(0, 0, 0, 0.38), 0 12px 28px -4px rgba(0, 0, 0, 0.52), 0 32px 64px -16px rgba(0, 0, 0, 0.72);
 
   /* ---- Border — Dark ---- */
-  --border-subtle:  rgba(255, 255, 255, 0.055);
-  --border-default: rgba(255, 255, 255, 0.095);
-  --border-strong:  rgba(255, 255, 255, 0.145);
+  --border-subtle:  rgba(255, 255, 255, 0.065);
+  --border-default: rgba(255, 255, 255, 0.11);
+  --border-strong:  rgba(255, 255, 255, 0.17);
 
   /* ---- Text — Dark ----
      Four steps, and the steps do the work: a title is the brightest thing on
@@ -555,21 +557,37 @@ textarea.quick-create-title {
 /* ---- Selection ---- */
 ::selection { background: var(--selection-background); color: var(--selection-foreground); }
 
+/* ---- Pointer cursor preference ---- */
+html[data-pointer-cursors="1"] button:not(:disabled),
+html[data-pointer-cursors="1"] [role="button"],
+html[data-pointer-cursors="1"] [role="tab"],
+html[data-pointer-cursors="1"] [role="menuitem"],
+html[data-pointer-cursors="1"] [role="switch"],
+html[data-pointer-cursors="1"] a[href] {
+  cursor: pointer;
+}
+
 /* ---- Transitions ---- */
 button, a, input, select, textarea {
   transition: background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast), opacity var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 /* ---- Input borders ----
- * Form fields get a thin resting border so the input area is easy to see.
- * Bare/transparent inputs (composer, inline editors, search — they carry
- * `bg-transparent`) opt out, and non-text controls are excluded. Authored in
- * @layer base so any per-component border utility still wins. */
+ * Form fields sit on a quiet surface tint with a hairline border (Linear × Asana):
+ * clear enough to recognize immediately, never heavy or boxy. Bare/transparent
+ * inputs (composer, inline editors, search — carrying `bg-transparent`) opt out.
+ * Authored in @layer base so any per-component utility still wins. */
 @layer base {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.bg-transparent),
   textarea:not(.bg-transparent),
   select:not(.bg-transparent) {
-    border: 1px solid var(--border-strong);
+    background-color: var(--surface-muted);
+    border: 1px solid var(--border-subtle);
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not(.bg-transparent):hover,
+  textarea:not(.bg-transparent):hover,
+  select:not(.bg-transparent):hover {
+    border-color: var(--border-default);
   }
 }
 
@@ -598,31 +616,32 @@ button, a, input, select, textarea {
 
 /* ---- Buttons ---- */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 32px; padding: 0 12px; font-size: 14px; font-weight: 510;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 32px; padding: 0 12px; font-size: 13px; font-weight: 510;
   border-radius: var(--control-action-radius); cursor: pointer; border: 1px solid var(--border-default);
   font-family: inherit; transition: background var(--motion-fast), opacity var(--motion-fast), box-shadow var(--motion-fast);
 }
 .btn:active { transform: scale(0.98); transition-duration: 80ms; }
 .btn:disabled { opacity: 0.4; pointer-events: none; }
 
-.btn-primary    { background: var(--accent-default); color: #ffffff; }
+.btn-primary    { background: var(--accent-default); color: #ffffff; border-color: transparent; box-shadow: var(--shadow-primary-btn); }
 .btn-primary:hover { background: var(--accent-hover); }
 .btn-secondary  { background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-default); }
 .btn-secondary:hover { border-color: var(--border-strong); }
-.btn-ghost      { background: transparent; color: var(--text-secondary); }
-.btn-ghost:hover { background: var(--surface-raised); color: var(--text-primary); }
-.btn-destructive { background: var(--status-danger); color: #ffffff; }
+.btn-ghost      { background: transparent; color: var(--text-secondary); border-color: transparent; }
+.btn-ghost:hover { background: var(--surface-strong); color: var(--text-primary); }
+.btn-destructive { background: var(--status-danger); color: #ffffff; border-color: transparent; }
 .btn-destructive:hover { opacity: 0.9; }
 
 /* ---- Inputs ---- */
 .input {
-  width: 100%; height: 32px; padding: 0 12px;
-  background: var(--surface-raised); border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm); color: var(--text-primary);
-  font-size: 14px; font-family: inherit;
+  width: 100%; height: 32px; padding: 0 10px;
+  background: var(--surface-muted); border: 1px solid var(--border-subtle);
+  border-radius: var(--control-field-radius); color: var(--text-primary);
+  font-size: 13px; font-family: inherit;
 }
-.input:hover { border-color: var(--border-strong); }
+.input:hover { border-color: var(--border-default); }
+.input:focus { background: var(--accent-subtle); }
 .input::placeholder { color: var(--text-disabled); }
 
 /* ---- Badges ---- */
@@ -709,6 +728,34 @@ button, a, input, select, textarea {
   .gloss-well {
     border: 1px solid var(--gloss-rim);
     background-color: var(--surface-well);
+  }
+  /* Tactile Raycast / Linear keyboard keycap badge. */
+  .kbd-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border-default);
+    background-color: var(--surface-muted);
+    color: var(--text-tertiary);
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    box-shadow: inset 0 1px 0 var(--gloss-edge);
+  }
+  /* AI-native suggestion / summary / draft surface: quiet well with a single
+     accent bar on the leading edge so AI output is distinguishable from human
+     records without shouting. */
+  .ai-surface {
+    background-color: var(--surface-well);
+    border: 1px solid var(--border-subtle);
+    border-left: 2px solid var(--accent-default);
+    border-radius: var(--radius-md);
   }
 }
 

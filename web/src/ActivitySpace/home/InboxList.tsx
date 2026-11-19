@@ -113,9 +113,9 @@ function InboxRow({ notification: n, selected, locale, onSelect, onToggleRead, o
   return (
     <ContextMenu>
     <ContextMenuTrigger asChild>
-    <li className={`group/row flex items-start gap-0.5 rounded-lg pr-1 transition-colors ${selected ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50 focus-within:bg-sidebar-accent/50'}`}>
+    <li className={`group/row flex items-start gap-0.5 rounded-[7px] pr-1 transition-colors ${selected ? 'bg-sidebar-accent shadow-[inset_0_0_0_1px_var(--border-subtle)]' : 'hover:bg-sidebar-accent/55 focus-within:bg-sidebar-accent/55'}`}>
       <button type="button" onClick={() => onSelect(n)} aria-current={selected ? 'true' : undefined}
-        className="flex min-w-0 flex-1 items-start gap-2 rounded-lg py-2 pl-2 text-left focus-visible:bg-sidebar-accent">
+        className="flex min-w-0 flex-1 items-start gap-2.5 rounded-[7px] py-2 pl-2 text-left focus-visible:bg-sidebar-accent">
         <span className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground" aria-hidden="true">
           {n.actor_name?.trim().slice(0, 2) || <Inbox size={14} />}
           <span className="absolute -bottom-1 -right-1 rounded bg-card p-px text-[var(--text-secondary)]"><Icon size={10} /></span>
