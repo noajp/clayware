@@ -40,8 +40,8 @@ import { PlanSettings } from './PlanSettings';
 // store.
 //
 // One nav row is one page: the page is headed by its name and a one-line
-// description, on the page ground (bg-background) so the property islands
-// float, and everything it holds is stacked on it — nothing switches
+// description, on the island's own ground (bg-card, the sidebar's too) with
+// the property islands a step off it, and everything it holds is stacked on it — nothing switches
 // inside a page. A reveal (nav click / deep link / restore) opens the
 // page at its top.
 // =============================================================
@@ -95,7 +95,7 @@ export function SettingsView() {
 
   const item = SETTINGS_ITEMS[section] ?? SETTINGS_NAV[0].items[0];
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto bg-background">
+    <div ref={scrollRef} className="h-full overflow-y-auto bg-card">
       <div className="max-w-3xl mx-auto px-10 py-10">
         <AreaShell key={item.id} item={item} description={AREA_DESCRIPTIONS[item.id]}>
           {renderArea(item)}

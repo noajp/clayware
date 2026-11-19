@@ -13,11 +13,11 @@ export type ThemeOption = {
 };
 
 export const OPTIONS: ThemeOption[] = [
-  { value: 'system', label: 'System', split: ['#ECECEE', '#101011'] },
+  { value: 'system', label: 'System', split: ['#ECECEE', '#0b0b0c'] },
   { value: 'white',  label: 'White',  swatch: { bg: '#ffffff', island: '#ffffff' } },
   { value: 'light',  label: 'Light',  swatch: { bg: '#ECECEE', island: '#ffffff' } },
-  { value: 'dark',   label: 'Dark',   swatch: { bg: '#101011', island: '#161617' } },
-  { value: 'black',  label: 'Black',  swatch: { bg: '#111111', island: '#111111' } },
+  { value: 'dark',   label: 'Dark',   swatch: { bg: '#0b0b0c', island: '#19191b' } },
+  { value: 'black',  label: 'Black',  swatch: { bg: '#080808', island: '#080808' } },
   // Your own accent and backdrop; stored as custom-dark or custom-light.
   { value: 'custom', label: 'Custom' },
 ];

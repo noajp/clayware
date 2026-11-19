@@ -77,12 +77,12 @@ export default function Home() {
 // inlined-app-shell idea). Pure CSS, no data, so it paints immediately.
 function AppShellSkeleton() {
   return (
-    <div className="h-dvh flex overflow-hidden bg-sidebar" aria-hidden>
+    <div className="h-dvh flex overflow-hidden bg-background" aria-hidden>
       {/* The rail, sunk into the ground */}
       <div className="max-md:hidden w-12 shrink-0" />
       {/* One island: the sidebar, then the main screen */}
       <div className="flex-1 flex overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
-        <div className="flex-1 flex overflow-hidden rounded-lg gloss-island bg-white dark:bg-card">
+        <div className="flex-1 flex overflow-hidden rounded-lg gloss-island bg-card">
           <div className="max-md:hidden w-[260px] shrink-0 flex flex-col gap-4 p-3 border-r border-sidebar-border animate-pulse">
             <div className="h-7 w-32 rounded-md bg-muted/70" />
             <div className="flex flex-col gap-1.5 mt-1">
@@ -882,7 +882,7 @@ function WorkspaceContent({
     <CopilotProvider>
     <CopilotArrivalWatcher visible={aiScreen || copilotOpen} carryRef={aiCarryRef} />
     <div
-      className="h-dvh flex flex-col overflow-hidden bg-sidebar text-foreground"
+      className="h-dvh flex flex-col overflow-hidden bg-background text-foreground"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -914,7 +914,7 @@ function WorkspaceContent({
             ground with a hairline between them; the Copilot,
             when open, is an island of its own on the right. */}
         <div className="flex-1 flex overflow-hidden gap-1.5">
-          <div className="flex-1 flex overflow-hidden bg-white dark:bg-card rounded-lg gloss-island">
+          <div className="flex-1 flex overflow-hidden bg-card rounded-lg gloss-island">
             {/* The sidebar's holder is positioned and its frame is not, so
                 the drawer (absolute) escapes the frame and opens from the
                 island's left edge; the island clips it while it slides in and

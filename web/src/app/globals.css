@@ -260,13 +260,13 @@
   /* Neutral grays (R≈G≈B) — the previous ramp leaned cool/blue. Backdrop/
      sidebar (--surface-bg) and island (--surface-raised) sit a notch darker;
      the lightness steps are preserved, only the blue cast is removed. */
-  --surface-bg:      #101011;
-  --surface-raised:  #161617;
-  --surface-strong:  #252527;
-  --surface-muted:   #1e1e20;
-  --surface-overlay: #262628; /* menus and popovers: a light notch above the island, not a dark hole */
+  --surface-bg:      #0b0b0c;
+  --surface-raised:  #19191b;
+  --surface-strong:  #2a2a2d;
+  --surface-muted:   #202022;
+  --surface-overlay: #2a2a2c; /* menus and popovers: a light notch above the island, not a dark hole */
   /* Right-rail cards lift a notch off the main island. */
-  --surface-rail:    #202022;
+  --surface-rail:    #222224;
 
   /* ---- Syntax — Dark ---- */
   --syntax-keyword:  #b9a2f5;
@@ -340,7 +340,7 @@
   /* Sidebar row highlight goes DARKER than sidebar bg (lch 19) — settles
      toward black rather than lifting up. Active uses full opacity; hover
      classes blend at /50 for a barely-there "you're hovering" hint. */
-  --sidebar-accent:           #222224;
+  --sidebar-accent:           #252528;
   --sidebar-accent-foreground: var(--text-primary);
   --sidebar-border:           var(--border-subtle);
   --sidebar-ring:             var(--accent-hover);
@@ -355,13 +355,13 @@
    re-toning only the surface ramp; White re-tones the light ramp over :root.
    ============================================ */
 .theme-black {
-  --surface-bg:      #111111;
-  --surface-raised:  #111111;
-  --surface-strong:  #1f1f1f;
-  --surface-muted:   #1a1a1a;
-  --surface-overlay: #222222;
-  --surface-rail:    #1c1c1c;
-  --sidebar-accent:  #1f1f1f;
+  --surface-bg:      #080808;
+  --surface-raised:  #080808;
+  --surface-strong:  #1a1a1a;
+  --surface-muted:   #121212;
+  --surface-overlay: #1c1c1c;
+  --surface-rail:    #141414;
+  --sidebar-accent:  #1a1a1a;
 }
 .theme-white {
   --surface-bg:      #ffffff;
@@ -385,7 +385,7 @@
   --accent-hover:   color-mix(in oklab, var(--accent-default), black 15%);
   --accent-subtle:  color-mix(in srgb, var(--accent-default) 15%, transparent);
   --custom-step:    calc(1% + var(--custom-contrast, 30) * 0.1%);
-  --surface-bg:     var(--custom-bg, #101011);
+  --surface-bg:     var(--custom-bg, #0b0b0c);
 }
 .theme-custom-dark {
   --surface-raised:  color-mix(in oklab, var(--surface-bg), white calc(var(--custom-step) * 0.6));

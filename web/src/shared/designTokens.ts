@@ -191,9 +191,9 @@ export const CARD_HOVER =
  *  connector catalog cards, registry cards) sit flat inside Settings. */
 export const CARD_FLAT = 'rounded-lg bg-[var(--surface-rail)] border border-border/60';
 /** A settings property island: the #803 Chain-card float, for a group of
- *  setting rows floating on the page ground (--surface-bg). */
+ *  setting rows on the main island's ground (--card), a step off it. */
 export const SETTINGS_ISLAND =
-  'gloss-island gloss-sheen rounded-lg bg-card dark:bg-[var(--surface-rail)]';
+  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-rail)]';
 /** The ground of a choice control (a segmented track, a select) on an island:
  *  a tint of the text colour, so it stands one step off whatever surface it
  *  sits on in every theme — darker on a light island, lighter on a dark one.

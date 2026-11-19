@@ -15,7 +15,7 @@ export interface CustomTheme {
   contrast: number;
 }
 
-const DEFAULT_CUSTOM_THEME: CustomTheme = { accent: '#3d5fae', background: '#101011', contrast: 30 };
+const DEFAULT_CUSTOM_THEME: CustomTheme = { accent: '#3d5fae', background: '#0b0b0c', contrast: 30 };
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
