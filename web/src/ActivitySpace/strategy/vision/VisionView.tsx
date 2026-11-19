@@ -10,13 +10,16 @@ import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest'
 import { openInApp } from '@/Function/shared/appNavigation';
 import { toggleReaction, useVisionReactions } from '@/hooks/commentData';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { Plus } from '@/ui/icons';
-import { NavStrategyIcon, NavStrategyModeIcon } from '@/Frame/sidebar/NavIcons';
+import { NavStrategyModeIcon } from '@/Frame/sidebar/NavIcons';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IslandHeader } from '@/Function/shared/MainIsland';
-import { PageHead, PageLayout, PageSection } from '@/Function/shared/PageHead';
+import { PageHead, PageLayout } from '@/Function/shared/PageHead';
+import { ConceptSection } from '@/Function/shared/ConceptSection';
+import { ArtifactsSection } from '../ArtifactsSection';
+import { PortfolioRow, useWorkersByUser } from '../PortfolioRow';
+import { useObjects } from '@/hooks/useSupabase';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { formatError } from '@/Function/shared/formatError';
 import { EmptyState } from '@/Function/shared/EmptyState';
@@ -26,11 +29,10 @@ import { updateVision, useMyVisionRoles, useVisions } from '@/hooks/visionData';
 /** A Vision's own page, as a Domain has its overview: its name and what it
  *  aims for, then the Portfolios it holds (the top ones; each opens its own
  *  page, where the nested ones are). */
-export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddPortfolio }: {
+export function VisionView({ visionId, onOpenPortfolio, onAddPortfolio }: {
   /** null = the Space's first Vision. */
   visionId: string | null;
   onOpenPortfolio: (strategyId: string, visionId: string) => void;
-  onOpenPortfolios: (visionId: string) => void;
   onAddPortfolio: (visionId: string) => void;
 }) {
   const { t } = useI18n();
@@ -40,6 +42,10 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
   const roles = useMyVisionRoles();
   const role = vision ? roles.get(vision.id) : undefined;
   const canEdit = role === 'owner' || role === 'admin';
+  const canWork = canEdit || role === 'member';
+  const { data: explorer } = useObjects(null);
+  const objects = explorer.objects;
+  const byUser = useWorkersByUser();
   const actions = useVisionActions(vision, role);
   const userId = useAuthContext().user?.id ?? null;
   const { reactions, refresh: refreshReactions } = useVisionReactions(vision?.id ?? null);
@@ -85,25 +91,16 @@ export function VisionView({ visionId, onOpenPortfolio, onOpenPortfolios, onAddP
                 <NavSlidesIcon size={15} />{t('Slide')}
               </DropdownMenuItem>
             } />
-          <PageSection title={t('Portfolio')} action={
-            <button type="button" onClick={() => onOpenPortfolios(vision.id)}
-              className="rounded px-1.5 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
-              {t('See all')}
-            </button>}>
-            <div className="-mx-2.5 space-y-px">
-              {portfolios.map((s) => (
-                <button key={s.id} type="button" onClick={() => onOpenPortfolio(s.id, vision.id)}
-                  className="flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-foreground transition-colors hover:bg-muted/40">
-                  <ItemIcon icon={s.icon} fallback={<NavStrategyIcon size={16} />} />
-                  <span className="truncate">{s.name}</span>
-                </button>
-              ))}
-              <button type="button" onClick={() => onAddPortfolio(vision.id)}
-                className="flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
-                <Plus size={14} />{t('Add Portfolio')}
-              </button>
-            </div>
-          </PageSection>
+          <ArtifactsSection subject={{ kind: 'vision', id: vision.id }} canAdd={canWork} />
+          <ConceptSection id="vision-portfolios" title={t('Portfolios')} count={portfolios.length}
+            columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
+            addLabel={t('Add Portfolio')} onAdd={() => onAddPortfolio(vision.id)} empty={portfolios.length === 0}>
+            {(shows) => portfolios.map((s) => (
+              <PortfolioRow key={s.id} portfolio={s} objects={objects} shows={shows}
+                owner={s.created_by ? byUser.get(s.created_by) : undefined}
+                onOpen={() => onOpenPortfolio(s.id, vision.id)} />
+            ))}
+          </ConceptSection>
         </PageLayout>
       </div>
     </div>

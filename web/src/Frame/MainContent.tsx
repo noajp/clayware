@@ -110,7 +110,6 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
             <div className="flex-1 overflow-hidden bg-card">
               <VisionView visionId={navigation.visionId ?? null}
                 onOpenPortfolio={(id, visionId) => { onNavigate({ strategyId: id, visionId }); onViewChange?.('strategy'); }}
-                onOpenPortfolios={(visionId) => { onNavigate({ strategyId: null, visionId }); onViewChange?.('strategy'); }}
                 onAddPortfolio={(visionId) => { onNavigate({ strategyId: null, visionId, strategyCreate: true }); onViewChange?.('strategy'); }} />
             </div>
           )}

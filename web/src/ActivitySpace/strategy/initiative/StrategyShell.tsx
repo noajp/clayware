@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, FileText, MessageCircle, Plus, Search, X } from '@/ui/icons';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
-import { FoldSection, FoldSectionAddRow } from '@/Function/shared/FoldSection';
 import { EmbedHostContext } from '@/Function/notebook/editor/embedBlocks';
 import { useStrategyEmbeds } from './StrategyEmbeds';
 import { UnplacedFrameLines } from './StrategyFrameLine';
@@ -98,12 +97,18 @@ import {
 } from '@/Function/widget';
 import { DueDateCell, LeadCell, TypeCell } from '@/Function/shared/listTable/cells';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   MenuCheck,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/ui/dropdown-menu';
+import { ConceptSection } from '@/Function/shared/ConceptSection';
+import { DomainMark } from '@/Function/shared/DomainMark';
+import { DomainIcon } from '@/Function/shared/conceptIcons';
+import { ArtifactsSection } from '../ArtifactsSection';
+import { PortfolioRow, useWorkersByUser } from '../PortfolioRow';
+import { useStrategyDomains } from '@/hooks/strategyDomainData';
 import { completionOf } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
@@ -622,8 +627,6 @@ function StrategyDetailView({
 
   const { data: domains, refetch: refetchDomains } = useDomains();
   const { objects: allObjects, refetch: refetchObjects } = useAllObjects();
-  // Nested Strategies' counts leave archived Objects out, like the list.
-  const countObjects = useActiveObjectCount();
 
   // A Strategy's Elements are the union of its Objects' Elements. That one
   // line is all it takes for every Element-counting widget already in the
@@ -764,6 +767,18 @@ function StrategyDetailView({
     }
     return path;
   }, [allStrategies, strategy.id, strategy.parentIds]);
+  // Domains this Portfolio holds beside its Objects, and those it could add.
+  const strategyDomains = useStrategyDomains(strategy.id);
+  const linkedDomains = useMemo(() => strategyDomains.domainIds
+    .map((id) => domains.find((d) => d.id === id)).filter((d): d is NonNullable<typeof d> => !!d),
+  [strategyDomains.domainIds, domains]);
+  const domainChoices = useMemo(() => domains.filter((d) => !strategyDomains.domainIds.includes(d.id)),
+    [domains, strategyDomains.domainIds]);
+  const byUser = useWorkersByUser();
+  const newChildPortfolio = async () => {
+    const name = (await appDialog.prompt(t('Portfolio name'), ''))?.trim();
+    if (name) await createChild(name);
+  };
   const childCandidates = useMemo(() => {
     const existingChildIds = new Set(childStrategies.map((c) => c.id));
     const q = childQuery.trim().toLowerCase();
@@ -972,20 +987,6 @@ function StrategyDetailView({
 
   // The Objects "+" menu — from the section heading once the section has
   // content, and from its inline "+ verb" while it has none.
-  const objectsMenu = (trigger: React.ReactNode) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem onClick={() => setPickerMode('search')}>
-          <Search size={13} className="mr-1.5" /> {t('Search Objects')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setPickerMode('create')}>
-          <Plus size={13} className="mr-1.5" /> {t('Create Object')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   return (
     <>
     <ConfirmDialog
@@ -1136,21 +1137,20 @@ function StrategyDetailView({
               {/* What the work under these Objects has shipped as code, read
                   against this Strategy's intent. */}
               <InitiativeCodeChanges objects={allObjects.filter((o) => selectedIds.has(o.id))} />
-              <div className="w-full">
-              <FoldSection title={t('Sub Strategies')} count={childStrategies.length ? String(childStrategies.length) : undefined}>
-                {childStrategies.map((child) => {
-                  const n = countObjects(child.objectIds);
-                  return (
-                    <ContentRow key={child.id} icon={<ItemIcon icon={child.icon} color={child.color} size={16} fallback={<NavStrategyIcon size={16} />} />} name={child.name}
-                      onOpen={() => onOpenStrategy(child.id)}
-                      meta={<span>{n === 1 ? t('1 Object') : t('{n} Objects', { n })}</span>}
-                      actions={canEdit ? (
-                        <ContentRowAction label={t('Remove {name} from this Strategy', { name: child.name })} onClick={() => void unlinkChild(child.id)}>
-                          <X size={12} />
-                        </ContentRowAction>
-                      ) : undefined} />
-                  );
-                })}
+              <ArtifactsSection subject={{ kind: 'strategy', id: strategy.id }} canAdd={canEdit} />
+              {/* The Portfolios inside this one: each row opens its own page. */}
+              <ConceptSection id="portfolio-portfolios" title={t('Portfolios')} count={childStrategies.length}
+                columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
+                addLabel={t('Add Portfolio')}
+                addMenu={canEdit ? <>
+                  <DropdownMenuItem onSelect={() => setTimeout(() => void newChildPortfolio(), 0)} className={PAGE_MORE_ITEM}>
+                    <Plus size={15} />{t('New Portfolio')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                    <Search size={15} />{t('Add existing Portfolio')}
+                  </DropdownMenuItem>
+                </> : undefined}
+                addAnchor={childPickerOpen ? <>
                 {childPickerOpen && (
                   <div className="mt-1 px-2">
                     <div className="mb-1 flex items-center gap-2 rounded-md bg-muted/30 px-2 py-1.5">
@@ -1176,65 +1176,45 @@ function StrategyDetailView({
                     </div>
                   </div>
                 )}
-                {canEdit && (
-                  <FoldSectionAddRow icon={<NavStrategyIcon size={16} />} placeholder={t('Add Sub Strategy')} onAdd={createChild} />
-                )}
-              </FoldSection>
-              </div>
-              {/* The Objects that carry it: each row opens its Object; the last
-                  row adds one, as Sub Strategies does. */}
-              {(selectedIds.size > 0 || canEdit) && (
-              <div className="w-full">
-              <FoldSection title={t('Objects')} count={selectedIds.size ? String(selectedIds.size) : undefined}>
-              {selectedIds.size > 0 && (
-                <div className="mb-2">
-                  {Array.from(selectedIds).map((id) => {
-                    const obj = allObjects.find((o) => o.id === id);
-                    if (!obj) return null;
-                    const domain = obj.domain_id ? domains.find((d) => d.id === obj.domain_id) : undefined;
-                    const progress = completionOf(obj.elements ?? []).pct;
-                    const editable = canEditObject(myObjects, obj.id);
-                    const canTypes = editable && canManageDomainTypes(myDomainRoles, obj.domain_id);
-                    const why = editable ? undefined : t('Only members of this Object can change it');
-                    return (
-                      <div
-                        key={id}
-                        onClick={() => onOpenObject?.(obj.id, obj.domain_id ?? null)}
-                        // min-h locks the row against the Lead avatar's async
-                        // image swap (Fallback initial -> loaded photo mounts a
-                        // fraction of a px taller and visibly nudged the row).
-                        className={`flex items-center gap-2 px-2 py-1 min-h-[2.375rem] rounded-md hover:bg-muted/40 transition-colors ${onOpenObject ? 'cursor-pointer' : ''}`}
-                      >
-                        <ItemIcon icon={obj.icon} color={obj.color} size={16} className="text-muted-foreground" fallback={<ObjectIcon size={16} />} />
-                        {onOpenObject
-                          ? <button type="button" onClick={(e) => { e.stopPropagation(); onOpenObject(obj.id, obj.domain_id ?? null); }} className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0 text-left">{obj.name}</button>
-                          : <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{obj.name}</span>}
-                        {/* The cells already draw read-only when handed no handler;
-                            membership decides whether they get one. */}
-                        <div className="w-20 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <TypeCell
-                            value={obj.type ?? null}
-                            types={domain?.object_types ?? []}
-                            onChange={editable ? (type) => handleObjectUpdate(obj.id, { type }) : undefined}
-                            onAddType={canTypes && obj.domain_id ? (name) => handleAddType(obj.domain_id as string, name) : undefined}
-                          />
-                        </div>
-                        <div className="w-24 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <DueDateCell obj={obj} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
-                        </div>
-                        <div className="w-28 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <LeadCell obj={obj} workers={workers} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
-                        </div>
-                        <div className="w-24 shrink-0 flex items-center gap-1.5">
-                          <ProgressBelt value={progress} className="flex-1" />
-                          <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums shrink-0">{progress}%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
+                </> : undefined}
+                empty={childStrategies.length === 0}>
+                {(shows) => childStrategies.map((child) => (
+                  <PortfolioRow key={child.id} portfolio={child} objects={allObjects} shows={shows}
+                    owner={child.created_by ? byUser.get(child.created_by) : undefined}
+                    onOpen={() => onOpenStrategy(child.id)}
+                    actions={canEdit ? (
+                      <ContentRowAction label={t('Remove {name} from this Strategy', { name: child.name })} onClick={() => void unlinkChild(child.id)}>
+                        <X size={12} />
+                      </ContentRowAction>
+                    ) : undefined} />
+                ))}
+              </ConceptSection>
+              {/* The Domains and Objects that carry it: a Domain opens its page,
+                  an Object its own; "+" adds either. */}
+              <ConceptSection id="portfolio-domains-objects" title={t('Domains & Objects')} count={linkedDomains.length + selectedIds.size}
+                columns={[{ key: 'type', label: t('Type') }, { key: 'due', label: t('Due date') }, { key: 'lead', label: t('Lead') }, { key: 'progress', label: t('Progress') }]}
+                addLabel={t('Add Domain or Object')}
+                addMenu={canEdit ? <>
+                  <DropdownMenuItem onSelect={() => setPickerMode('search')} className={PAGE_MORE_ITEM}>
+                    <ObjectIcon size={15} />{t('Add Object')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setPickerMode('create')} className={PAGE_MORE_ITEM}>
+                    <Plus size={15} />{t('Create Object')}
+                  </DropdownMenuItem>
+                  {domainChoices.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className={PAGE_MORE_ITEM}><DomainIcon size={15} />{t('Add Domain')}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-80 overflow-auto">
+                        {domainChoices.map((d) => (
+                          <DropdownMenuItem key={d.id} onSelect={() => strategyDomains.add.mutate(d.id, { onError: (e) => void appDialog.alert(formatError(e)) })} className={PAGE_MORE_ITEM}>
+                            <DomainMark domain={d} size={15} />{d.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                </> : undefined}
+                addAnchor={pickerMode !== 'closed' ? <div className="mb-2">
               {pickerMode === 'search' && (
                 <>
                   <div className="flex items-center gap-2 bg-muted/30 rounded-md px-2 py-1.5 mb-1">
@@ -1301,15 +1281,65 @@ function StrategyDetailView({
                   </div>
                 </div>
               )}
-              {canEdit && pickerMode === 'closed' && objectsMenu(
-                <button type="button" className="flex min-h-[2.125rem] w-full items-center gap-2 px-2 text-left">
-                  <span className="flex text-muted-foreground opacity-50"><ObjectIcon size={16} /></span>
-                  <span className="text-[14px] text-muted-foreground">{t('Add Objects')}</span>
-                </button>,
-              )}
-              </FoldSection>
-              </div>
-              )}
+                </div> : undefined}
+                empty={linkedDomains.length === 0 && selectedIds.size === 0}>
+                {(shows) => <>
+                  {linkedDomains.map((d) => (
+                    <ContentRow key={d.id} icon={<DomainMark domain={d} size={16} />} name={d.name}
+                      onOpen={onOpenDomain ? () => onOpenDomain(d.id) : undefined}
+                      actions={canEdit ? (
+                        <ContentRowAction label={t('Remove {name} from this Strategy', { name: d.name })}
+                          onClick={() => strategyDomains.remove.mutate(d.id, { onError: (e) => void appDialog.alert(formatError(e)) })}>
+                          <X size={12} />
+                        </ContentRowAction>
+                      ) : undefined} />
+                  ))}
+                  {Array.from(selectedIds).map((id) => {
+                    const obj = allObjects.find((o) => o.id === id);
+                    if (!obj) return null;
+                    const domain = obj.domain_id ? domains.find((d) => d.id === obj.domain_id) : undefined;
+                    const progress = completionOf(obj.elements ?? []).pct;
+                    const editable = canEditObject(myObjects, obj.id);
+                    const canTypes = editable && canManageDomainTypes(myDomainRoles, obj.domain_id);
+                    const why = editable ? undefined : t('Only members of this Object can change it');
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => onOpenObject?.(obj.id, obj.domain_id ?? null)}
+                        // min-h locks the row against the Lead avatar's async
+                        // image swap (Fallback initial -> loaded photo mounts a
+                        // fraction of a px taller and visibly nudged the row).
+                        className={`flex items-center gap-2 px-2 py-1 min-h-[2.375rem] rounded-md hover:bg-muted/40 transition-colors ${onOpenObject ? 'cursor-pointer' : ''}`}
+                      >
+                        <ItemIcon icon={obj.icon} color={obj.color} size={16} className="text-muted-foreground" fallback={<ObjectIcon size={16} />} />
+                        {onOpenObject
+                          ? <button type="button" onClick={(e) => { e.stopPropagation(); onOpenObject(obj.id, obj.domain_id ?? null); }} className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0 text-left">{obj.name}</button>
+                          : <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{obj.name}</span>}
+                        {/* The cells already draw read-only when handed no handler;
+                            membership decides whether they get one. */}
+                        {shows('type') && <div className="w-20 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <TypeCell
+                            value={obj.type ?? null}
+                            types={domain?.object_types ?? []}
+                            onChange={editable ? (type) => handleObjectUpdate(obj.id, { type }) : undefined}
+                            onAddType={canTypes && obj.domain_id ? (name) => handleAddType(obj.domain_id as string, name) : undefined}
+                          />
+                        </div>}
+                        {shows('due') && <div className="w-24 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <DueDateCell obj={obj} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
+                        </div>}
+                        {shows('lead') && <div className="w-28 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <LeadCell obj={obj} workers={workers} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
+                        </div>}
+                        {shows('progress') && <div className="w-24 shrink-0 flex items-center gap-1.5">
+                          <ProgressBelt value={progress} className="flex-1" />
+                          <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums shrink-0">{progress}%</span>
+                        </div>}
+                      </div>
+                    );
+                  })}
+                </>}
+              </ConceptSection>
               <WidgetZone zone="main" columns={1} />
               {/* The discussion — last, because it grows. */}
               <PageSection title={t('Updates')}>
