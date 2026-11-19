@@ -12,12 +12,12 @@ type T = (key: string, vars?: Record<string, string | number>) => string;
 
 /** Why Claude Code cannot take this Element, in a sentence; null when it can. */
 export function claudeCodeBlockMessage(scope: ClaudeCodeScope, t: T): string | null {
-  if (scope.block === 'outside-dev-domain') {
-    return scope.devDomainName
-      ? t('Claude Code takes Elements only from {domain}. Move this Element there, then ask again.', { domain: scope.devDomainName })
-      : t('Claude Code takes Elements only from the development Domain. Move this Element there, then ask again.');
+  if (scope.block === 'outside-dev-space') {
+    return scope.devSpaceName
+      ? t('Claude Code works only in the {space} Space.', { space: scope.devSpaceName })
+      : t('Claude Code works only in Clayware’s own Space.');
   }
-  if (scope.block === 'no-dev-domain') return t('No development Domain is set for Claude Code.');
+  if (scope.block === 'no-dev-space') return t('No development Domain is set for Claude Code.');
   return null;
 }
 
