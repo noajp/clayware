@@ -1087,6 +1087,75 @@ export type Database = {
           },
         ]
       }
+      artifact_links: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          deck_id: string | null
+          file_id: string | null
+          id: string
+          note_id: string | null
+          strategy_id: string | null
+          vision_id: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          deck_id?: string | null
+          file_id?: string | null
+          id?: string
+          note_id?: string | null
+          strategy_id?: string | null
+          vision_id?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          deck_id?: string | null
+          file_id?: string | null
+          id?: string
+          note_id?: string | null
+          strategy_id?: string | null
+          vision_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artifact_links_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_vision_id_fkey"
+            columns: ["vision_id"]
+            isOneToOne: false
+            referencedRelation: "visions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attachments: {
         Row: {
           created_at: string
@@ -6275,6 +6344,39 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "strategy_gap_checks_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategy_domains: {
+        Row: {
+          created_at: string
+          domain_id: string
+          strategy_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          strategy_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          strategy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_domains_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_domains_strategy_id_fkey"
             columns: ["strategy_id"]
             isOneToOne: false
             referencedRelation: "strategies"
