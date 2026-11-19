@@ -31,12 +31,10 @@ import type { NoteNode } from '@/types/notes';
 /** Asks the open Domain's Note tab to make a notebook. */
 export const NEW_DOMAIN_NOTEBOOK = 'clayware:new-domain-notebook';
 
-export function NotebookList({ onOpenBook, domainId, canWrite = true }: {
+export function NotebookList({ onOpenBook, domainId }: {
   onOpenBook: (folderId: string) => void;
   /** The Domain whose notebooks to list; none lists one's own. */
   domainId?: string | null;
-  /** Whether new notebooks can be made here (a Domain viewer reads only). */
-  canWrite?: boolean;
 }) {
   const { t } = useI18n();
   const me = useCurrentUserId();
@@ -83,7 +81,8 @@ export function NotebookList({ onOpenBook, domainId, canWrite = true }: {
 
   const table = (
     <div className="flex-1 overflow-auto">
-      {books.length > 0 && (
+      {/* The same table on both shelves, its headings shown even when empty. */}
+      {(
         <table className="w-full table-fixed border-separate border-spacing-0 text-[13px]">
           <colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 160 }} /></colgroup>
           <thead>
@@ -133,15 +132,9 @@ export function NotebookList({ onOpenBook, domainId, canWrite = true }: {
           </tbody>
         </table>
       )}
-      {!loading && books.length === 0 && (domainId ? (
-        <div className="flex flex-col items-start gap-3 px-[30px] py-6">
-          <div className="space-y-1">
-            <p className="text-[14px] font-medium text-foreground">{t('No notebooks in this Domain yet')}</p>
-            <p className="text-[13px] text-muted-foreground">{t('A notebook here is shared with everyone who can see this Domain.')}</p>
-          </div>
-          {canWrite && <Button variant="secondary" size="sm" onClick={() => void addBook()}><Plus size={14} />{t('New notebook')}</Button>}
-        </div>
-      ) : <p className="px-[30px] py-3 text-[13px] text-muted-foreground">{t('No notebooks yet.')}</p>)}
+      {!loading && books.length === 0 && (
+        <p className="px-[30px] py-3 text-[13px] text-muted-foreground">{t(domainId ? 'No notebooks in this Domain yet' : 'No notebooks yet.')}</p>
+      )}
     </div>
   );
 

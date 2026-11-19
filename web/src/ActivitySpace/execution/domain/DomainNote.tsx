@@ -2,7 +2,6 @@
 
 import { NotebookList } from '@/ActivitySpace/artifacts/notebook/NotebookList';
 import type { NavigationState } from '@/types/navigation';
-import { useDomainRole } from '@/hooks/domainData';
 
 // The Domain's Note: the Domain's notebooks — how it works, what it has
 // agreed, its minutes — each with sections and pages. A notebook made here
@@ -14,13 +13,10 @@ export function DomainNote({ domainId, onNavigate, onViewChange }: {
   onNavigate: (nav: Partial<NavigationState>) => void;
   onViewChange?: (view: string) => void;
 }) {
-  const { data: role } = useDomainRole(domainId);
   if (!domainId) return null;
-  const canWrite = role === 'owner' || role === 'admin' || role === 'member';
   return (
     <NotebookList
       domainId={domainId}
-      canWrite={canWrite}
       onOpenBook={(id) => { onNavigate({ noteFolderId: id, noteSectionId: null, noteId: null }); onViewChange?.('note'); }}
     />
   );
