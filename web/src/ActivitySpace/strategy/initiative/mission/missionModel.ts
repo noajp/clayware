@@ -10,6 +10,7 @@
 
 import { isAiWeight, type AgentRunStatus, type AiWeight, type ElementWithDetails, type Worker } from '@/types/database';
 import { measureState, type MeasureState } from '../initiativeMeasureModel';
+import { DISPATCH_LABEL } from '@/Function/team/claudeCodeHandoff';
 import { isElementAction, type ElementAction } from '@/Function/shared/elementActionKinds';
 import { runsInClaudeCode } from '@/Function/team/agentModel';
 import { liveLease } from '@/Function/shared/element/lease';
@@ -61,9 +62,6 @@ export function missionElementRow(e: ElementWithDetails, objectId: string | null
     leased: !!liveLease({ claimed_by: e.claimed_by ?? null, claim_expires_at: e.claim_expires_at ?? null, branch: e.branch ?? null }, now),
   };
 }
-
-/** The label that hands an Element to the dev loop's dispatcher. */
-const DISPATCH_LABEL = 'dispatch';
 
 /** Pure. Claude Code work has been handed over (the dispatcher will start it). */
 export function isHandedOver(element: MissionElementRow): boolean {

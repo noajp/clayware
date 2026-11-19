@@ -30,6 +30,8 @@ import type { DateRange } from 'react-day-picker';
 import type { ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { isAgentRunOpen } from '@/AIP/ai/agentData';
 import { AgentRunPanel, DelegateToAiForm } from './agent';
+import { ClaudeCodeStatus, claudeCodeBlockMessage } from './ClaudeCodeStatus';
+import { useClaudeCodeScope } from '@/hooks/claudeCodeScopeData';
 import { useRegisterPageCommand } from '@/Function/shared/pageCommands';
 import {
   updateElement,
@@ -353,6 +355,8 @@ function ElementDetailBody({
   // AI agent execution — Symphony-style autonomous run for this Element.
   // (The quick-start button was removed; the run still surfaces in comments.)
   const agent = useAgentRun(element.id);
+  // Whether Claude Code's dispatcher can take this Element (its Domain).
+  const claudeScope = useClaudeCodeScope(element.object_id);
   const aiWorkers = useMemo(() => allWorkers.filter((w) => w.type === 'ai_agent'), [allWorkers]);
   // Preselect the assigned AI only when it is one this Element can be handed to.
   const assignedAiWorkerId = useMemo(
@@ -1062,6 +1066,8 @@ function ElementDetailBody({
 
           <CodeChangesSection elementId={element.id} />
 
+          <ClaudeCodeStatus element={element} scope={claudeScope} />
+
           <AgentRunPanel
             agent={agent}
             onRunAgain={() => void agent.start({ workerId: rerunWorkerId(agent.run?.worker_id), triggeredFrom: 'detail', domainId })}
@@ -1119,6 +1125,7 @@ function ElementDetailBody({
               workers={allWorkers}
               focusCommentId={focusCommentId}
               waitingOnAnswer={element.status === 'blocked'}
+              notHandedMessage={claudeCodeBlockMessage(claudeScope, t)}
               onAskAgent={async ({ prompt, commentId, workerId }) => {
                 // Named, else the AI that last worked it, else the assigned one.
                 const id = workerId ?? rerunWorkerId(agent.run?.worker_id);
@@ -1126,7 +1133,13 @@ function ElementDetailBody({
                 // is handed to it, and it reads the comment when it picks it up.
                 const worker = aiWorkers.find((w) => w.id === id);
                 if (worker && runsInClaudeCode(worker.ai_config)) {
+                  // Only hand over what the dispatcher will take; otherwise say why.
+                  if (claudeScope.loading || claudeScope.block) return 'not-handed';
                   try {
+                    // The dispatcher starts Elements a Claude Code Worker is assigned to.
+                    if (!(element.assignees ?? []).some((a) => a.worker?.id === worker.id)) {
+                      await addElementAssignee({ element_id: element.id, worker_id: worker.id, role: 'assignee', worker });
+                    }
                     await updateElement(element.id, { labels: handOverLabels(element.labels), status: element.status === 'in_progress' ? 'in_progress' : 'todo' });
                     onRefresh?.();
                     return 'handed';

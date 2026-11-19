@@ -34,8 +34,10 @@ interface ElementCommentsPanelProps {
   /** A comment addressed to an agent ("@AI", "@<AI Worker>") becomes its
    *  next instruction; the agent answers under that comment. */
   /** Sends a comment to an AI. 'handed': the AI works in Claude Code, and
-   *  the Element was handed over to it there. */
-  onAskAgent?: (ask: { prompt: string; commentId: string; workerId: string | null }) => Promise<AgentStartOutcome | 'handed'>;
+   *  the Element was handed over to it there; 'not-handed': it works in
+   *  Claude Code, which cannot take this Element (notHandedMessage says why). */
+  onAskAgent?: (ask: { prompt: string; commentId: string; workerId: string | null }) => Promise<AgentStartOutcome | 'handed' | 'not-handed'>;
+  notHandedMessage?: string | null;
   /** The Element is held up waiting for an answer (blocked). When the newest
    *  comment is the AI's, a person's reply goes back to the AI as its answer,
    *  with or without "@AI". */
@@ -59,11 +61,11 @@ interface MentionCandidate {
 
 const QUICK_EMOJI = ['👍', '🎉', '❤️', '👀', '🚀', '✅'];
 
-export function ElementCommentsPanel({ elementId, workers, onCountChange, focusCommentId, onAskAgent, waitingOnAnswer = false, refreshKey, sendOptions }: ElementCommentsPanelProps) {
+export function ElementCommentsPanel({ elementId, workers, onCountChange, focusCommentId, onAskAgent, notHandedMessage, waitingOnAnswer = false, refreshKey, sendOptions }: ElementCommentsPanelProps) {
   const { t } = useI18n();
   const aiWorkers = useMemo(() => workers.filter((w) => w.type === 'ai_agent').map((w) => ({ id: w.id, name: w.name })), [workers]);
   const humanNames = useMemo(() => workers.filter((w) => w.type === 'human').map((w) => w.name), [workers]);
-  const [askOutcome, setAskOutcome] = useState<AgentStartOutcome | 'handed' | null>(null);
+  const [askOutcome, setAskOutcome] = useState<AgentStartOutcome | 'handed' | 'not-handed' | null>(null);
   const [openFolds, setOpenFolds] = useState<Set<string>>(new Set());
   const { user, profile } = useAuthContext();
   const { comments, loading, reload, setComments } = useElementComments(elementId);
@@ -427,7 +429,8 @@ export function ElementCommentsPanel({ elementId, workers, onCountChange, focusC
         <p className="text-[12px] text-muted-foreground">{t('The agent is already working on this Element. Stop it or wait for it to finish, then ask again.')}</p>
       )}
       {askOutcome === 'failed' && <p className="text-[12px] text-[var(--status-danger)]">{t('The agent could not start. See the agent panel above.')}</p>}
-      {askOutcome === 'handed' && <p className="text-[12px] text-muted-foreground">{t('Handed to Claude Code. It picks the Element up with this comment.')}</p>}
+      {askOutcome === 'handed' && <p className="text-[12px] text-muted-foreground">{t('Handed to Claude Code. Where it stands shows above.')}</p>}
+      {askOutcome === 'not-handed' && <p className="text-[12px] text-[var(--status-danger)]">{notHandedMessage ?? t('Claude Code could not take this Element.')}</p>}
       {aiAsked && onAskAgent && (
         <p className="text-[12px]" style={{ color: 'var(--accent-default)' }}>{t('The AI is waiting for your answer. A comment here goes to it, with or without @AI.')}</p>
       )}
