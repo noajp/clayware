@@ -37,9 +37,9 @@ const buttonVariants = cva(
     variants: {
       shape: { action: CONTROL.actionRadius, tab: "rounded-[var(--control-tab-radius)]" },
       variant: {
-        /** Accent ground. One primary action per button group. */
+        /** Accent ground. One primary action per button group — flat, no bevel. */
         primary:
-          "border-transparent hover:border-transparent bg-[var(--accent-default)] text-white shadow-[var(--shadow-primary-btn)] hover:bg-[var(--accent-hover)]",
+          "border-transparent hover:border-transparent bg-[var(--accent-default)] text-white hover:bg-[var(--accent-hover)]",
         /** Neutral filled action, with the same fine border as every control. */
         secondary:
           "bg-[var(--surface-strong)] text-[var(--text-primary)] hover:bg-[var(--surface-overlay)]",
@@ -137,7 +137,7 @@ function Button({
         // Sharp Linear-style view tabs: inactive tabs sit clean and borderless
         // until hovered; the selected tab lifts with a crisp ground and subtle rim.
         appearance === 'control' && shape === 'tab' && variant === 'ghost' && 'border-transparent hover:border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]',
-        appearance === 'control' && shape === 'tab' && variant === 'secondary' && 'bg-[var(--surface-strong)] border-[var(--border-subtle)] hover:border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-strong)]',
+        appearance === 'control' && shape === 'tab' && variant === 'secondary' && 'bg-[var(--surface-strong)] border-transparent hover:border-transparent text-[var(--text-primary)] hover:bg-[var(--surface-strong)]',
         appearance !== 'control' && 'rounded-[var(--control-tab-radius)] border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
         appearance === 'inline' && variant === 'ghost' && 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-normal'
       )}

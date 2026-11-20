@@ -307,53 +307,60 @@ export function HarnessesPanel() {
             <span>{t('New harness')}</span>
           </Button>
         </div>
-        <div className={`${SETTINGS_ISLAND} px-5 py-1.5`}>
-          {library.loading ? <p className="py-2.5 text-[13px] text-muted-foreground">{t('Loading…')}</p>
+        <div className={`${SETTINGS_ISLAND} overflow-hidden`}>
+          {library.loading ? <p className="px-5 py-3.5 text-[13px] text-muted-foreground">{t('Loading…')}</p>
             : library.data.length === 0 ? (
-              <p className="py-2.5 text-[13px] text-muted-foreground">{t('No harnesses yet. Add one from the catalog below, or write a new one.')}</p>
+              <p className="px-5 py-3.5 text-[13px] text-muted-foreground">{t('No harnesses yet. Add one from the catalog below, or write a new one.')}</p>
             ) : (
-            <div>
+            <div className="divide-y divide-[var(--border-subtle)]">
               {library.data.map((d) => {
                 const isDefault = d.id === fallback.data;
                 const item = d.source_id ? catalogById.get(d.source_id) ?? null : null;
                 const relation = catalogRelation(d, item);
                 const needs = installReadiness(d, integrations.data).missing;
+                const metaParts: string[] = [];
+                if (d.source_id) metaParts.push(t('Official'));
+                if (d.promoted_from_draft_id) metaParts.push(t('Promoted'));
+                if ((relation.kind === 'current' || relation.kind === 'legacy-unknown') && relation.differs) metaParts.push(t('Edited locally'));
+                if (!d.enabled) metaParts.push(t('Off'));
                 return (
-                  <div key={d.id} className="-mx-2 flex w-[calc(100%+16px)] items-center gap-2 rounded-md px-2 transition-colors hover:bg-[var(--surface-strong)]">
+                  <div key={d.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--surface-strong)]/40">
                     <button type="button" onClick={() => setEditing(d)}
-                      className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none focus-visible:underline">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                          <span className="truncate text-[13px] font-medium text-foreground">{d.name}</span>
-                          {d.source_id && <span className="shrink-0 rounded-[5px] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-text)]">{t('Official')}</span>}
-                          {isDefault && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t('Default')}</span>}
-                          {d.promoted_from_draft_id && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]">{t('Promoted')}</span>}
-                          {!d.enabled && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('Off')}</span>}
-                          {(relation.kind === 'current' || relation.kind === 'legacy-unknown') && relation.differs && (
-                            <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('Edited locally')}</span>
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:underline">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <span className={cn('truncate text-[13px] font-medium', d.enabled ? 'text-foreground' : 'text-muted-foreground')}>{d.name}</span>
+                          {isDefault && (
+                            <span className="shrink-0 rounded-[4px] bg-[var(--accent-subtle)] px-1.5 py-px text-[11px] font-medium text-[var(--accent-text)]">
+                              {t('Default')}
+                            </span>
                           )}
-                          {needs.length > 0 && (
-                            <span className="shrink-0 rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-subtle)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-warning)]">
-                              {t('Needs: {names}', { names: needs.map((n) => n.name).join(', ') })}
+                          {metaParts.length > 0 && (
+                            <span className="truncate text-[11.5px] text-muted-foreground/80">
+                              {metaParts.join(' · ')}
                             </span>
                           )}
                         </div>
                         <div className="truncate text-[12px] text-muted-foreground">{firstLine(d.body)}</div>
+                        {needs.length > 0 && (
+                          <div className="text-[11.5px] text-[var(--status-warning)]">
+                            {t('Needs: {names}', { names: needs.map((n) => n.name).join(', ') })}
+                          </div>
+                        )}
                       </div>
                       <CheckSummary diagnostics={checkHarness(parseDefinition(d.body), { connected, exceptions: exceptionsCtx })} />
                     </button>
-                    {needs.length > 0 ? (
+                    {needs.length > 0 && (
                       <Button size="xs" variant="secondary" disabled={busy !== null}
                         onClick={() => startWalk(d, d.source_id ?? '')}>
                         {t('Set up connectors')}
                       </Button>
-                    ) : relation.kind === 'update-available' && item ? (
+                    )}
+                    {needs.length === 0 && relation.kind === 'update-available' && item && (
                       <Button size="xs" variant="secondary" disabled={busy !== null}
                         onClick={() => setReviewing({ definition: d, item })}>
                         {t('Update v{from} → v{to}', { from: relation.installedVersion, to: relation.catalogVersion })}
                       </Button>
-                    ) : (
-                      <Button size="xs" variant="secondary" disabled={!d.enabled} onClick={() => setTrying(d)}>{t('Try')}</Button>
                     )}
                     <Switch
                       label={d.name}
@@ -369,7 +376,7 @@ export function HarnessesPanel() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[180px]">
                         <DropdownMenuItem onSelect={() => setEditing(d)}>{t('Edit')}</DropdownMenuItem>
-                        {d.enabled && (needs.length > 0 || (relation.kind === 'update-available' && item)) && (
+                        {d.enabled && (
                           <DropdownMenuItem onSelect={() => setTrying(d)}>{t('Try')}</DropdownMenuItem>
                         )}
                         {relation.kind === 'update-available' && item && needs.length > 0 && (
@@ -556,15 +563,15 @@ function ConnectorChips({ names, connected }: { names: string[]; connected: stri
   );
 }
 
-/** The row's check slot, always in place: Passed, or the count of problems
- *  (errors, then warnings). Hints never dirty it. */
+/** Surface problems and warnings inline; stay quiet when checks pass. */
 function CheckSummary({ diagnostics }: { diagnostics: Diagnostic[] }) {
   const { t } = useI18n();
   const errors = diagnostics.filter((d) => d.severity === 'error').length;
   const warnings = diagnostics.filter((d) => d.severity === 'warning').length;
+  if (!errors && !warnings) return null;
   return (
-    <span className={cn('shrink-0 text-[11px]', errors ? 'text-[var(--status-danger)]' : warnings ? 'text-[var(--status-warning)]' : 'text-muted-foreground')}>
-      {t('Check')}: {errors ? t('Problems: {count}', { count: errors }) : warnings ? t('Warnings: {count}', { count: warnings }) : t('Passed')}
+    <span className={cn('shrink-0 text-[11.5px] font-medium tabular-nums', errors ? 'text-[var(--status-danger)]' : 'text-[var(--status-warning)]')}>
+      {errors ? t('Problems: {count}', { count: errors }) : t('Warnings: {count}', { count: warnings })}
     </span>
   );
 }
