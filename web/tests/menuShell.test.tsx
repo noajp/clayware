@@ -223,3 +223,16 @@ describe('the section heading is used, not just exported', () => {
     expect(withHeadings).toEqual(CONVERGED);
   });
 });
+
+describe('submenus portal out of their overflow-clipped parent menu', () => {
+  it('wraps DropdownMenuSubContent and ContextMenuSubContent in a Radix Portal', () => {
+    // Parent menu content carries `overflow-x-hidden overflow-y-auto`. Without
+    // a Portal, a submenu mounts inside the parent DOM box and gets clipped to
+    // a 2px sliver along the parent's border (e.g. Move to Object / Multi-home).
+    const dropdown = src('ui/dropdown-menu.tsx');
+    expect(dropdown).toMatch(/function DropdownMenuSubContent[\s\S]*?<DropdownMenuPrimitive\.Portal>[\s\S]*?<DropdownMenuPrimitive\.SubContent/);
+
+    const context = src('ui/context-menu.tsx');
+    expect(context).toMatch(/function ContextMenuSubContent[\s\S]*?<ContextMenuPrimitive\.Portal>[\s\S]*?<ContextMenuPrimitive\.SubContent/);
+  });
+});

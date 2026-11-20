@@ -225,18 +225,22 @@ function DropdownMenuSubTrigger({
 
 function DropdownMenuSubContent({
   className,
+  sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
   return (
-    <DropdownMenuPrimitive.SubContent
-      data-slot="dropdown-menu-sub-content"
-      className={cn(
-        anchoredOverlayMotion,
-        "gloss-overlay text-popover-foreground z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg border p-1",
-        className
-      )}
-      {...props}
-    />
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.SubContent
+        data-slot="dropdown-menu-sub-content"
+        sideOffset={sideOffset}
+        className={cn(
+          anchoredOverlayMotion,
+          "gloss-overlay text-popover-foreground z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border p-1",
+          className
+        )}
+        {...props}
+      />
+    </DropdownMenuPrimitive.Portal>
   )
 }
 
