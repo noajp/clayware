@@ -239,9 +239,10 @@ describe('transcript delta, auto-structure thresholds', () => {
     expect(d.deltaText).toBe('A案で行くことに決定しました。担当は鈴木さんで来週水曜まで。');
     expect(d.unprocessedChars).toBe(30);
 
-    expect(shouldAutoStructure({ unprocessedChars: 120, msSinceLastSpeech: 1000, msSinceLastStructure: 10000 })).toBe(true);
-    expect(shouldAutoStructure({ unprocessedChars: 50, msSinceLastSpeech: 10000, msSinceLastStructure: 10000 })).toBe(true);
-    expect(shouldAutoStructure({ unprocessedChars: 120, msSinceLastSpeech: 1000, msSinceLastStructure: 3000 })).toBe(false);
+    expect(shouldAutoStructure({ unprocessedChars: 260, msSinceLastSpeech: 1000, msSinceLastStructure: 10000 })).toBe(true);
+    expect(shouldAutoStructure({ unprocessedChars: 120, msSinceLastSpeech: 1000, msSinceLastStructure: 10000 })).toBe(false);
+    expect(shouldAutoStructure({ unprocessedChars: 70, msSinceLastSpeech: 11000, msSinceLastStructure: 10000 })).toBe(true);
+    expect(shouldAutoStructure({ unprocessedChars: 260, msSinceLastSpeech: 1000, msSinceLastStructure: 3000 })).toBe(false);
     expect(formatElapsed(125)).toBe('02:05');
   });
 });

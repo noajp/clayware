@@ -263,6 +263,18 @@ export function NoteEditorStyles() {
           mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 17 17 7M8 7h9v9'/></svg>") center / contain no-repeat;
         }
         .note-editor ul[data-checklist="true"] > li[data-element-id]:hover::after { opacity: 1; }
+        /* Voice minutes: words as spoken, and what is being said now, read
+           a step back until they are organized. Both stay clear of the
+           voice panel when scrolled to. */
+        .note-editor .note-voice-spoken,
+        .note-editor .note-voice-interim {
+          color: var(--muted-foreground);
+          scroll-margin-bottom: 96px;
+        }
+        .note-editor .note-voice-interim {
+          pointer-events: none;
+          user-select: none;
+        }
         /* Dynamic AI Note: inline ghost-text Tab completion */
         .note-editor .note-ghost-completion {
           display: inline;

@@ -16,12 +16,11 @@ import {
 } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { formatElapsed, type TranscriptSegment } from '../noteAiModel';
-import type { VoiceLanguage, VoiceStatus } from './useVoiceCapture';
+import type { VoiceStatus } from './useVoiceCapture';
 
 interface VoiceMinutesDockProps {
   supported: boolean;
   status: VoiceStatus;
-  language: VoiceLanguage;
   segments: TranscriptSegment[];
   interimText: string;
   elapsedSec: number;
@@ -35,7 +34,6 @@ interface VoiceMinutesDockProps {
   onResume: () => void;
   onStop: () => void;
   onClose: () => void;
-  onSetLanguage: (lang: VoiceLanguage) => void;
   onToggleAutoStructure: () => void;
   onStructureNow: () => void;
   onAppendManualText: (text: string) => void;
@@ -52,7 +50,6 @@ function formatTime(ts: number): string {
 export function VoiceMinutesDock({
   supported,
   status,
-  language,
   segments,
   interimText,
   elapsedSec,
@@ -66,7 +63,6 @@ export function VoiceMinutesDock({
   onResume,
   onStop,
   onClose,
-  onSetLanguage,
   onToggleAutoStructure,
   onStructureNow,
   onAppendManualText,
@@ -279,16 +275,6 @@ export function VoiceMinutesDock({
                 )}
               </>
             )}
-
-            {/* Language switch */}
-            <button
-              type="button"
-              onClick={() => onSetLanguage(language === 'ja-JP' ? 'en-US' : 'ja-JP')}
-              title={t('Speech language')}
-              className="inline-flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground"
-            >
-              {language === 'ja-JP' ? 'JA' : 'EN'}
-            </button>
 
             {/* Auto-structure toggle */}
             <button

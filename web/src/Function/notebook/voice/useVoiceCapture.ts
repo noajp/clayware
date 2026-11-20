@@ -51,18 +51,27 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 }
 
 export type VoiceStatus = 'idle' | 'listening' | 'paused' | 'error';
-export type VoiceLanguage = 'ja-JP' | 'en-US';
+
+/** Pure but for the browser. The language to listen in. The language the
+ *  screen is shown in says little about the one a person speaks, so it is
+ *  read from the browser's languages: the first that is not English when there
+ *  is one (someone who lists another language beside English speaks it), else
+ *  the first. Nothing to choose, so nothing to set wrong. */
+export function spokenLanguage(fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const langs = window.navigator.languages?.length ? window.navigator.languages : [window.navigator.language];
+  return langs.find((l) => l && !l.toLowerCase().startsWith('en')) ?? langs.find(Boolean) ?? fallback;
+}
 
 export interface VoiceCaptureState {
   supported: boolean;
   status: VoiceStatus;
-  language: VoiceLanguage;
+  language: string;
   segments: TranscriptSegment[];
   interimText: string;
   elapsedSec: number;
   lastSpeechAt: number;
   error: string | null;
-  setLanguage: (lang: VoiceLanguage) => void;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -71,10 +80,9 @@ export interface VoiceCaptureState {
   appendManualText: (text: string) => void;
 }
 
-export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): VoiceCaptureState {
+export function useVoiceCapture(language: string): VoiceCaptureState {
   const [supported] = useState(() => getSpeechRecognitionCtor() !== null);
   const [status, setStatus] = useState<VoiceStatus>('idle');
-  const [language, setLanguageState] = useState<VoiceLanguage>(initialLanguage);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [interimText, setInterimText] = useState('');
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -83,7 +91,6 @@ export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): Voice
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const shouldKeepListeningRef = useRef(false);
-  const languageRef = useRef<VoiceLanguage>(initialLanguage);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartEngineRef = useRef<() => void>(() => {});
   const seqRef = useRef(0);
@@ -134,7 +141,7 @@ export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): Voice
     const rec = new Ctor();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = languageRef.current;
+    rec.lang = language;
 
     rec.onresult = (event) => {
       let interim = '';
@@ -201,7 +208,7 @@ export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): Voice
       setStatus('error');
       setError('start-failed');
     }
-  }, []);
+  }, [language]);
 
   const start = useCallback(() => {
     setError(null);
@@ -246,17 +253,6 @@ export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): Voice
     setLastSpeechAt(now);
   }, []);
 
-  const setLanguage = useCallback(
-    (next: VoiceLanguage) => {
-      languageRef.current = next;
-      setLanguageState(next);
-      if (shouldKeepListeningRef.current) {
-        startEngine();
-      }
-    },
-    [startEngine],
-  );
-
   // Elapsed timer ticks only while actively listening.
   useEffect(() => {
     if (status !== 'listening') return;
@@ -281,7 +277,6 @@ export function useVoiceCapture(initialLanguage: VoiceLanguage = 'ja-JP'): Voice
     elapsedSec,
     lastSpeechAt,
     error,
-    setLanguage,
     start,
     pause,
     resume,
