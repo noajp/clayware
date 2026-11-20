@@ -1,4 +1,5 @@
 import type { ListControlsState } from '@/Function/shared/listControls/types'
+import type { SpaceNouns } from '@/Function/i18n/spaceNouns'
 
 // The schema itself is generated (./supabase.ts) and narrowed in ./db.ts;
 // the types here are the domain views of those rows the app works with.
@@ -28,7 +29,7 @@ export interface DomainAIConfig {
 // domains.risk_thresholds (jsonb). Every key optional; absent = the default
 // in Function/strategy/initiativeRiskModel.ts. Edited from Settings >
 // Elements > SLAs.
-/** Settings > Strategy > Phase: how a new Phase's dates are seeded. Every
+/** How a new Phase's dates are seeded. Every
  *  key optional; absent = the create dialog starts with empty dates. */
 export interface DomainPhaseDefaults {
   length_days?: number            // a new Phase spans this many days (end_date inclusive)
@@ -49,7 +50,7 @@ export type DomainPrivacy = 'workspace' | 'private'
 export interface Domain {
   id: string
   name: string
-  identifier: string | null  // short code e.g. "ALCON"
+  identifier: string | null  // short code e.g. "CLAYWARE"
   description: string | null
   color: string | null
   icon: string | null  // emoji or uploaded image URL; null = the built-in DomainIcon silhouette
@@ -69,8 +70,8 @@ export interface Domain {
   note?: string | null
   object_types: string[]        // Object (Project層) の型カタログ (Project / Strategy ...) — element_types とは別レイヤー
   label_colors: Record<string, string>  // Label 名 → パレットキー (e.g. {"Bug":"red"})。色は Domain 共通
-  risk_thresholds: DomainRiskThresholds // Settings > Elements > SLAs。未設定は {}（DB 既定）
-  phase_defaults: DomainPhaseDefaults   // Settings > Strategy > Phase。未設定は {}（DB 既定）
+  risk_thresholds: DomainRiskThresholds // Settings > Strategy > Risk thresholds。未設定は {}（DB 既定）
+  phase_defaults: DomainPhaseDefaults   // 新しい Phase の日付の初期値。未設定は {}（DB 既定）
 }
 
 export interface DomainInsert {
@@ -192,6 +193,9 @@ export interface ActivitySpace {
    *  approval matter); the owner or any member's screen may flip it
    *  only where the column grant and the screen allow. */
   memory_auto_capture?: boolean
+  /** What this Space calls Strategy, Object and Element (Function/i18n/spaceNouns.ts).
+   *  A name left out is the built-in one. Owner only. */
+  nouns?: SpaceNouns
 }
 
 export interface ActivitySpaceInsert {
@@ -209,6 +213,7 @@ export interface ActivitySpaceUpdate {
   color?: string | null
   logo?: string | null
   order_index?: number
+  nouns?: SpaceNouns
 }
 
 export interface ActivitySpaceMember {
@@ -348,15 +353,19 @@ export interface ObjectDomainInsert {
 }
 
 // =====================================================
-// AlconObject - フラット 2 階層: Domain > Object > Elements
+// ClaywareObject - フラット 2 階層: Domain > Object > Elements
 // =====================================================
-export interface AlconObject {
+export interface ClaywareObject {
   id: string
   name: string
   description: string | null
   color: string | null
   /** Its own icon: 'glyph:<Name>', 'lucide:<name>' or an emoji; null shows the Object icon. */
   icon?: string | null
+  /** The stage it stands in (backlog, planned, in_progress, completed, canceled). */
+  work_stage?: string
+  /** The Space's own status within that stage; null is the stage's own. */
+  work_status_id?: string | null
   prefix: string | null            // ID prefix e.g. "PH1"
   display_id: string | null        // e.g. "OBJ_PH1"
   order_index: number | null
@@ -374,7 +383,7 @@ export interface AlconObject {
   archived_by?: string | null      // アーカイブした人 (auth.users.id)
 }
 
-export interface AlconObjectInsert {
+export interface ClaywareObjectInsert {
   id?: string
   name: string
   description?: string | null
@@ -393,7 +402,7 @@ export interface AlconObjectInsert {
   note_id?: string | null
 }
 
-export interface AlconObjectUpdate {
+export interface ClaywareObjectUpdate {
   id?: string
   name?: string
   description?: string | null
@@ -509,6 +518,8 @@ export interface Element {
   display_id: string | null       // e.g. "ELE_PH1-001"
   seq_number: number | null
   status: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'blocked' | 'cancelled' | null
+  /** The status within the stage (`status`) the Space added (work_statuses, scope 'element'); null for the stage's own. Write it with its stage (elementStatusWrite). */
+  status_id?: string | null
   priority: 'low' | 'medium' | 'high' | 'urgent' | null
   start_date: string | null  // ガントチャート用の開始日
   start_time: string | null  // 'HH:MM:SS' format (TIME column)
@@ -579,6 +590,7 @@ export interface ElementUpdate {
   labels?: string[]
   owner_id?: string | null
   status?: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done' | 'blocked' | 'cancelled' | null
+  status_id?: string | null
   priority?: 'low' | 'medium' | 'high' | 'urgent' | null
   start_date?: string | null
   start_time?: string | null
@@ -866,7 +878,7 @@ export interface ObjectTabUpdate {
 // =====================================================
 
 // An Object with its Elements. Objects live directly under a Domain.
-export interface AlconObjectWithChildren extends AlconObject {
+export interface ClaywareObjectWithChildren extends ClaywareObject {
   elements?: ElementWithDetails[]
   parentIds?: string[];
   isMultiHomed?: boolean;
@@ -1136,6 +1148,7 @@ export interface ElementReaction {
   strategy_id: string | null
   object_id: string | null
   domain_id?: string | null
+  vision_id?: string | null
   user_id: string
   emoji: string
   created_at: string
@@ -1143,6 +1156,7 @@ export interface ElementReaction {
 
 export interface ElementReactionInsert {
   domain_id?: string | null
+  vision_id?: string | null
   element_id?: string | null
   comment_id?: string | null
   strategy_id?: string | null
@@ -1506,19 +1520,25 @@ export interface Integration {
   delegation: 'approve_each' | 'full_delegation'
   enabled: boolean
   last_test: Json | null
-  /** The account an OAuth connection signed in as (the Google email). Written only by integration-oauth. */
+  /** The account an OAuth connection signed in as (an email, or GitHub's login). Written only by integration-oauth. */
   external_account: string | null
   /** The commands agents may use, enforced by run-agent (supabase/functions/_shared/connectorManifest.ts). */
   manifest: Json | null
   /** How to use the connection, for agents. Not enforced. */
   guide: string | null
+  /** A connection's own OAuth config (supabase/functions/_shared/customOAuth.ts):
+   *  sign-in URLs, scopes, client_id, how the client authenticates. Never a secret. */
+  oauth_config: Json | null
+  /** Says the connection's OAuth client secret is stored (Vault); the browser
+   *  writes it through set_integration_oauth_client_secret and never reads it. */
+  oauth_client_secret_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
 }
 
 export type IntegrationUpdate = Partial<Pick<Integration,
-  'name' | 'description' | 'endpoint' | 'auth_type' | 'auth_header' | 'delegation' | 'enabled' | 'manifest'>>
+  'name' | 'description' | 'endpoint' | 'auth_type' | 'auth_header' | 'delegation' | 'enabled' | 'manifest' | 'oauth_config'>>
 
 /** A website username/password login (secure-login PR1): the metadata a
  *  browser may know. The password itself lives only in Vault under
@@ -1842,6 +1862,8 @@ export interface IntegrationDraft {
   endpoint: string | null
   auth_type: 'none' | 'bearer' | 'header' | 'oauth' | null
   auth_header: string | null
+  /** An OAuth draft's sign-in config, without a client (the person enters it on the staged connection). */
+  oauth_config: Json | null
   manifest: Json | null
   guide: string | null
   test_inputs: Record<string, Record<string, unknown>>
@@ -2000,7 +2022,7 @@ export interface AssetEvent {
 export type PersonalAccessTokenAccess = 'read' | 'read_write'
 
 // A personal access token (ADR 0032): lets an external client act as its
-// owner through alcon-mcp, under the owner's RLS. Only the owner reads their
+// owner through clayware-mcp, under the owner's RLS. Only the owner reads their
 // rows, and never the hash; the plaintext exists once, in the result of
 // create_personal_access_token. Issue and revoke go through RPCs.
 export interface PersonalAccessToken {
@@ -2092,11 +2114,32 @@ export interface StrategyScope {
  *  starts the AI Elements it unblocks, stopping at a person's Element. */
 export type StrategyDelegation = 'manual' | 'auto'
 
+/** The top of Strategy, as a Domain is the top of Execution: not nested; it
+ *  holds Portfolios (strategies), and has members and a privacy as a
+ *  Domain does. */
+export interface Vision {
+  id: string
+  activity_space_id: string
+  name: string
+  description: string | null
+  icon: string | null
+  color: string | null
+  privacy: 'workspace' | 'private'
+  order_index: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Strategy {
   id: string
   name: string
   description: string | null
   status: StrategyStatus | null
+  /** The stage it stands in (backlog, planned, in_progress, completed, canceled). */
+  work_stage?: string
+  /** The Space's own status within that stage; null is the stage's own. */
+  work_status_id?: string | null
   scope: StrategyScope
   delegation: StrategyDelegation
   /** The definition its Elements follow (Function: definitions), or null. */
@@ -2104,6 +2147,8 @@ export interface Strategy {
   color: string | null
   icon: string | null
   activity_space_id: string | null  // the Space it belongs to
+  /** The Vision it belongs to; every Portfolio has one (its Space follows it). */
+  vision_id: string
   /** Order among its siblings in the Strategy list; null sorts after, oldest first. */
   order_index?: number | null
   /** The Note pinned to it (its Document), shown under the description. */
@@ -2122,6 +2167,8 @@ export interface StrategyInsert {
   color?: string | null
   icon?: string | null
   activity_space_id?: string | null
+  /** Left out, the Space's first Vision takes it (the database decides). */
+  vision_id?: string
   created_by?: string
 }
 
@@ -2135,6 +2182,8 @@ export interface StrategyUpdate {
   icon?: string | null
   updated_at?: string
   note_id?: string | null
+  work_stage?: string
+  work_status_id?: string | null
 }
 
 // Strategy → Objects junction — the single source of a Strategy's Object set.
@@ -2296,6 +2345,9 @@ export type IntentKind = 'decision' | 'assumption' | 'measure' | 'master'
  */
 export type MeasureDirection = 'at_least' | 'at_most'
 
+/** What was found out about a hypothesis. No verdict yet reads as unverified. */
+export type IntentVerdict = 'supported' | 'rejected'
+
 export interface Intent {
   id: string
   strategy_id: string
@@ -2324,6 +2376,7 @@ export interface Intent {
   /** decision only — the decision that replaced this one when a review
    *  reversed it. Null while this decision still stands. */
   superseded_by_intent_id: string | null
+  verdict: IntentVerdict | null
   order_index: number
   created_by: string
   created_at: string
@@ -2352,6 +2405,7 @@ export interface IntentInsert {
   decided_by_role?: string | null
   decided_at?: string | null
   superseded_by_intent_id?: string | null
+  verdict?: IntentVerdict | null
   order_index?: number
   created_by?: string
 }
@@ -2376,6 +2430,7 @@ export interface IntentUpdate {
   decided_by_role?: string | null
   decided_at?: string | null
   superseded_by_intent_id?: string | null
+  verdict?: IntentVerdict | null
   order_index?: number
 }
 
@@ -2558,6 +2613,8 @@ export interface ObjectDependency {
   id: string
   blocker_object_id: string
   blocked_object_id: string
+  /** Which ends it ties: 'fs' | 'ss' | 'ff' | 'sf' (Function/shared/objectDependencyModel). */
+  kind: string
   created_by: string | null
   created_at: string
 }

@@ -12,7 +12,7 @@ import {
   fetchObjectDomainIds,
   fileObjectUnderDomains,
   useDomains,
-  type AlconObjectWithChildren,
+  type ClaywareObjectWithChildren,
 } from '@/hooks/useSupabase';
 import { EntityActionsMenu, type ActionTarget } from '@/Function/shared/EntityActionsMenu';
 import { DropdownMenuItem } from '@/ui/dropdown-menu';
@@ -35,8 +35,11 @@ export function ObjectActionsMenu({
   object,
   onRefresh,
   onDeleted,
+  extra,
 }: {
-  object: AlconObjectWithChildren;
+  object: ClaywareObjectWithChildren;
+  /** After its own items (its page's sections to show or hide). */
+  extra?: React.ReactNode;
   onRefresh?: () => void | Promise<void>;
   /** Navigate away after the Object is deleted or archived (close detail → Domain view). */
   onDeleted?: () => void;
@@ -181,6 +184,7 @@ export function ObjectActionsMenu({
               : <><Archive size={14} className="text-muted-foreground" /> {t('Archive')}</>}
           </DropdownMenuItem>
         )}
+        {extra}
       </EntityActionsMenu>
       {deletedOpen && (
         <DeletedElementsDialog

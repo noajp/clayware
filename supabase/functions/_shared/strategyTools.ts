@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { errorMessage, type ToolDef, type ToolResult } from "./boardTools.ts";
 import { definitionReading, parseDefinition } from "./definition.ts";
+import { harnessRefusal, harnessSaveCheck } from "./harnessTools.ts";
 import { actionStateOf, barriersOf, type ExecutionRunRow } from "./executionState.ts";
 
 // Strategy reads — Initiatives with their intent (success conditions,
@@ -104,7 +105,7 @@ export async function runStrategyTool(
         if (!initiative) return { ok: false, error: "Initiative not found" };
         const [intents, links, children] = await Promise.all([
           supabase.from("intents")
-            .select("id, kind, title, subtitle, status, horizon, target_value, actual_value, unit, direction, measured_at, decided_by_name, decided_at")
+            .select("id, kind, title, subtitle, status, verdict, horizon, target_value, actual_value, unit, direction, measured_at, decided_by_name, decided_at")
             .eq("strategy_id", id).is("superseded_by_intent_id", null)
             .order("order_index", { ascending: true }),
           supabase.from("strategy_objects").select("object_id").eq("strategy_id", id),
@@ -551,6 +552,8 @@ export async function runStrategyWriteTool(db: SupabaseClient, name: string, inp
         const initiative = await ownInitiative(db, uuidOf(input.initiativeId, "initiativeId"));
         if (!initiative.activity_space_id) return { ok: false, error: "Space に属していない Initiative には定義を結びつけられません" };
         const body = textOf(input.body, "body", 40_000);
+        const check = harnessSaveCheck(body);
+        if (check.errors.length) return { ok: false, error: harnessRefusal(check.errors) };
         const defName = typeof input.name === "string" && input.name.trim() ? input.name.trim().slice(0, 200) : initiative.name;
         // The Initiative's own definition is rewritten in place; one shared
         // with other Initiatives or Elements is left as it is and a new one made.
@@ -583,7 +586,7 @@ export async function runStrategyWriteTool(db: SupabaseClient, name: string, inp
           if (linkError) throw linkError;
           if (!linked?.length) return { ok: false, error: NOT_OWNER };
         }
-        return { ok: true, data: { definitionId, name: defName, reading: definitionReading(parseDefinition(body)) } };
+        return { ok: true, data: { definitionId, name: defName, notes: check.notes, reading: definitionReading(parseDefinition(body)) } };
       }
       default:
         return { ok: false, error: `Unknown tool: ${name}` };

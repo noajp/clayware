@@ -8,6 +8,7 @@ import { InlineField, InlineInput, InlineSelect, InlineTextarea } from '@/Functi
 import type { CustomColumnWithValues } from '@/hooks/useSupabase';
 import type { CustomColumnType, SelectOption } from '@/types/database';
 import { COLUMN_TYPES } from './columnTypes';
+import { Check } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { CHOICE_TYPES, FIELD_COLORS, formatFieldNumber, optionLabel, validateField, type FieldDraft } from './fieldModel';
 
@@ -70,11 +71,8 @@ export function ObjectFieldDialog({ column, onClose, onSave, onDelete, onDuplica
               <InlineField label={t('Description')}>
                 <InlineTextarea aria-label={t('Field description')} rows={2} value={draft.options.description ?? ''} onChange={(e) => patchOptions({ description: e.target.value })} placeholder={t('Explain what this field tracks')} />
               </InlineField>
-              <InlineField label={t('Field type')} hint={column ? t('The type is fixed to preserve existing values.') : undefined}>
-                <InlineSelect aria-label={t('Field type')} disabled={!!column} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as CustomColumnType })}>
-                  {COLUMN_TYPES.filter((type) => SUPPORTED.includes(type.type) || type.type === draft.type).map((type) => <option key={type.type} value={type.type}>{t(type.label)}</option>)}
-                </InlineSelect>
-              </InlineField>
+              <FieldTypePicker value={draft.type} locked={!!column} onChange={(type) => setDraft({ ...draft, type })} />
+              {column && <p className="text-xs text-muted-foreground">{t('The type is fixed to preserve existing values.')}</p>}
               {CHOICE_TYPES.includes(draft.type) && <div className="space-y-2">
                 <p className="text-[12px] font-medium text-[var(--text-tertiary)]">{t('Options')}</p>
                 {choices.map((choice, index) => <div key={choice.value} className="flex items-center gap-1.5">
@@ -111,5 +109,38 @@ export function ObjectFieldDialog({ column, onClose, onSave, onDelete, onDuplica
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The kinds a field can be, as tiles with their icon: all of them in view at
+ *  once, the chosen one marked by a check and its outline, not colour alone.
+ *  An existing field shows only its own kind — it cannot change. */
+function FieldTypePicker({ value, locked, onChange }: {
+  value: CustomColumnType;
+  locked: boolean;
+  onChange: (type: CustomColumnType) => void;
+}) {
+  const { t } = useI18n();
+  const kinds = COLUMN_TYPES.filter((type) => locked ? type.type === value : SUPPORTED.includes(type.type) || type.type === value);
+  return (
+    <div className="space-y-2 text-sm">
+      <p id="field-type-label">{t('Field type')}</p>
+      <div role="radiogroup" aria-labelledby="field-type-label" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {kinds.map((type) => {
+          const chosen = type.type === value;
+          return (
+            <button key={type.type} type="button" role="radio" aria-checked={chosen} disabled={locked}
+              onClick={() => onChange(type.type)}
+              className={`relative flex h-10 min-w-0 items-center gap-2 rounded-md border px-2.5 text-left text-[13px] transition-colors disabled:cursor-default ${
+                chosen ? 'border-foreground/40 bg-muted text-foreground font-medium' : 'border-border text-foreground hover:bg-muted/60'
+              }`}>
+              <span className={`flex shrink-0 ${chosen ? 'text-foreground' : 'text-muted-foreground'}`}>{type.icon}</span>
+              <span className="min-w-0 flex-1 truncate">{t(type.label)}</span>
+              {chosen && !locked && <Check size={13} className="shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

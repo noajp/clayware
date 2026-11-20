@@ -4,32 +4,29 @@ import { Folder as FolderIcon, FolderPlus, MoreHorizontal } from '@/ui/icons';
 import { Button } from '@/ui/button';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { useQuickCreateCard } from '@/Function/shared/QuickCreatePopup';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { MenuShell, MenuSectionLabel, MENU_SEPARATOR } from '@/Function/shared/menu';
 import { useFolderActions, useFolders, type Folder, type FolderApp } from '@/hooks/folderData';
 import { IslandColumns } from '@/Function/shared/MainIsland';
 
 
-/** Asks for a name and makes a folder; resolves the new folder's id. */
-function useNewFolder(app: FolderApp, domainId: string | null) {
-  const { t } = useI18n();
-  const { create } = useFolderActions(app, domainId);
-  return async () => {
-    const name = (await appDialog.prompt(t('Folder name')))?.trim();
-    if (!name) return null;
-    try { return (await create.mutateAsync(name)).id; } catch { return null; }
-  };
-}
-
-/** "New folder", for a page's header: makes one and opens it. */
+/** "New folder", for a page's header: the quick-create card makes one,
+ *  and it opens. */
 export function NewFolderButton({ app, domainId, onOpen }: { app: FolderApp; domainId: string | null; onOpen: (folderId: string) => void }) {
   const { t } = useI18n();
-  const newFolder = useNewFolder(app, domainId);
-  return (
-    <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => { void newFolder().then((id) => { if (id) onOpen(id); }); }}>
+  const { create } = useFolderActions(app, domainId);
+  const folderCard = useQuickCreateCard({
+    icon: <FolderIcon size={12} />, contextLabel: t('New folder'), ariaLabel: t('Quick add folder'),
+    namePlaceholder: t('Folder name…'), description: false,
+    onSubmit: async ({ name }) => onOpen((await create.mutateAsync(name)).id),
+  });
+  return (<>
+    <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => folderCard.open()}>
       <FolderPlus size={14} />{t('New folder')}
     </Button>
-  );
+    {folderCard.card}
+  </>);
 }
 
 /**

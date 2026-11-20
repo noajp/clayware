@@ -44,8 +44,10 @@
 //                                      code-changes record, and a
 //                                      review comment or a CI failure
 //                                      starts a bounded follow-up run
-//                                      that amends the PR.
-//   POST ?hook=<id> (x-alcon-token)    an outside event for a webhook
+//                                      that amends the PR. The same
+//                                      tick sends the notifications
+//                                      people chose to get by email.
+//   POST ?hook=<id> (x-clayware-token)    an outside event for a webhook
 //                                      automation; the body is its input
 //   POST { fire: id } (signed in)      "Run now" from the Automation screen,
 //                                      by the automation's owner
@@ -77,14 +79,16 @@ import { collectOutcomes } from "../_shared/outcomeCollector.ts";
 import { evaluateCalibration } from "../_shared/verifierCalibration.ts";
 import { evaluateAutonomy } from "../_shared/autonomy.ts";
 import { deriveConstraintDrafts, evaluateConstraintEffects, type ConstraintCluster } from "../_shared/constraintDrafts.ts";
+import { ATHENA_PLANS, PLAN_REFUSAL } from "../_shared/plan.ts";
 import { claimExpiredQuestionTickets, settleRunBlockedByQuestions, type QuestionTicketRow } from "../_shared/questionTickets.ts";
 import { reapWorkspaces } from "../_shared/workspaceLifecycle.ts";
 import { routeCodingEvents } from "../_shared/codingIteration.ts";
+import { deliverNotificationEmails } from "../_shared/notificationEmail.ts";
 import { deriveScopeFromDefinition, loadDerivationIntegrations, rootChainScope, strategyIdForObject } from "../_shared/chainScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-alcon-token",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-clayware-token, x-alcon-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (payload: unknown, status = 200) =>
@@ -131,6 +135,15 @@ const CONSTRAINT_PHRASE_MODEL = "claude-haiku-5-5";
  * drafts this tick: the clusters re-derive next tick, and silence
  * costs nothing.
  */
+/** Only a Space whose plan has Athena gets its constraints phrased by a model. */
+async function phraseInAthenaSpaces(admin: SupabaseClient, clusters: ConstraintCluster[]): Promise<Map<string, string>> {
+  const ids = [...new Set(clusters.map((c) => c.spaceId))];
+  if (!ids.length) return new Map();
+  const { data } = await admin.from("activity_spaces").select("id").in("id", ids).in("plan", ATHENA_PLANS as unknown as string[]);
+  const allowed = new Set(((data ?? []) as { id: string }[]).map((s) => s.id));
+  return phraseConstraintClusters(clusters.filter((c) => allowed.has(c.spaceId)));
+}
+
 async function phraseConstraintClusters(clusters: ConstraintCluster[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!clusters.length) return out;
@@ -212,12 +225,12 @@ function stamp(at: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("ja-JP", { timeZone, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(at);
 }
 
-/** The Space's AI Worker that runs in Alcon (not one handed to Claude Code). */
+/** The Space's AI Worker that runs in Clayware (not one handed to Claude Code). */
 async function aiWorkerOf(admin: SupabaseClient, spaceId: string): Promise<string | null> {
   const { data } = await admin.from("workers").select("id, name, ai_config")
     .eq("activity_space_id", spaceId).eq("type", "ai_agent").eq("status", "active");
-  const inAlcon = (data ?? []).filter((w) => (w.ai_config as Record<string, unknown> | null)?.runner !== "claude-code");
-  return (inAlcon.find((w) => w.name === "Claude") ?? inAlcon[0])?.id ?? null;
+  const inClayware = (data ?? []).filter((w) => (w.ai_config as Record<string, unknown> | null)?.runner !== "claude-code");
+  return (inClayware.find((w) => w.name === "Claude") ?? inClayware[0])?.id ?? null;
 }
 
 async function startRun(env: Env, jwt: string, runId: string, extra: Record<string, unknown> = {}): Promise<void> {
@@ -264,7 +277,7 @@ async function fire(env: Env, a: Automation, source: "schedule" | "webhook" | "m
     const { data: obj } = await owner.db.from("objects").select("id, domain_id").eq("id", a.object_id).maybeSingle();
     if (!obj) return await fail("置き場所の Object が見つからないか、作った人が見られません。");
     const workerId = await aiWorkerOf(env.admin, a.activity_space_id);
-    if (!workerId) return await fail("この Space に、Alcon で動く AI Worker がいません。");
+    if (!workerId) return await fail("この Space に、Clayware で動く AI Worker がいません。");
 
     const now = new Date();
     const receivedAs = receivedTitle(payload, a.name);
@@ -412,7 +425,7 @@ async function expireQuestionTickets(env: Env, now: Date): Promise<{ tickets: nu
           element_id: (run.element_id as string | null) ?? null,
           triggered_by: (run.triggered_by as string | null) ?? null,
         },
-        tickets: mine, expectStatus: "awaiting_input", agentName: "Alcon Agent",
+        tickets: mine, expectStatus: "awaiting_input", agentName: "Clayware Agent",
         actorUserId: (run.triggered_by as string | null) ?? null, now,
       });
       if (settled) runs += 1;
@@ -454,7 +467,7 @@ async function fireHeartbeat(env: Env, s: HeartbeatSpace): Promise<"fired" | "di
       .select("user_id").eq("activity_space_id", s.id).eq("role", "owner").neq("user_id", s.heartbeat_owner_id);
     for (const o of owners ?? []) {
       await env.admin.from("notifications").insert({
-        recipient_id: o.user_id as string, actor_name: "Alcon Agent", kind: "status_change",
+        recipient_id: o.user_id as string, actor_name: "Clayware Agent", kind: "status_change",
         title: "ハートビートを止めました",
         body: "有効化したオーナーとして実行できなくなったため、この Space のハートビートを無効化しました。設定から再度有効化できます。",
       }).then(() => {}, () => {});
@@ -485,6 +498,18 @@ async function fireHeartbeat(env: Env, s: HeartbeatSpace): Promise<"fired" | "di
 async function tick(env: Env): Promise<Record<string, number>> {
   const now = new Date();
   let fired = 0, scheduled = 0, resumed = 0, expired = 0;
+
+  // Notifications the recipient chose to get by email (notificationEmail.ts),
+  // first, so a slow step below never holds an email back.
+  let emailsSent = 0, emailsFailed = 0, emailsSkipped = 0;
+  try {
+    const r = await deliverNotificationEmails(env.admin, {
+      apiKey: Deno.env.get("RESEND_API_KEY"), from: Deno.env.get("NOTIFY_EMAIL_FROM"), appUrl: Deno.env.get("APP_URL"),
+    });
+    emailsSent = r.sent; emailsFailed = r.failed; emailsSkipped = r.skipped;
+  } catch (e) {
+    console.error("automations: notification emails failed", e instanceof Error ? e.message : e);
+  }
 
   // A schedule with no next time yet (made outside the screen, or its cron fixed).
   const { data: unset } = await env.admin.from("automations").select("id, cron, timezone")
@@ -712,7 +737,7 @@ async function tick(env: Env): Promise<Record<string, number>> {
   // never retires.
   let constraintsDrafted = 0, constraintEffectsEvaluated = 0;
   try {
-    const derived = await deriveConstraintDrafts(env.admin, now, phraseConstraintClusters);
+    const derived = await deriveConstraintDrafts(env.admin, now, (clusters) => phraseInAthenaSpaces(env.admin, clusters));
     constraintsDrafted = derived.drafted;
   } catch (e) {
     console.error("automations: constraint derivation failed", e instanceof Error ? e.message : e);
@@ -782,6 +807,8 @@ async function tick(env: Env): Promise<Record<string, number>> {
   const { data: dueSpaces } = await env.admin.from("activity_spaces")
     .select("id, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
     .eq("heartbeat_enabled", true).not("heartbeat_next_at", "is", null).lte("heartbeat_next_at", now.toISOString())
+    // The heartbeat is Athena's: a Space whose plan has none is not woken.
+    .in("plan", ATHENA_PLANS as unknown as string[])
     .order("heartbeat_next_at").limit(HEARTBEATS_PER_TICK);
   for (const s of (dueSpaces ?? []) as unknown as HeartbeatSpace[]) {
     if (!s.heartbeat_owner_id || !s.heartbeat_next_at) continue;
@@ -811,14 +838,14 @@ async function tick(env: Env): Promise<Record<string, number>> {
       console.error("automations: heartbeat failed", s.id, e instanceof Error ? e.message : e);
     }
   }
-  return { fired, scheduled, resumed, expired, draftsExpired, episodesExpired, promotionsSettled, promotionsExpired, definitionTestsSettled, outcomesInserted, outcomesSignalled, outcomeRollups, calibrationRows, calibrationOpened, calibrationRefreshed, constraintsDrafted, constraintEffectsEvaluated, autonomyRecords, autonomyPromoted, autonomyDemoted, credentialRequestsExpired, credentialStashesExpired, questionTicketsExpired, questionRunsBlocked, workspacesExpired, workspacesRunEnded, devEventsScanned, devEventsSynced, devCiRecorded, amendRunsStarted, devEventsNoted, amendExhausted, heartbeats, heartbeatsDeferred, heartbeatsDisabled };
+  return { emailsSent, emailsFailed, emailsSkipped, fired, scheduled, resumed, expired, draftsExpired, episodesExpired, promotionsSettled, promotionsExpired, definitionTestsSettled, outcomesInserted, outcomesSignalled, outcomeRollups, calibrationRows, calibrationOpened, calibrationRefreshed, constraintsDrafted, constraintEffectsEvaluated, autonomyRecords, autonomyPromoted, autonomyDemoted, credentialRequestsExpired, credentialStashesExpired, questionTicketsExpired, questionRunsBlocked, workspacesExpired, workspacesRunEnded, devEventsScanned, devEventsSynced, devCiRecorded, amendRunsStarted, devEventsNoted, amendExhausted, heartbeats, heartbeatsDeferred, heartbeatsDisabled };
 }
 
 async function webhook(env: Env, req: Request, id: string): Promise<Response> {
   const { data } = await env.admin.from("automations").select("*").eq("id", id).maybeSingle();
   const a = data as Automation | null;
   if (!a || a.kind !== "webhook" || !a.token_hash) return json({ error: "not found" }, 404);
-  const token = req.headers.get("x-alcon-token") ?? new URL(req.url).searchParams.get("token") ?? "";
+  const token = req.headers.get("x-clayware-token") ?? req.headers.get("x-alcon-token") ?? new URL(req.url).searchParams.get("token") ?? "";
   if (!token || (await sha256Hex(token)) !== a.token_hash) return json({ error: "invalid token" }, 401);
   if (!a.enabled) return json({ error: "this automation is turned off" }, 409);
   const since = new Date(Date.now() - 60_000).toISOString();
@@ -867,11 +894,12 @@ Deno.serve(async (req) => {
   // is an extra wake, not a moved one.
   if (body.heartbeat) {
     const { data: space } = await env.admin.from("activity_spaces")
-      .select("id, heartbeat_enabled, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
+      .select("id, plan, heartbeat_enabled, heartbeat_owner_id, heartbeat_cadence_minutes, heartbeat_next_at, heartbeat_timezone, heartbeat_quiet_start, heartbeat_quiet_end")
       .eq("id", body.heartbeat).maybeSingle();
     if (!space?.heartbeat_enabled || !space.heartbeat_owner_id) {
       return json({ error: "この Space のハートビートは有効になっていません。" }, 409);
     }
+    if (!(ATHENA_PLANS as readonly string[]).includes(space.plan ?? "")) return json(PLAN_REFUSAL, 403);
     const { data: me } = await userDb.from("activity_space_members").select("role")
       .eq("activity_space_id", body.heartbeat).eq("user_id", user.id).maybeSingle();
     if (me?.role !== "owner") return json({ error: "ハートビートを起こせるのは Space のオーナーだけです。" }, 403);

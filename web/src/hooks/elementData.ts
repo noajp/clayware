@@ -1,8 +1,10 @@
 'use client';
 
 import type { DependencyBlocker } from '@/Function/shared/element/dependencyReadiness';
+import { getQueryClient } from '@/lib/queryClient';
 import { computeBlockers, upstreamIdsOf } from '@/Function/shared/element/dependencyReadiness';
 import { applyOptimisticExplorerPatch, cachedElementStatus, invalidateElementDetail } from '@/Function/sync/explorerCache';
+import { progressForStatus } from '@/Function/shared/statusProgress';
 import {
   insertElementIntoExplorer,
   mapElementInExplorer,
@@ -176,13 +178,10 @@ export async function updateElement(
   // both fields together — don't second-guess).
   const normalized: Partial<Omit<Element, 'id' | 'created_at'>> = { ...updates };
   if ('status' in updates && !('progress' in updates)) {
-    if (updates.status === 'done') {
-      normalized.progress = 100;
-    } else if (updates.status === 'backlog' || updates.status === 'todo') {
-      normalized.progress = null;
-    }
-    // in_progress / review / blocked / cancelled keep their existing value —
-    // they're deliberate workflow states, not progress buckets.
+    // Done → 100, To Do / Backlog → not started, out of Done → 75; the rest
+    // keep their value (the database applies the same rule).
+    const progress = progressForStatus(cachedElementStatus(id), updates.status);
+    if (progress !== undefined) normalized.progress = progress;
   }
 
   // Optimistic — patch the explorer cache before awaiting the network so the
@@ -224,9 +223,11 @@ export async function updateElements(
 ): Promise<void> {
   if (!ids.length) return;
   const normalized: Partial<Omit<Element, 'id' | 'created_at'>> = { ...updates };
+  // One patch for all: those leaving Done are moved to 75 by the database
+  // and show it when read back.
   if ('status' in updates && !('progress' in updates)) {
-    if (updates.status === 'done') normalized.progress = 100;
-    else if (updates.status === 'backlog' || updates.status === 'todo') normalized.progress = null;
+    const progress = progressForStatus(null, updates.status);
+    if (progress !== undefined) normalized.progress = progress;
   }
   const patch = { ...normalized, updated_at: new Date().toISOString() };
   const rollback = applyOptimisticExplorerPatch(data => ids.reduce((d, id) => patchElementInExplorer(d, id, patch), data));
@@ -305,6 +306,25 @@ export async function deleteElement(id: string): Promise<void> {
       .delete()
       .eq('id', id);
     if (error) throw error;
+  } catch (err) {
+    rollback();
+    throw err;
+  }
+}
+
+/** Deletes many Elements at once: the rows vanish together and the database
+ *  gets one request per hundred instead of one per Element. */
+export async function deleteElements(ids: readonly string[]): Promise<void> {
+  if (!ids.length) return;
+  const rollback = applyOptimisticExplorerPatch(data => ids.reduce((d, id) => removeElementFromExplorer(d, id), data));
+  try {
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+    const results = await Promise.all(chunks.map(chunk =>
+      supabase.from('elements').delete().in('id', chunk)
+    ));
+    const failed = results.find(r => r.error);
+    if (failed?.error) throw failed.error;
   } catch (err) {
     rollback();
     throw err;
@@ -413,6 +433,11 @@ export function useElementById(elementId: string | null | undefined) {
     element: query.data ?? null,
     settled: !elementId || query.isFetched,
   };
+}
+
+/** Reads again an Element that useElementById holds (it was changed here). */
+export function refreshElementById(elementId: string): void {
+  void getQueryClient().invalidateQueries({ queryKey: ['element-by-id', elementId] });
 }
 
 // ============================================

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 // Personal access tokens (ADR 0032): the pure parts of the edge auth path.
 const auth = await import(new URL('../../supabase/functions/_shared/delegatedAuth.ts', import.meta.url).pathname);
-const protocol = await import(new URL('../../supabase/functions/alcon-mcp/protocol.ts', import.meta.url).pathname);
-const { mcpTools, mcpHost, MCP_READ_TOOLS, MCP_WRITE_TOOLS } = await import(new URL('../../supabase/functions/alcon-mcp/tools.ts', import.meta.url).pathname);
+const protocol = await import(new URL('../../supabase/functions/clayware-mcp/protocol.ts', import.meta.url).pathname);
+const { mcpTools, mcpHost } = await import(new URL('../../supabase/functions/clayware-mcp/tools.ts', import.meta.url).pathname);
 const client = await import(new URL('../../supabase/functions/_shared/integrationClient.ts', import.meta.url).pathname);
 
 const {
@@ -98,7 +98,7 @@ describe('parseSigningKey', () => {
 });
 
 describe('clientLabel with a token', () => {
-  const url = (q = '') => new URL(`https://x.supabase.co/functions/v1/alcon-mcp${q}`);
+  const url = (q = '') => new URL(`https://x.supabase.co/functions/v1/clayware-mcp${q}`);
   it('names the token after the client', () => {
     expect(clientLabel(url('?client=Claude%20Code'), null, { token: 'laptop' })).toBe('Claude Code (MCP · token: laptop)');
     expect(clientLabel(url(), 'claude-code/2.1.0', { token: 'CI runner' })).toBe('Claude Code (MCP · token: CI runner)');
@@ -116,10 +116,11 @@ describe('clientLabel with a token', () => {
 describe('read-only tokens', () => {
   it('are offered no write tool', () => {
     const names = mcpTools('read').map((t: { name: string }) => t.name);
-    expect(names).toEqual([...MCP_READ_TOOLS]);
-    for (const w of MCP_WRITE_TOOLS) expect(names).not.toContain(w);
-    expect(mcpTools('read').every((t: { annotations: { readOnlyHint: boolean } }) => t.annotations.readOnlyHint)).toBe(true);
-    expect(mcpTools('read_write').map((t: { name: string }) => t.name)).toEqual([...MCP_READ_TOOLS, ...MCP_WRITE_TOOLS]);
+    for (const w of ['createElement', 'updateElement', 'deleteElement', 'writeFile', 'claimElement']) expect(names).not.toContain(w);
+    // Besides reads, only the action tools, offered for their reads.
+    const writable = mcpTools('read').filter((t: { annotations: { readOnlyHint: boolean } }) => !t.annotations.readOnlyHint).map((t: { name: string }) => t.name);
+    expect(writable.sort()).toEqual(['campaignMeasure', 'tableData', 'widgetBoard']);
+    expect(mcpTools('read_write').length).toBeGreaterThan(names.length);
   });
 
   it('refuse a write call with INVALID_PARAMS before any tool runs', async () => {
@@ -133,30 +134,32 @@ describe('read-only tokens', () => {
     expect((res.body as { error: { code: number } }).error.code).toBe(RPC.INVALID_PARAMS);
     // Called directly, the host still refuses.
     expect(await host.call('updateElement', {})).toMatchObject({ ok: false });
+    // An action tool's writing action is refused too.
+    expect(await host.call('tableData', { action: 'delete', entity: 'row', id: USER })).toMatchObject({ ok: false, error: 'This connection is read-only' });
     expect(touched).toEqual([]);
   });
 });
 
-describe('agents never reach Alcon through an integration', () => {
+describe('agents never reach Clayware through an integration', () => {
   it('recognises the project host', () => {
     const base = 'https://rkugtcqztkkacvoylupw.supabase.co';
-    expect(client.pointsAtAlcon(`${base}/functions/v1/alcon-mcp`, base)).toBe(true);
-    expect(client.pointsAtAlcon('https://RKUGTCQZTKKACVOYLUPW.supabase.co./rest/v1', `${base}/`)).toBe(true);
-    expect(client.pointsAtAlcon('https://mcp.linear.app/mcp', base)).toBe(false);
-    expect(client.pointsAtAlcon('https://other.supabase.co/functions/v1/alcon-mcp', base)).toBe(false);
-    expect(client.pointsAtAlcon('not a url', base)).toBe(false);
+    expect(client.pointsAtClayware(`${base}/functions/v1/clayware-mcp`, base)).toBe(true);
+    expect(client.pointsAtClayware('https://RKUGTCQZTKKACVOYLUPW.supabase.co./rest/v1', `${base}/`)).toBe(true);
+    expect(client.pointsAtClayware('https://mcp.linear.app/mcp', base)).toBe(false);
+    expect(client.pointsAtClayware('https://other.supabase.co/functions/v1/clayware-mcp', base)).toBe(false);
+    expect(client.pointsAtClayware('not a url', base)).toBe(false);
   });
 
   it('also recognises the legacy functions host, in any case, with a trailing dot or a port', () => {
     const base = 'https://rkugtcqztkkacvoylupw.supabase.co';
-    expect(client.pointsAtAlcon('https://rkugtcqztkkacvoylupw.functions.supabase.co/alcon-mcp', base)).toBe(true);
-    expect(client.pointsAtAlcon('https://RKUGTCQZTKKACVOYLUPW.Functions.Supabase.co./alcon-mcp', base)).toBe(true);
-    expect(client.pointsAtAlcon('https://rkugtcqztkkacvoylupw.functions.supabase.co:443/alcon-mcp', base)).toBe(true);
-    expect(client.pointsAtAlcon('https://rkugtcqztkkacvoylupw.supabase.co:8443/functions/v1/alcon-mcp', base)).toBe(true);
-    expect(client.pointsAtAlcon('https://other.functions.supabase.co/alcon-mcp', base)).toBe(false);
-    expect(client.pointsAtAlcon('https://rkugtcqztkkacvoylupw.supabase.co.evil.example/x', base)).toBe(false);
+    expect(client.pointsAtClayware('https://rkugtcqztkkacvoylupw.functions.supabase.co/clayware-mcp', base)).toBe(true);
+    expect(client.pointsAtClayware('https://RKUGTCQZTKKACVOYLUPW.Functions.Supabase.co./clayware-mcp', base)).toBe(true);
+    expect(client.pointsAtClayware('https://rkugtcqztkkacvoylupw.functions.supabase.co:443/clayware-mcp', base)).toBe(true);
+    expect(client.pointsAtClayware('https://rkugtcqztkkacvoylupw.supabase.co:8443/functions/v1/clayware-mcp', base)).toBe(true);
+    expect(client.pointsAtClayware('https://other.functions.supabase.co/clayware-mcp', base)).toBe(false);
+    expect(client.pointsAtClayware('https://rkugtcqztkkacvoylupw.supabase.co.evil.example/x', base)).toBe(false);
     // A custom-domain SUPABASE_URL still matches itself.
-    expect(client.pointsAtAlcon('https://api.alcon.example/functions/v1/alcon-mcp', 'https://api.alcon.example')).toBe(true);
-    expect(client.pointsAtAlcon(`${base}/x`, undefined)).toBe(false);
+    expect(client.pointsAtClayware('https://api.clayware.example/functions/v1/clayware-mcp', 'https://api.clayware.example')).toBe(true);
+    expect(client.pointsAtClayware(`${base}/x`, undefined)).toBe(false);
   });
 });

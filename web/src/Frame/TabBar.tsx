@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, useSortable, horizontalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { constrainTabDrag } from './tabDrag';
 import { Plus, List, Calendar, Users, BarChart3, GanttChart, ClipboardList, Trash2, FileText, Columns3 } from '@/ui/icons';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/ui/context-menu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { CollapsingTabs } from '@/Function/shared/CollapsingTabs';
 import type { ObjectTab, ObjectTabType } from '@/types/database';
@@ -61,13 +62,6 @@ const CREATE_TAB_ORDER: ObjectTabType[] = [
   'overview', 'elements', 'flow', 'gantt', 'calendar', 'workers',
 ];
 
-interface ContextMenu {
-  tabId: string;
-  tabType: ObjectTabType;
-  x: number;
-  y: number;
-}
-
 export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate, rightSlot, createOptions, createTitle, onTabReorder }: TabBarProps) {
   const { t } = useI18n();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
@@ -75,44 +69,8 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
   const visibleCreateOptions = (createOptions
     ? CREATE_TAB_ORDER.filter((t) => createOptions.includes(t))
     : CREATE_TAB_ORDER).filter((type) => !tabs.some((tab) => tab.tab_type === type));
-  const [showCreateMenu, setShowCreateMenu] = useState(false);
-  const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
   const handleCreate = (type: ObjectTabType) => {
     onTabCreate(type, OBJECT_TAB_META[type].title);
-    setShowCreateMenu(false);
-  };
-
-  const handleContextMenu = (e: React.MouseEvent, tab: ObjectTab) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ tabId: tab.id, tabType: tab.tab_type, x: e.clientX, y: e.clientY });
-  };
-
-  // Close context menu on outside click or Escape
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
-      setContextMenu(null);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', close);
-    };
-  }, [contextMenu]);
-
-  // Adjust position if context menu overflows viewport
-  const getMenuStyle = () => {
-    if (!contextMenu) return {};
-    const menuWidth = 160;
-    const menuHeight = 48;
-    const x = contextMenu.x + menuWidth > window.innerWidth ? contextMenu.x - menuWidth : contextMenu.x;
-    const y = contextMenu.y + menuHeight > window.innerHeight ? contextMenu.y - menuHeight : contextMenu.y;
-    return { left: x, top: y };
   };
 
   return (
@@ -134,7 +92,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
             <div className="min-w-0 overflow-x-auto">
               <div className="flex w-max items-center gap-1">
               {tabs.map(tab => <SortableViewTab key={tab.id} tab={tab} active={tab.id === activeTabId}
-                sortable={!!onTabReorder} onSelect={() => onTabSelect(tab.id)} onContextMenu={e => handleContextMenu(e, tab)} />)}
+                sortable={!!onTabReorder} onSelect={() => onTabSelect(tab.id)} onClose={() => onTabClose(tab.id)} />)}
               </div>
             </div>
           </SortableContext>
@@ -142,93 +100,67 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
         )}
         trailing={visibleCreateOptions.length === 0 ? undefined : (
         <div className="relative flex items-center flex-shrink-0">
-          <ButtonAppearanceProvider appearance="navigation">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label={t('Add tab')}
-              title={t('Add tab')}
-              onClick={() => setShowCreateMenu(!showCreateMenu)}
-            >
-              <Plus size={14} />
-            </Button>
-          </ButtonAppearanceProvider>
-
-          {showCreateMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowCreateMenu(false)} />
-              <div className="gloss-overlay absolute top-full left-0 z-50 mt-1 min-w-[164px] rounded-lg p-1 text-popover-foreground">
-                {visibleCreateOptions.map((type) => {
-                  const meta = OBJECT_TAB_META[type];
-                  const OptionIcon = meta.Icon;
-                  return (
-                    <button
-                      key={type}
-                      onClick={() => handleCreate(type)}
-                      className="flex w-full items-center gap-2 whitespace-nowrap rounded-[5px] px-2 py-1.5 text-left text-[13px] text-foreground transition-colors hover:bg-[var(--surface-strong)]"
-                    >
-                      <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"><OptionIcon size={14} /></span>
-                      {t(createTitle?.(type) ?? meta.title)}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {/* The shared menu: arrow keys move through it, Escape closes it
+              and focus returns to the "+". */}
+          <DropdownMenu>
+            <ButtonAppearanceProvider appearance="navigation">
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={t('Add tab')} title={t('Add tab')}>
+                  <Plus size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+            </ButtonAppearanceProvider>
+            <DropdownMenuContent align="start" className="min-w-[150px]">
+              {visibleCreateOptions.map((type) => {
+                const meta = OBJECT_TAB_META[type];
+                const OptionIcon = meta.Icon;
+                return (
+                  <DropdownMenuItem key={type} onSelect={() => handleCreate(type)} className="gap-2 whitespace-nowrap">
+                    <span className="text-muted-foreground"><OptionIcon size={14} /></span>
+                    {t(createTitle?.(type) ?? meta.title)}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         )}
       />
 
       {rightSlot}
 
-      {/* Right-click context menu */}
-      {contextMenu && (
-        <>
-          <div className="fixed inset-0 z-40" />
-          <div
-            ref={contextMenuRef}
-            className="gloss-overlay fixed z-50 min-w-[164px] rounded-lg p-1 text-popover-foreground"
-            style={getMenuStyle()}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {contextMenu.tabType !== 'elements' ? (
-              <button
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onTabClose(contextMenu.tabId);
-                  setContextMenu(null);
-                }}
-                className="flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10"
-              >
-                <Trash2 size={14} />
-                {t('Delete tab')}
-              </button>
-            ) : (
-              <div className="px-2 py-1.5 text-[12px] text-muted-foreground">
-                {t('The List tab cannot be deleted')}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+
     </div>
   );
 }
 
-function SortableViewTab({ tab, active, sortable, onSelect, onContextMenu }: {
-  tab: ObjectTab; active: boolean; sortable: boolean; onSelect: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
+function SortableViewTab({ tab, active, sortable, onSelect, onClose }: {
+  tab: ObjectTab; active: boolean; sortable: boolean; onSelect: () => void; onClose: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id, disabled: !sortable });
   const { t } = useI18n();
   const TabIcon = (OBJECT_TAB_META[tab.tab_type] ?? OBJECT_TAB_META.elements).Icon;
-  return <Button ref={setNodeRef} type="button" shape="tab" variant={active ? 'secondary' : 'ghost'}
-    {...attributes} {...listeners} aria-pressed={active} onClick={onSelect} onContextMenu={onContextMenu}
-    style={{ transform: CSS.Transform.toString(transform), transition }}
-    className={sortable ? `touch-none ${isDragging ? 'relative z-10 opacity-70' : ''}` : undefined}>
-    <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
-    {t(tab.title)}
-  </Button>;
+  // Right-click, or the keyboard's menu key (Shift+F10), opens the tab's menu.
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <Button ref={setNodeRef} type="button" shape="tab" variant={active ? 'secondary' : 'ghost'}
+          {...attributes} {...listeners} aria-pressed={active} onClick={onSelect}
+          style={{ transform: CSS.Transform.toString(transform), transition }}
+          className={sortable ? `touch-none ${isDragging ? 'relative z-10 opacity-70' : ''}` : undefined}>
+          <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
+          {t(tab.title)}
+        </Button>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-[160px]">
+        {tab.tab_type !== 'elements' ? (
+          <ContextMenuItem variant="destructive" onSelect={onClose} className="gap-2">
+            <Trash2 size={14} />{t('Delete tab')}
+          </ContextMenuItem>
+        ) : (
+          <div className="px-3 py-2 text-[12px] text-muted-foreground">{t('The List tab cannot be deleted')}</div>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
+  );
 }

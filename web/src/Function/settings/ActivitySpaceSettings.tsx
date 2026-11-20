@@ -11,6 +11,7 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { SettingsIsland, SettingRow } from './SettingsControls';
 import { HeartbeatSettings } from './HeartbeatSettings';
+import { SpaceNounSettings } from './SpaceNounSettings';
 import { SpaceMemorySettings } from './MemorySettings';
 import { ApprovalModeSection } from '@/AIP/connectors/ApprovalModeSection';
 import { InviteUserDialog } from './InviteUserDialog';
@@ -278,6 +279,8 @@ export function ActivitySpaceSettings() {
           />
         </SettingRow>
       </SettingsIsland>
+
+      <SpaceNounSettings spaceId={active.id} nouns={active.nouns} isOwner={isOwner} onSaved={refetch} />
 
       <HeartbeatSettings spaceId={active.id} isOwner={isOwner} />
 

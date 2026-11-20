@@ -13,7 +13,7 @@ import { useAuthContext } from '@/providers/AuthProvider';
 import {
   createElement,
   updateElement, updateElements, restoreElementsField,
-  deleteElement,
+  deleteElement, deleteElements, noticeElementSaveFailed,
   useDomains,
   useElementTemplates,
   useWorkers,
@@ -60,7 +60,7 @@ interface MyElementsViewProps {
 // column is injected only here (not a global built-in) and on by default.
 // Module-level constants keep the array identities stable across renders.
 const MY_EXTRA_COLUMNS: DataColumn[] = [
-  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true, defaultWidth: 180 },
+  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true },
 ];
 // Element default columns + My Elements' cross-Object "Objects" column on top.
 const MY_DEFAULT_VISIBLE: ColumnId[] = [...ELEMENT_DEFAULT_VISIBLE, 'objects'];
@@ -190,9 +190,7 @@ export function MyElementsView({ onRefresh, onNavigate, onViewChange, embedded =
   // bulk bar offers Delete + Duplicate only (no Move / Add-to-Object).
   const { selectedRowIds, handleRowSelect, clearSelection, selectOnly } = useElementSelection();
   const bulkDelete = useCallback(async () => {
-    for (const id of selectedRowIds) {
-      try { await deleteElement(id); } catch (e) { console.error('Delete failed', id, e); }
-    }
+    try { await deleteElements([...selectedRowIds]); } catch (e) { noticeElementSaveFailed(e); }
     clearSelection();
     await fetchMine();
     await onRefresh?.();

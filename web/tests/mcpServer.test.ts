@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-const protocol = await import(new URL('../../supabase/functions/alcon-mcp/protocol.ts', import.meta.url).pathname);
-const { mcpTools, mcpHost, MCP_READ_TOOLS, MCP_WRITE_TOOLS } = await import(new URL('../../supabase/functions/alcon-mcp/tools.ts', import.meta.url).pathname);
+const protocol = await import(new URL('../../supabase/functions/clayware-mcp/protocol.ts', import.meta.url).pathname);
+const { mcpTools, mcpHost } = await import(new URL('../../supabase/functions/clayware-mcp/tools.ts', import.meta.url).pathname);
 const board = await import(new URL('../../supabase/functions/_shared/boardTools.ts', import.meta.url).pathname);
 
 const { handleBody, clientLabel, negotiateVersion, SUPPORTED_PROTOCOL_VERSIONS, RPC } = protocol;
@@ -75,7 +75,11 @@ describe('MCP protocol', () => {
     expect(res.status).toBe(200);
     const result = (res.body as { result: Record<string, unknown> }).result;
     expect(result.protocolVersion).toBe('2025-03-26');
-    expect(result.capabilities).toEqual({ tools: { listChanged: false } });
+    expect(result.capabilities).toEqual({
+      tools: { listChanged: false },
+      resources: { listChanged: false, subscribe: false },
+      prompts: { listChanged: false },
+    });
     expect(negotiateVersion('1999-01-01')).toBe(SUPPORTED_PROTOCOL_VERSIONS[0]);
   });
 
@@ -87,7 +91,7 @@ describe('MCP protocol', () => {
     const parse = await handleBody('{nope', host());
     expect(parse.status).toBe(400);
     expect((parse.body as { error: { code: number } }).error.code).toBe(RPC.PARSE_ERROR);
-    const unknown = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 'x', method: 'resources/list' }), host());
+    const unknown = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 'x', method: 'sampling/createMessage' }), host());
     expect((unknown.body as { error: { code: number } }).error.code).toBe(RPC.METHOD_NOT_FOUND);
   });
 
@@ -95,6 +99,9 @@ describe('MCP protocol', () => {
     expect(await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 9, result: {} }), host())).toEqual({ status: 202 });
     expect(protocol.acceptsProtocolHeader(null)).toBe(true);
     expect(protocol.acceptsProtocolHeader('2025-06-18')).toBe(true);
+    // The version Claude connects with (claude.ai, 2026-11).
+    expect(protocol.acceptsProtocolHeader('2025-11-25')).toBe(true);
+    expect(negotiateVersion('2025-11-25')).toBe('2025-11-25');
     expect(protocol.acceptsProtocolHeader('1.0')).toBe(false);
   });
 
@@ -110,8 +117,8 @@ describe('MCP protocol', () => {
     const calls: string[] = [];
     const ok = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'getElement', arguments: { id: 'x' } } }), host(calls));
     expect((ok.body as { result: { isError: boolean } }).result.isError).toBe(false);
-    // deleteElement exists in the shared module but is not an MCP tool.
-    const refused = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'deleteElement', arguments: { id: 'x' } } }), host(calls));
+    // start_promotion exists in the catalog but is not an MCP tool.
+    const refused = await handleBody(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'start_promotion', arguments: { id: 'x' } } }), host(calls));
     expect((refused.body as { error: { code: number } }).error.code).toBe(RPC.INVALID_PARAMS);
     expect(calls).toEqual(['getElement']);
   });
@@ -125,23 +132,31 @@ describe('MCP protocol', () => {
 });
 
 describe('MCP tool surface', () => {
-  it('offers reads and everyday writes only — no deletes, bulk writes or moves', () => {
+  it('offers what the AI panel reaches, plus Tables and the lease and report tools', () => {
     const names = mcpTools().map((t: { name: string }) => t.name);
-    expect(names).toEqual([...MCP_READ_TOOLS, ...MCP_WRITE_TOOLS]);
-    expect(names.some((n: string) => /delete|bulk|move|unlink|Object$/.test(n))).toBe(false);
+    for (const n of ['listElements', 'deleteElement', 'createObject', 'bulkUpdateElements', 'updateInitiative', 'writeFile', 'readHarness', 'remember', 'tableData', 'widgetBoard', 'claimElement', 'reportOutcome']) {
+      expect(names).toContain(n);
+    }
+    expect(new Set(names).size).toBe(names.length);
+    // Handing work to Clayware's own model is not offered.
+    expect(names).not.toContain('start_promotion');
   });
 
-  it('marks reads read-only and overwrites destructive', () => {
-    for (const tool of mcpTools()) {
-      expect(tool.annotations.destructiveHint).toBe(['updateElement', 'setElementLabels'].includes(tool.name));
-      expect(tool.annotations.readOnlyHint).toBe(MCP_READ_TOOLS.includes(tool.name));
-      expect(tool.inputSchema.type).toBe('object');
-    }
+  it('lists reads first and marks deletes and overwrites destructive', () => {
+    const tools = mcpTools();
+    const firstWrite = tools.findIndex((t: { annotations: { readOnlyHint: boolean } }) => !t.annotations.readOnlyHint);
+    expect(tools.slice(firstWrite).every((t: { annotations: { readOnlyHint: boolean } }) => !t.annotations.readOnlyHint)).toBe(true);
+    type Tool = { name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } };
+    const by = new Map<string, Tool>(tools.map((t: Tool) => [t.name, t]));
+    for (const n of ['deleteElement', 'bulkDeleteElements', 'deleteInitiative', 'updateElement', 'tableData']) expect(by.get(n)!.annotations.destructiveHint, n).toBe(true);
+    for (const n of ['listElements', 'getInitiative', 'readFile']) expect(by.get(n)!.annotations.readOnlyHint, n).toBe(true);
+    for (const n of ['createElement', 'addElementComment', 'claimElement']) expect(by.get(n)!.annotations.destructiveHint, n).toBe(false);
+    for (const tool of tools) expect(tool.inputSchema.type).toBe('object');
   });
 });
 
 describe('clientLabel', () => {
-  const url = (q = '') => new URL(`https://x.supabase.co/functions/v1/alcon-mcp${q}`);
+  const url = (q = '') => new URL(`https://x.supabase.co/functions/v1/clayware-mcp${q}`);
   it('recognises clients from the User-Agent', () => {
     expect(clientLabel(url(), 'claude-code/2.1.0')).toBe('Claude Code (MCP)');
     expect(clientLabel(url(), 'Claude-User')).toBe('Claude (MCP)');
@@ -209,9 +224,9 @@ describe('board tools', () => {
 
 describe('mcpHost', () => {
   it('sends strategy tools to the strategy runner and board tools to the board runner', async () => {
-    const { db } = fakeDb({ strategies: [{ id: UUID, name: 'Alcon GTM', status: 'active' }], intents: [], strategy_objects: [], strategy_children: [] });
+    const { db } = fakeDb({ strategies: [{ id: UUID, name: 'Clayware GTM', status: 'active' }], intents: [], strategy_objects: [], strategy_children: [] });
     const h = mcpHost(db, { agent: 'AI (MCP)', userId: 'u' });
     const res = await h.call('getInitiative', { id: UUID });
-    expect(res).toMatchObject({ ok: true, data: { name: 'Alcon GTM', intents: [], objects: [] } });
+    expect(res).toMatchObject({ ok: true, data: { name: 'Clayware GTM', intents: [], objects: [] } });
   });
 });

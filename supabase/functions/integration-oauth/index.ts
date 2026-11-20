@@ -1,13 +1,17 @@
-// integration-oauth — a Space owner connects a Google service by signing in
-// with Google (ADR 0035), or GitHub by signing in with GitHub. Deployed with
-// --no-verify-jwt: /go and /callback are browser navigations without a
-// Supabase JWT; /start, /finish and /revoke check the caller's JWT themselves.
-// The provider is the integration row's: a row a Google profile claims
-// (google-drive, gmail) → Google, github → GitHub; every step below is the
-// same for both. What differs per Google service — scopes, the account
-// check — is the profile's (googleOAuth.ts).
+// integration-oauth — a Space owner connects a service by signing in with its
+// provider (ADR 0035): Google (google-drive, gmail), GitHub, Microsoft
+// (microsoft-365). Deployed with --no-verify-jwt: /go and /callback are
+// browser navigations without a Supabase JWT; /start, /finish, /revoke and
+// /admin-consent check the caller's JWT themselves. The provider is the
+// integration row's — the one whose profile claims it in the registry
+// (oauthProviders.ts) — and every step below is the same for each. What
+// differs per provider and service — URLs, scopes, the token set, the
+// account check, revoking — is the registry's. A connection with its own
+// OAuth config (customOAuth.ts) signs in through the same steps, with its
+// client from the row and Vault; its sign-in is bound to the row as it was
+// at /start (customOAuthBinding), and a row changed meanwhile ends it.
 //
-//   GET  /status                 { google: boolean, github: boolean } —
+//   GET  /status                 { google, github, microsoft: boolean } —
 //                                whether each sign-in is configured (client +
 //                                APP_ORIGIN). No secrets.
 //   POST /start { integrationId } (JWT, Space owner) → { url }
@@ -22,13 +26,20 @@
 //   GET  /callback?code&state    Claims the state (single use), checks
 //                                expiry (10 minutes) and the cookie nonce,
 //                                exchanges the code with the verifier,
-//                                requires the scopes (the Google profile's /
-//                                repo) and reads the account (Google email /
-//                                GitHub login). Stores NOTHING on the integration: the
+//                                requires the profile's scopes and reads the
+//                                account (an email, or GitHub's login).
+//                                Stores NOTHING on the integration: the
 //                                token set is held in Vault against a one-time
 //                                completion handle (10 minutes), and the
 //                                browser goes back to where it started
-//                                (/?integration_oauth=finish&handle=…).
+//                                (/?integration_oauth=finish&handle=…). A
+//                                refusal because the organization's
+//                                administrator must approve first goes back
+//                                as integration_oauth=admin_consent.
+//   GET  /callback?state=admin-consent.<provider>
+//                                An administrator's approval coming back:
+//                                answers in text whether it was granted.
+//                                Nothing is stored; it is not a sign-in.
 //   POST /finish { handle }      (JWT) Takes the held token set once. Stores
 //                                it only when the caller is the person who
 //                                called /start and still owns the Space;
@@ -39,29 +50,35 @@
 //   POST /revoke { integrationId } (JWT, Space owner) → { ok, revoked }
 //                                Revokes the grant at the provider and clears
 //                                the stored tokens. `revoked` is false when the
-//                                provider could not confirm it. Disconnect
-//                                calls it before deleting the row.
+//                                provider could not confirm it, or has no way
+//                                to revoke (Microsoft). Disconnect calls it
+//                                before deleting the row.
+//   POST /admin-consent { integrationId } (JWT, Space owner) → { url }
+//                                The link the organization's administrator
+//                                opens to approve Clayware for everyone, for a
+//                                provider that has one (Microsoft).
 //
 // Secrets: APP_ORIGIN (and optionally APP_RETURN_ORIGINS, more origins a
-// sign-in may return to), and per provider GOOGLE_OAUTH_CLIENT_ID /
-// GOOGLE_OAUTH_CLIENT_SECRET, GITHUB_OAUTH_CLIENT_ID /
-// GITHUB_OAUTH_CLIENT_SECRET. A provider without its client, or any without
-// APP_ORIGIN, fails closed (not_configured) on every route but /status and
-// /revoke. Tokens never reach the browser or a URL.
+// sign-in may return to), and per provider the client the registry names:
+// GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET, GITHUB_OAUTH_CLIENT_ID
+// / GITHUB_OAUTH_CLIENT_SECRET, MICROSOFT_OAUTH_CLIENT_ID /
+// MICROSOFT_OAUTH_CLIENT_SECRET. A provider without its client, or any
+// without APP_ORIGIN, fails closed (not_configured) on every route but
+// /status and /revoke. Tokens never reach the browser or a URL.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { googleClientFromEnv, readCapped, type IntegrationRow } from "../_shared/integrationClient.ts";
+import { clientFor, readCapped, resolvesToPublic, type IntegrationRow } from "../_shared/integrationClient.ts";
+import { customOAuthBinding, customOAuthConfigOf } from "../_shared/customOAuth.ts";
 import {
-  GITHUB_TOKEN_URL, GITHUB_USER_URL, buildGithubAuthorizeUrl, githubClientFromEnv, githubHasScope, githubSecretFromTokenResponse,
-  isGithubOAuthRow, parseGithubSecret, type GithubClientConfig,
-} from "../_shared/githubOAuth.ts";
-import {
-  GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, NONCE_COOKIE, STATE_TTL_MS, TICKET_TTL_MS,
-  appOrigin, appReturnUrl, buildAuthorizeUrl, returnOrigin, clearNonceCookie, finishDecision, googleProfileOf, grantsRequiredScopes, isExpired,
-  nonceCookie, parseOAuthSecret, randomToken, readCookie, redirectUriFor, s256Challenge, secretFromTokenResponse, sha256Hex,
-  type GoogleProviderProfile,
+  NONCE_COOKIE, STATE_TTL_MS, TICKET_TTL_MS,
+  appOrigin, appReturnUrl, returnOrigin, clearNonceCookie, finishDecision, isExpired,
+  nonceCookie, randomToken, readCookie, redirectUriFor, s256Challenge, sha256Hex, type AppReturnResult,
 } from "../_shared/googleOAuth.ts";
+import {
+  OAUTH_PROVIDERS, OAUTH_PROVIDER_IDS, adminConsentProviderOf, adminConsentState, isCustomProvider, oauthClientFromEnv, parseTokenSet, signInOf,
+  tokenRequestInit, type OAuthClientConfig, type OAuthProfile, type OAuthProvider, type OAuthProviderId, type StaticOAuthProviderId,
+} from "../_shared/oauthProviders.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,21 +86,19 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const ROW_COLUMNS = "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation";
-const NO_APP_ORIGIN = "Sign-in cannot finish because APP_ORIGIN is not set on the server. Ask an administrator to set APP_ORIGIN, then try again from Alcon.";
+const ROW_COLUMNS = "id, activity_space_id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, oauth_config";
+const NO_APP_ORIGIN = "Sign-in cannot finish because APP_ORIGIN is not set on the server. Ask an administrator to set APP_ORIGIN, then try again from Clayware.";
 
 type Row = IntegrationRow & { activity_space_id: string };
 
-type Provider = "google" | "github";
+type Provider = OAuthProviderId;
 
 /** Which sign-in a row uses, or null when it signs in with none. */
-function providerOf(row: Parameters<typeof googleProfileOf>[0]): Provider | null {
-  return googleProfileOf(row) ? "google" : isGithubOAuthRow(row) ? "github" : null;
+function providerOf(row: Parameters<typeof signInOf>[0]): Provider | null {
+  return signInOf(row)?.provider.id ?? null;
 }
 
-const PROVIDER_NAME: Record<Provider, string> = { google: "Google", github: "GitHub" };
-
-interface Clients { google: { clientId: string; clientSecret: string } | null; github: GithubClientConfig | null }
+type Clients = Record<StaticOAuthProviderId, OAuthClientConfig | null>;
 
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
@@ -102,9 +117,16 @@ function route(pathname: string): string {
 /** Sends the browser back to the app: to where the sign-in started (see
  *  returnOrigin), else APP_ORIGIN. Supabase serves HTML from Edge Functions
  *  as plain text, so without an origin the answer is text. */
-function backToApp(result: "finish" | "error", integrationId: string | null, handle?: string, origin?: string | null): Response {
+function backToApp(result: AppReturnResult, integrationId: string | null, handle?: string, origin?: string | null): Response {
   const target = appReturnUrl(origin ?? Deno.env.get("APP_ORIGIN"), result, integrationId, handle);
-  if (!target) return text(result === "error" ? "The connection could not be completed. You can close this tab and try again from Alcon." : NO_APP_ORIGIN, 400);
+  if (!target) {
+    return text(
+      result === "error" ? "The connection could not be completed. You can close this tab and try again from Clayware."
+        : result === "admin_consent" ? "Your organization's administrator must approve Clayware before this can be connected. Go back to Clayware for the approval link."
+        : NO_APP_ORIGIN,
+      400,
+    );
+  }
   return new Response(null, { status: 302, headers: { "set-cookie": clearNonceCookie(), "cache-control": "no-store", location: target } });
 }
 
@@ -171,14 +193,14 @@ async function readIntegrationId(req: Request, body?: Record<string, unknown>): 
   return id;
 }
 
-async function postForm(url: string, params: Record<string, string>): Promise<{ status: number; body: Record<string, unknown> }> {
+async function postForm(url: string, request: { headers: Record<string, string>; body: string }): Promise<{ status: number; body: Record<string, unknown> }> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 20_000);
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-      body: new URLSearchParams(params).toString(),
+      headers: request.headers,
+      body: request.body,
       signal: ctl.signal,
       redirect: "manual",
     });
@@ -191,7 +213,6 @@ async function postForm(url: string, params: Record<string, string>): Promise<{ 
   }
 }
 
-/** Revokes a token (and so the grant) at Google. True when Google confirmed it. */
 /** Sign-ins past both deadlines go, their held tokens with them (by trigger). Run on every step that touches sign-ins. */
 async function sweepExpired(admin: SupabaseClient): Promise<void> {
   const nowIso = new Date().toISOString();
@@ -199,64 +220,21 @@ async function sweepExpired(admin: SupabaseClient): Promise<void> {
   await admin.from("integration_oauth_states").delete().lt("completion_expires_at", nowIso);
 }
 
-async function revokeAtGoogle(token: string): Promise<boolean> {
-  const res = await postForm(GOOGLE_REVOKE_URL, { token }).catch(() => null);
-  return res?.status === 200;
-}
-
-/** Revokes the person's whole grant to Alcon's GitHub OAuth App. True when GitHub confirmed it. */
-async function revokeAtGithub(client: GithubClientConfig, token: string): Promise<boolean> {
+/** Who signed in, asked at the profile's account check (Drive's about,
+ *  Gmail's profile, GitHub's user, Microsoft Graph's me). The account, or
+ *  null when it cannot be read. */
+async function accountOf(accessToken: string, profile: OAuthProfile): Promise<string | null> {
+  if (!profile.accountCheck) return null;
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 20_000);
   try {
-    const res = await fetch(`https://api.github.com/applications/${encodeURIComponent(client.clientId)}/grant`, {
-      method: "DELETE",
-      headers: {
-        authorization: `Basic ${btoa(`${client.clientId}:${client.clientSecret}`)}`,
-        accept: "application/vnd.github+json",
-        "content-type": "application/json",
-        "user-agent": "alcon-integration-oauth",
-      },
-      body: JSON.stringify({ access_token: token }),
-      signal: ctl.signal,
-      redirect: "manual",
-    });
-    return res.status === 204;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-async function githubLogin(accessToken: string): Promise<string | null> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 20_000);
-  try {
-    const res = await fetch(GITHUB_USER_URL, {
-      headers: { authorization: `Bearer ${accessToken}`, accept: "application/vnd.github+json", "user-agent": "alcon-integration-oauth" },
+    const res = await fetch(profile.accountCheck.url, {
+      headers: { accept: "application/json", ...profile.accountCheck.headers, Authorization: `Bearer ${accessToken}` },
       signal: ctl.signal, redirect: "manual",
     });
     if (!res.ok) return null;
-    const body = JSON.parse(await readCapped(res, 100_000)) as { login?: unknown };
-    return typeof body.login === "string" && body.login.length <= 100 ? body.login : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-/** Who signed in, asked at the profile's account check (Drive's about,
- *  Gmail's profile). The address, or null when it cannot be read. */
-async function googleAccountEmail(accessToken: string, profile: GoogleProviderProfile): Promise<string | null> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 20_000);
-  try {
-    const res = await fetch(profile.accountCheck.url, { headers: { Authorization: `Bearer ${accessToken}`, accept: "application/json" }, signal: ctl.signal, redirect: "manual" });
-    if (!res.ok) return null;
     const body: unknown = JSON.parse(await readCapped(res, 100_000));
-    return profile.accountCheck.emailOf(body);
+    return profile.accountCheck.accountOf(body);
   } catch {
     return null;
   } finally {
@@ -274,19 +252,29 @@ Deno.serve(async (req: Request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !anonKey || !serviceKey) return json({ error: "server env not configured" }, 500);
   const env: Env = { supabaseUrl, anonKey, serviceKey };
-  const clients: Clients = { google: googleClientFromEnv((k) => Deno.env.get(k)), github: githubClientFromEnv((k) => Deno.env.get(k)) };
+  const clients = Object.fromEntries(OAUTH_PROVIDER_IDS.map((id) => [id, oauthClientFromEnv(OAUTH_PROVIDERS[id], (k) => Deno.env.get(k))])) as Clients;
   // /finish is the only way a sign-in is stored, and it is reached through
   // the app at APP_ORIGIN — without it nothing can complete.
   const origin = appOrigin(Deno.env.get("APP_ORIGIN"));
 
-  if (path === "/status" && req.method === "GET") return json({ google: !!clients.google && !!origin, github: !!clients.github && !!origin });
-  if (!["/start", "/go", "/callback", "/finish", "/revoke"].includes(path)) return json({ error: "not found" }, 404);
+  if (path === "/status" && req.method === "GET") return json(Object.fromEntries(OAUTH_PROVIDER_IDS.map((id) => [id, !!clients[id] && !!origin])));
+  if (!["/start", "/go", "/callback", "/finish", "/revoke", "/admin-consent"].includes(path)) return json({ error: "not found" }, 404);
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-  /** The refusal when `provider` cannot sign in here; null when it can. */
-  const notConfigured = (provider: Provider | null): Response | null => {
-    if (provider && clients[provider] && origin) return null;
-    const what = provider ? `${PROVIDER_NAME[provider]} sign-in` : "Sign-in";
+  /** The client a row signs in with: a registered provider's from the Edge
+   *  secrets, a connection's own from the row and Vault. */
+  const clientOf = async (row: Row, provider: OAuthProvider): Promise<OAuthClientConfig | null> =>
+    isCustomProvider(provider) ? await clientFor(admin, row, provider) : clients[provider.id as StaticOAuthProviderId];
+  /** The refusal when `provider` cannot sign in here (no client, or no
+   *  APP_ORIGIN); null when it can. */
+  const notConfigured = (provider: OAuthProvider | null, client: OAuthClientConfig | null): Response | null => {
+    if (provider && client && origin) return null;
+    if (provider && isCustomProvider(provider) && origin) {
+      const message = "This connection's OAuth client is not set yet. Enter its client ID and client secret in Settings › Connectors, then sign in.";
+      if (req.method === "GET") return text(message, 503);
+      return json({ error: message, code: "client_missing" }, 503);
+    }
+    const what = provider ? `${provider.name} sign-in` : "Sign-in";
     if (req.method === "GET") return text(origin ? `${what} is not set up yet.` : NO_APP_ORIGIN, 503);
     return json({ error: origin ? `${what} is not set up yet` : `${what} is not set up yet (APP_ORIGIN is missing)`, code: "not_configured" }, 503);
   };
@@ -295,14 +283,9 @@ Deno.serve(async (req: Request) => {
     const { data: row } = await admin.from("integrations").select(ROW_COLUMNS).eq("id", integrationId).maybeSingle();
     return (row as Row | null) ?? null;
   };
-  /** The provider of the integration a sign-in belongs to. */
-  const providerOfIntegration = async (integrationId: string): Promise<Provider | null> => {
-    const row = await rowOfIntegration(integrationId);
-    return row ? providerOf(row) : null;
-  };
   // /finish needs APP_ORIGIN like every step; /revoke works whatever the
   // configuration, so a connection can always be ended.
-  if (path === "/finish" && !origin) return notConfigured(null)!;
+  if (path === "/finish" && !origin) return notConfigured(null, null)!;
 
   // ── POST /start ─────────────────────────────────────────────────────────
   if (path === "/start") {
@@ -313,11 +296,11 @@ Deno.serve(async (req: Request) => {
     if (integrationId instanceof Response) return integrationId;
     const owned = await ownedIntegration(req, env, integrationId);
     if (owned instanceof Response) return owned;
-    const provider = providerOf(owned.row);
-    if (!provider) return json({ error: "this integration does not sign in with OAuth", code: "not_oauth" }, 400);
+    const signIn = signInOf(owned.row);
+    if (!signIn) return json({ error: "this integration does not sign in with OAuth", code: "not_oauth" }, 400);
     // Back to the app that started it (its origin, when allowed).
     const returnTo = returnOrigin(body.returnTo, Deno.env.get("APP_ORIGIN"), Deno.env.get("APP_RETURN_ORIGINS"));
-    const refused = notConfigured(provider);
+    const refused = notConfigured(signIn.provider, await clientOf(owned.row, signIn.provider));
     if (refused) return refused;
 
     await sweepExpired(admin);
@@ -331,6 +314,8 @@ Deno.serve(async (req: Request) => {
       ticket_expires_at: new Date(now + TICKET_TTL_MS).toISOString(),
       expires_at: new Date(now + STATE_TTL_MS).toISOString(),
       return_origin: returnTo,
+      // A connection's own config: what the sign-in is bound to.
+      binding_hash: isCustomProvider(signIn.provider) ? await customOAuthBinding(owned.row) : null,
     });
     if (error) return json({ error: "could not start the sign-in" }, 500);
     return json({ url: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/integration-oauth/go?ticket=${encodeURIComponent(ticket)}` });
@@ -348,22 +333,22 @@ Deno.serve(async (req: Request) => {
       .eq("ticket_hash", await sha256Hex(ticket))
       .gt("ticket_expires_at", new Date().toISOString())
       .is("browser_nonce_hash", null)
-      .select("integration_id, code_verifier")
+      .select("integration_id, code_verifier, binding_hash")
       .maybeSingle();
     if (!row) return backToApp("error", null);
     const integration = await rowOfIntegration(row.integration_id as string);
-    const provider = integration ? providerOf(integration) : null;
-    const refused = notConfigured(provider);
+    const signIn = integration ? signInOf(integration) : null;
+    const client = signIn ? await clientOf(integration!, signIn.provider) : null;
+    const refused = notConfigured(signIn?.provider ?? null, client);
     if (refused) return refused;
-    const authorize = {
-      clientId: clients[provider!]!.clientId,
+    if (isCustomProvider(signIn!.provider) && row.binding_hash !== await customOAuthBinding(integration!)) return backToApp("error", integration!.id);
+    const location = signIn!.provider.authorizeUrl({
+      clientId: client!.clientId,
       redirectUri: redirectUriFor(supabaseUrl),
       state,
       codeChallenge: await s256Challenge(row.code_verifier as string),
-    };
-    const location = provider === "github"
-      ? buildGithubAuthorizeUrl(authorize)
-      : buildAuthorizeUrl({ ...authorize, profile: googleProfileOf(integration) ?? undefined });
+      profile: signIn!.profile,
+    });
     return new Response(null, { status: 302, headers: { location, "set-cookie": nonceCookie(nonce), "cache-control": "no-store" } });
   }
 
@@ -371,13 +356,20 @@ Deno.serve(async (req: Request) => {
   if (path === "/callback") {
     if (req.method !== "GET") return json({ error: "method not allowed" }, 405);
     const state = url.searchParams.get("state") ?? "";
+    // An administrator's approval, not a sign-in: say how it went, change nothing.
+    const approvedFor = adminConsentProviderOf(state);
+    if (approvedFor) {
+      return text(approvedFor.adminConsent!.approved(url.searchParams)
+        ? `Approved. People in your organization can now connect Clayware with their ${approvedFor.name} accounts. You can close this tab.`
+        : "The approval was not completed, so nothing changed. You can close this tab.", 200);
+    }
     if (!state || state.length > 100) return backToApp("error", null);
     await sweepExpired(admin);
     // Claim the state: a second callback with it finds nothing.
     const { data: flow } = await admin.from("integration_oauth_states")
       .update({ state_hash: null })
       .eq("state_hash", await sha256Hex(state))
-      .select("id, integration_id, code_verifier, browser_nonce_hash, expires_at, return_origin")
+      .select("id, integration_id, code_verifier, browser_nonce_hash, expires_at, return_origin, binding_hash")
       .maybeSingle();
     if (!flow) return backToApp("error", null);
     const flowId = flow.id as string;
@@ -390,33 +382,41 @@ Deno.serve(async (req: Request) => {
     if (isExpired(flow.expires_at as string, Date.now())) return await fail();
     const cookieNonce = readCookie(req.headers.get("cookie"), NONCE_COOKIE);
     if (!cookieNonce || await sha256Hex(cookieNonce) !== flow.browser_nonce_hash) return await fail();
+    const integration = await rowOfIntegration(integrationId);
+    const signIn = integration ? signInOf(integration) : null;
+    if (url.searchParams.get("error")) {
+      // Refused because the organization's administrator must approve
+      // Clayware first: the app says so and offers the approval link.
+      if (signIn?.provider.adminConsent?.required(url.searchParams)) {
+        await admin.from("integration_oauth_states").delete().eq("id", flowId);
+        return backToApp("admin_consent", integrationId, undefined, back);
+      }
+      return await fail();
+    }
     const code = url.searchParams.get("code") ?? "";
-    if (!code || url.searchParams.get("error")) return await fail();
-    const provider = await providerOfIntegration(integrationId);
-    if (!provider || !clients[provider]) return await fail();
-    const client = clients[provider]!;
+    if (!code || !signIn) return await fail();
+    const { provider, profile } = signIn;
+    const custom = isCustomProvider(provider);
+    // A connection's own config must still be the one the sign-in started
+    // under — otherwise the code (and the client secret) would go wherever
+    // the row was changed to point — and its token host must be public.
+    if (custom && flow.binding_hash !== await customOAuthBinding(integration!)) return await fail();
+    if (custom && !(await resolvesToPublic(provider.tokenUrl))) return await fail();
+    const client = await clientOf(integration!, provider);
+    if (!client) return await fail();
 
-    const token = await postForm(provider === "github" ? GITHUB_TOKEN_URL : GOOGLE_TOKEN_URL, {
+    const token = await postForm(provider.tokenUrl, tokenRequestInit(provider, client, {
       grant_type: "authorization_code",
       code,
-      client_id: client.clientId,
-      client_secret: client.clientSecret,
       redirect_uri: redirectUriFor(supabaseUrl),
       code_verifier: flow.code_verifier as string,
-    }).catch(() => null);
+    }, profile)).catch(() => null);
     if (!token || token.status !== 200) return await fail();
-    let held: { secret: string; account: string | null };
-    if (provider === "github") {
-      // GitHub answers 200 with { error } when the code is refused.
-      const secret = githubSecretFromTokenResponse(token.body);
-      if (!secret || !githubHasScope(secret.scope)) return await fail();
-      held = { secret: JSON.stringify(secret), account: await githubLogin(secret.access_token) };
-    } else {
-      const secret = secretFromTokenResponse(token.body, Date.now());
-      const profile = googleProfileOf(await rowOfIntegration(integrationId));
-      if (!secret || !profile || !grantsRequiredScopes(secret.scope, profile)) return await fail();
-      held = { secret: JSON.stringify(secret), account: await googleAccountEmail(secret.access_token, profile) };
-    }
+    // A refused code can come back 200 with { error } (GitHub): no token set.
+    const signed = provider.tokenSetFrom(token.body, Date.now());
+    if (!signed || !provider.grants(signed.scope, profile)) return await fail();
+    const tokens = custom ? { ...signed, binding: flow.binding_hash as string } : signed;
+    const held = { secret: JSON.stringify(tokens), account: await accountOf(tokens.access_token, profile) };
 
     // Held, not stored: only /finish, under the starter's own JWT, stores it.
     const handle = randomToken();
@@ -443,11 +443,10 @@ Deno.serve(async (req: Request) => {
     const pending = (Array.isArray(taken) ? taken[0] : taken) as
       { flow_integration_id: string; flow_user_id: string; token_set: string | null; account: string | null; flow_expires_at: string } | undefined;
     if (!pending) return json({ error: "This sign-in has already been used or has expired.", code: "not_found" }, 404);
-    const google = parseOAuthSecret(pending.token_set);
-    const github = google ? null : parseGithubSecret(pending.token_set);
-    const provider: Provider | null = google ? "google" : github ? "github" : null;
+    const tokens = parseTokenSet(pending.token_set);
+    const provider: Provider | null = tokens?.provider ?? null;
     const integrationId = pending.flow_integration_id;
-    // Discarded, not revoked: a revoke ends Alcon's whole grant for that
+    // Discarded, not revoked: a revoke ends Clayware's whole grant for that
     // account, which would also cut the connections that person already has
     // in their own Spaces. The held tokens are gone once taken, so nobody
     // holds a usable token for this sign-in.
@@ -458,16 +457,42 @@ Deno.serve(async (req: Request) => {
     if (decision === "wrong_user") return await discard(403, "This sign-in was started by someone else, so it was discarded.", "wrong_user");
     if (decision === "expired") return await discard(410, "This sign-in has expired. Connect again.", "expired");
     // The token goes only to a row of its own provider: a Google token never lands on a GitHub row.
-    if (!await stillOwned(admin, integrationId, who.userId, provider)) return await discard(403, "Only Space owners can connect integrations.", "not_owner");
-    const secret = google ?? github!;
+    const owned = await stillOwned(admin, integrationId, who.userId, provider);
+    if (!owned) return await discard(403, "Only Space owners can connect integrations.", "not_owner");
+    // A connection's own sign-in lands only on the row as it was signed in for.
+    if (provider === "custom" && tokens!.binding !== await customOAuthBinding(owned)) {
+      return await discard(409, "This connection changed while you were signing in, so the sign-in was discarded. Sign in again.", "changed");
+    }
 
-    const { error: storeErr } = await admin.rpc("store_integration_oauth_token", { p_integration_id: integrationId, p_secret: JSON.stringify(secret) });
+    const { error: storeErr } = await admin.rpc("store_integration_oauth_token", { p_integration_id: integrationId, p_secret: JSON.stringify(tokens) });
     if (storeErr) return await discard(500, "The connection could not be saved. Connect again.", "error");
     await admin.from("integrations").update({
       external_account: pending.account,
       last_test: { ok: true, at: new Date().toISOString(), code: "connected", detail: "" },
     }).eq("id", integrationId);
     return json({ ok: true, integrationId });
+  }
+
+  // ── POST /admin-consent ─────────────────────────────────────────────────
+  if (path === "/admin-consent") {
+    if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+    const integrationId = await readIntegrationId(req);
+    if (integrationId instanceof Response) return integrationId;
+    const owned = await ownedIntegration(req, env, integrationId);
+    if (owned instanceof Response) return owned;
+    const signIn = signInOf(owned.row);
+    if (!signIn?.provider.adminConsent) return json({ error: "this connection has no administrator approval", code: "no_admin_consent" }, 400);
+    const client = await clientOf(owned.row, signIn.provider);
+    const refused = notConfigured(signIn.provider, client);
+    if (refused) return refused;
+    return json({
+      url: signIn.provider.adminConsent.url({
+        clientId: client!.clientId,
+        redirectUri: redirectUriFor(supabaseUrl),
+        profile: signIn.profile,
+        state: adminConsentState(signIn.provider),
+      }),
+    });
   }
 
   // ── POST /revoke ────────────────────────────────────────────────────────
@@ -479,15 +504,18 @@ Deno.serve(async (req: Request) => {
   if (owned.row.auth_type !== "oauth") return json({ error: "this integration does not sign in with OAuth", code: "not_oauth" }, 400);
 
   const { data: raw } = await admin.rpc("get_integration_secret", { p_integration_id: integrationId });
-  // Revoking ends Alcon's whole grant for that account, including in other
+  // Revoking ends Clayware's whole grant for that account, including in other
   // Spaces that connected the same account.
+  const signIn = signInOf(owned.row);
+  const tokens = signIn ? signIn.provider.parse(raw) : null;
   let revoked = false;
-  if (providerOf(owned.row) === "github") {
-    const secret = parseGithubSecret(raw);
-    revoked = secret && clients.github ? await revokeAtGithub(clients.github, secret.access_token) : false;
-  } else {
-    const secret = parseOAuthSecret(raw);
-    revoked = secret ? await revokeAtGoogle(secret.refresh_token) : false;
+  if (signIn?.provider.revoke && tokens) {
+    const custom = isCustomProvider(signIn.provider);
+    // A connection's own revoke URL gets the client secret: only to a public
+    // host, and only for a token signed in under the row as it is now.
+    const revokeUrl = custom ? customOAuthConfigOf(owned.row)?.revoke_url ?? null : null;
+    const allowed = !custom || (tokens.binding === await customOAuthBinding(owned.row) && !!revokeUrl && await resolvesToPublic(revokeUrl));
+    if (allowed) revoked = await signIn.provider.revoke({ client: await clientOf(owned.row, signIn.provider), tokens, fetch });
   }
   const { error: clearErr } = await admin.rpc("store_integration_oauth_token", { p_integration_id: integrationId, p_secret: "" });
   if (clearErr) return json({ error: "could not clear the stored credential" }, 500);

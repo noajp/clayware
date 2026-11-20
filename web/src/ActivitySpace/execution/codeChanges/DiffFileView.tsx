@@ -16,7 +16,7 @@ import { LineCounts, Pill } from './codeChangeLabels';
 
 // One changed file in the review screen: its header, its hunks in unified or
 // split layout, and the line comments under the lines they were left on —
-// those written in Alcon (with whether they reached GitHub) and those written
+// those written in Clayware (with whether they reached GitHub) and those written
 // on GitHub, which read here but are answered there.
 
 export type DiffLayout = 'unified' | 'split';
@@ -322,7 +322,7 @@ function LineComment({ comment, mine, onResolve, onDelete, onRetry, showLine }: 
         <p className="whitespace-pre-wrap text-foreground">{comment.body}</p>
       </div>
       <ButtonAppearanceProvider appearance="inline">
-        <div className={`flex shrink-0 opacity-0 transition-opacity group-hover/comment:opacity-100 ${external ? 'hidden' : ''}`}>
+        <div className={`flex shrink-0 opacity-0 transition-opacity group-hover/comment:opacity-100 focus-within:opacity-100 ${external ? 'hidden' : ''}`}>
           <Button variant="ghost" size="icon-xs" onClick={() => onResolve(comment.id, !comment.resolved)}
             aria-label={comment.resolved ? t('Reopen') : t('Resolve')} title={comment.resolved ? t('Reopen') : t('Resolve')}>
             {comment.resolved ? <RotateCcw size={12} /> : <Check size={12} />}

@@ -1,5 +1,6 @@
 'use client';
 
+import { CalendarMonthPicker } from './CalendarPickers';
 import { toDateOnlyString as fmtDateOnly, dayNumberOf, shiftDateOnly, isSameDay, isOverdue as isDueDayPast } from '@/Function/shared/dateUtils';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { CalendarPlus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X } from '@/ui/icons';
@@ -8,7 +9,7 @@ import { ObjectIcon } from '@/Function/shared/conceptIcons';
 import type { CalendarEvent } from '@/hooks/calendarEventData';
 import { useEscapeLayer } from '@/Function/shared/keyboard';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
-import type { ElementWithDetails, AlconObject, ElementStatus } from '@/types/database';
+import type { ElementWithDetails, ClaywareObject, ElementStatus } from '@/types/database';
 import { calendarEntries, occursOn, layoutTimedEntries, layoutWeekSpans, type CalendarEntry } from './schedule';
 import { COLOR_PALETTE } from './calendarColorPalette';
 import { updateElement } from '@/hooks/useSupabase';
@@ -19,8 +20,8 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 
 interface CalendarViewProps {
   elements: ElementWithDetails[];
-  objects?: AlconObject[];
-  onObjectClick?: (object: AlconObject) => void;
+  objects?: ClaywareObject[];
+  onObjectClick?: (object: ClaywareObject) => void;
   onElementClick?: (element: ElementWithDetails) => void;
   onRefresh?: () => void;
   /** The day the grid is on, when a parent (the Calendar sidebar) owns it. */
@@ -37,7 +38,7 @@ interface CalendarViewProps {
   onCreateEvent?: (slot: { date: string; startMinutes: number | null; endMinutes?: number }) => void;
 }
 
-export type CalendarMode = 'day' | 'week' | 'month';
+export type CalendarMode = 'week' | 'month';
 // off the STATUS table so a calendar card and a list-row mark agree.
 // A bar's ground: its color mixed into the card strongly enough to stand
 // off the grid in both themes (the status "subtle" tints vanish on a dark card).
@@ -214,13 +215,8 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
       if (mode === 'month') {
         return new Date(prev.getFullYear(), prev.getMonth() - 1, 1);
       }
-      if (mode === 'week') {
-        const d = new Date(prev);
-        d.setDate(d.getDate() - 7);
-        return d;
-      }
       const d = new Date(prev);
-      d.setDate(d.getDate() - 1);
+      d.setDate(d.getDate() - 7);
       return d;
     });
   };
@@ -230,13 +226,8 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
       if (mode === 'month') {
         return new Date(prev.getFullYear(), prev.getMonth() + 1, 1);
       }
-      if (mode === 'week') {
-        const d = new Date(prev);
-        d.setDate(d.getDate() + 7);
-        return d;
-      }
       const d = new Date(prev);
-      d.setDate(d.getDate() + 1);
+      d.setDate(d.getDate() + 7);
       return d;
     });
   };
@@ -331,14 +322,6 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
     if (mode === 'month') {
       return currentDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
     }
-    if (mode === 'day') {
-      return currentDate.toLocaleDateString(locale, {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    }
     // week — formatRange collapses the shared parts the way each language
     // does it ("Sep 13 – 19, 2026" / "2026年9月13日～19日").
     return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -370,12 +353,12 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
             </Button>
           </ButtonAppearanceProvider>
         </div>
-        <h2 className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-[-0.01em] tabular-nums text-foreground">
-          {headerTitle}
+        <h2 className="min-w-0 flex-1">
+          <CalendarMonthPicker title={headerTitle} value={currentDate} onPick={setCurrentDate} />
         </h2>
-        {/* 1-click segmented view switcher (Day | Week | Month) */}
+        {/* 1-click segmented view switcher (Week | Month) */}
         <div role="tablist" aria-label={t('Calendar view')} className="inline-flex items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5">
-          {(['day', 'week', 'month'] as const).map((m) => {
+          {(['week', 'month'] as const).map((m) => {
             const active = mode === m;
             return (
               <button
@@ -390,7 +373,7 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {t({ day: 'Day', week: 'Week', month: 'Month' }[m])}
+                {t({ week: 'Week', month: 'Month' }[m])}
               </button>
             );
           })}
@@ -400,6 +383,7 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
             <Plus size={13} />{t('New event')}
           </Button>
         )}
+
       </div>
 
       {/* Calendar Grid */}
@@ -654,7 +638,7 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
       ) : (
         <div className="flex-1 min-h-0 overflow-x-auto flex">
         <TimeGridView
-          days={mode === 'day' ? [currentDate] : weekDays}
+          days={weekDays}
           elements={elements}
           today={today}
           getCardStyle={getCardStyle}
@@ -998,7 +982,7 @@ function TimeGridView({
       })()}
 
       {/* Scrollable hour grid */}
-      <div ref={scrollRef} className="flex-1 overflow-auto [scrollbar-gutter:stable] relative">
+      <div ref={scrollRef} tabIndex={0} role="region" aria-label={t('Calendar')} className="flex-1 overflow-auto [scrollbar-gutter:stable] relative">
         <div className="flex" style={{ height: TOTAL_GRID_HEIGHT }}>
           {/* Hour rail */}
           <div className="w-14 flex-shrink-0 relative">

@@ -8,12 +8,14 @@
 
 import type { ModelUsage } from "./aiPricing.ts";
 import type { CompensationSummary, FinishClaim } from "./finishClaims.ts";
+import { toolResultContent, type ToolImage, type ToolResultBlock } from "./toolResultImages.ts";
 
 export type Block = { type: string; id?: string; name?: string; input?: unknown; text?: string; [k: string]: unknown };
 export type Msg = { role: "user" | "assistant"; content: string | Block[] };
 
 export interface ToolCall { id: string; name: string; input: Record<string, unknown> }
-export interface ToolResult { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean; [k: string]: unknown }
+/** A tool_result's content is text, or text then pictures (toolResultImages.ts). */
+export interface ToolResult { type: "tool_result"; tool_use_id: string; content: string | ToolResultBlock[]; is_error?: boolean; [k: string]: unknown }
 
 export interface FinishPayload {
   outcome: "completed" | "partial" | "blocked";
@@ -65,6 +67,10 @@ export interface ModelTurn {
 
 export interface ExecResult {
   content: string; is_error?: boolean; finish?: FinishPayload;
+  /** Pictures the tool returned (readFile on an image). They join the
+   *  tool_result as image blocks when the model takes them
+   *  (LoopDeps.acceptsImages); otherwise the result says they were not passed. */
+  images?: ToolImage[];
   /**
    * A question call that filed its ticket (B12): the loop rests the
    * run on it. The result's `content` is NOT what the model receives —
@@ -141,6 +147,11 @@ export interface LoopDeps {
   revisionMessage?(verdict: Verdict, revision: number): Promise<string | null> | string | null;
   /** What the model is told after a turn with neither text nor a tool call. */
   nudge?: string;
+  /** Whether the model this loop calls takes image blocks in a
+   *  tool_result. Anthropic's API does; a Worker's own model endpoint
+   *  may not, so a driver says true only for the former. Absent: false
+   *  — pictures are not passed and the result says so. */
+  acceptsImages?: boolean;
 }
 
 export interface Verdict {
@@ -308,7 +319,7 @@ export async function runLoop(state: LoopState, deps: LoopDeps, limits: LoopLimi
     const results: ToolResult[] = await Promise.all(immediate.map(async (c): Promise<ToolResult> => {
       try {
         const r = await deps.execute(c);
-        return { type: "tool_result", tool_use_id: c.id, content: r.content, ...(r.is_error ? { is_error: true } : {}) };
+        return { type: "tool_result", tool_use_id: c.id, content: toolResultContent(r.content, r.images, deps.acceptsImages ?? false), ...(r.is_error ? { is_error: true } : {}) };
       } catch (e) {
         return { type: "tool_result", tool_use_id: c.id, content: `Error: ${e instanceof Error ? e.message : String(e)}`, is_error: true };
       }

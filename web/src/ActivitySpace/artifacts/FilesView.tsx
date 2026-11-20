@@ -16,6 +16,7 @@ import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { setActiveDomainId } from '@/Function/space/domainsStore';
 import { TRASH_DAYS, indexSpaceFiles, ownerOf, searchAttachments, textSearchCaptionOf, trashDaysLeft, useAttachmentActions, useAttachmentTextStatus, useSpaceAttachments, type AttachmentOwnerKind, type SpaceFile } from '@/hooks/attachmentData';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { useQuickCreateCard } from '@/Function/shared/QuickCreatePopup';
 import { useWorkers } from '@/hooks/teamData';
 import type { NavigationState } from '@/types/navigation';
 import { FileImportActions, canImport } from '@/ActivitySpace/execution/element/FileImportActions';
@@ -191,12 +192,13 @@ function ArtifactsBrowser({ navigation, onNavigate, onViewChange }: {
     void qc.invalidateQueries({ queryKey: ['artifact-notebooks'] });
     void qc.invalidateQueries({ queryKey: ARTIFACT_DECKS_KEY });
   };
-  const newFolder = async () => {
-    const name = await appDialog.prompt(t('Folder name'), t('New folder'));
-    if (!name?.trim()) return;
-    try { const f = await createArtifactFolder(spaceId!, await target(), name); refresh(); here({ folderId: f.id }); }
-    catch (e) { fail(e); }
-  };
+  // A new folder: the quick-create card; it goes where new things go and opens.
+  const folderCard = useQuickCreateCard({
+    icon: <FolderIcon size={12} />, contextLabel: t('New folder'), ariaLabel: t('Quick add folder'),
+    namePlaceholder: t('Folder name…'), description: false,
+    onSubmit: async ({ name }) => { const f = await createArtifactFolder(spaceId!, await target(), name); refresh(); here({ folderId: f.id }); },
+  });
+  const newFolder = () => folderCard.open();
   const newNotebook = async () => {
     try { setNextNotebookFolder(await target()); refresh(); openCreate('notebook'); } catch (e) { fail(e); }
   };
@@ -244,6 +246,7 @@ function ArtifactsBrowser({ navigation, onNavigate, onViewChange }: {
   const iconBtn = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40';
   return (
     <MainIsland crumbs={crumbs} actions={<>
+      {folderCard.card}
       {searching ? (
         <label className="flex h-7 w-56 items-center gap-1.5 rounded-md bg-muted/50 px-2 text-[12.5px] focus-within:bg-muted">
           <Search size={12} className="shrink-0 text-muted-foreground" />
@@ -271,7 +274,7 @@ function ArtifactsBrowser({ navigation, onNavigate, onViewChange }: {
           </MenuShell>
         ) : (
         <MenuShell as="dropdown" align="end">
-          <DropdownMenuItem onSelect={() => void newFolder()} className="gap-2.5 text-[13px]"><FolderIcon size={14} />{t('New folder')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={newFolder} className="gap-2.5 text-[13px]"><FolderIcon size={14} />{t('New folder')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => uploadInput.current?.click()} className="gap-2.5 text-[13px]"><Upload size={14} />{t('Upload files')}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void newNotebook()} className="gap-2.5 text-[13px]"><NavNoteIcon size={14} />{t('Notebook')}</DropdownMenuItem>
@@ -376,7 +379,7 @@ function FolderRow({ folder, where, onOpen }: { folder: Folder; where?: React.Re
       {where !== undefined && <span className="w-40 shrink-0">{where}</span>}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={t('More')} className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted group-hover/row:opacity-100 data-[state=open]:opacity-100">
+          <button type="button" aria-label={t('More')} className="flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 hover:bg-muted group-hover/row:opacity-100 data-[state=open]:opacity-100">
             <MoreHorizontal size={14} />
           </button>
         </DropdownMenuTrigger>

@@ -156,7 +156,7 @@ describe('drafting rules', () => {
     expect(again.manifest?.commands.find((c: { name: string }) => c.name === 'create_item')?.present).toBeNull();
   });
 
-  it('refuses a read whose name says it writes, an OAuth service, and a reserved header', () => {
+  it('refuses a read whose name says it writes, an OAuth candidate without its config, and a reserved header', () => {
     const verb = JSON.parse(JSON.stringify(MANIFEST));
     verb.commands.push({ name: 'delete_old_items', effect: 'read', http: { method: 'GET', path: '/items/old' } });
     expect(cd.validateDraftCandidate(candidate({ manifest: verb })).errors.join(' ')).toContain('delete_old_items');

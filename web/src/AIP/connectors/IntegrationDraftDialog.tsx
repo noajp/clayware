@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@/Function/shared/dateUtils';
 import { formatError } from '@/Function/shared/formatError';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
@@ -9,14 +10,17 @@ import { Textarea } from '@/ui/textarea';
 import { FONT } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { useCurrentUserId } from '@/providers/authContext';
 import type { Integration, IntegrationDraft } from '@/types/database';
-import { CRITICAL_CLASS_LABELS } from './catalog';
+import { CRITICAL_CLASS_LABELS, customOAuthFormOf, customOAuthHosts, oauthRedirectUriFor } from './catalog';
 import {
-  DRAFT_FAILURE_LABELS, DRAFT_STATUS_LABELS, readManifestCommands, readTestRounds,
+  DRAFT_FAILURE_LABELS, DRAFT_STATUS_LABELS, readManifestCommands, readTestRounds, sameSiteWeb,
 } from './draftModel';
 import { activateDraft, rejectDraft, runDraftTest, sendDraftMessage, settleDraftToReview, useDraftDetail } from './draftData';
 import { useIntegrationActions } from './data';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { CopyField } from './CopyField';
+import { supabaseProjectUrl } from '@/lib/supabase';
 
 // One AI-drafted connection (G4), from whichever entry opened it. The
 // draft record is the whole story: what was asked, the candidate the AI
@@ -26,6 +30,13 @@ import { appDialog } from '@/Function/shared/appDialogStore';
 // into Vault, against the staged row (PR3), and activation is the
 // owner's separate act (PR4). The drafting run's steps are shown as the
 // audit trail they are.
+//
+// An OAuth draft carries the service's sign-in config instead of a key: the
+// owner registers an app at the service, enters its client on the staged
+// row (the client ID into its config, the secret into Vault) and signs in,
+// and only then is it tested. Where sign-in goes and where the client
+// secret goes are shown first, flagged when they are not the API's own
+// domain — a config read from a page could name any host.
 
 const OPEN = ['drafting', 'awaiting_input', 'testing', 'awaiting_review'];
 
@@ -33,6 +44,7 @@ function hostOf(raw: string | null): string | null {
   if (!raw) return null;
   try { return new URL(raw).hostname; } catch { return null; }
 }
+
 
 export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview, onClose, onChanged }: {
   draft: IntegrationDraft;
@@ -45,6 +57,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
   onChanged?: () => void;
 }) {
   const { t } = useI18n();
+  const userId = useCurrentUserId();
   const { run, steps } = useDraftDetail(draft);
   const [words, setWords] = useState('');
   const [sending, setSending] = useState(false);
@@ -68,7 +81,12 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
   const endpointHost = hostOf(draft.endpoint);
   const sourceHosts = [...new Set(draft.sources.map((s) => hostOf(s)).filter(Boolean))];
   const runAtRest = !!run && (run.status === 'awaiting_input' || run.status === 'paused');
-  const canSend = OPEN.includes(draft.status) && runAtRest && !sending;
+  // run-agent takes a message only from the person who started the run,
+  // and a draft's run is always started by the draft's creator (createDraft;
+  // the agent_runs insert policy requires both), so the draft row answers
+  // it at once — no wait on the run's fetch.
+  const isStarter = userId !== null && draft.created_by === userId;
+  const canSend = OPEN.includes(draft.status) && runAtRest && isStarter && !sending;
 
   const send = async () => {
     const message = words.trim();
@@ -161,7 +179,9 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
             <section className="rounded-md bg-[var(--status-warning-subtle)] px-3 py-2">
               <h3 className={FONT.label}>{t('The AI is asking')}</h3>
               <p className="mt-1 whitespace-pre-wrap text-foreground">{draft.awaiting_question}</p>
-              <p className="mt-1 text-[12px] text-muted-foreground">{t('Answer below — drafting resumes from your words.')}</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                {isStarter ? t('Answer below — drafting resumes from your words.') : t('Only the person who started this draft can answer.')}
+              </p>
             </section>
           )}
 
@@ -175,7 +195,9 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
                     ? t('No authentication.')
                     : draft.auth_type === 'header'
                       ? t('Authentication: the credential is sent in the {header} header.', { header: draft.auth_header ?? '' })
-                      : t('Authentication: the credential is sent as a bearer token.')}
+                      : draft.auth_type === 'oauth'
+                        ? t('Authentication: signs in with OAuth through an app you register at the service. The access token is sent as a bearer token.')
+                        : t('Authentication: the credential is sent as a bearer token.')}
                 </p>
                 {endpointHost && draft.auth_type && draft.auth_type !== 'none' && (
                   <p className="text-[12px] text-muted-foreground">
@@ -239,7 +261,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
             {latestRound ? (
               <div className="space-y-1">
                 <p className="text-[12px] text-muted-foreground">
-                  {t('Last tested {when}: {outcome}', { when: new Date(latestRound.at).toLocaleString(), outcome: latestRound.outcome })}
+                  {t('Last tested {when}: {outcome}', { when: formatDateTime(latestRound.at), outcome: latestRound.outcome })}
                 </p>
                 <ul className="space-y-1">
                   {latestRound.results.map((r) => (
@@ -267,7 +289,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
               <h3 className={FONT.label}>{t('Review')}</h3>
               {draft.expires_at && (
                 <p className="text-[12px] text-muted-foreground">
-                  {t('Decide by {when} — after that the draft expires.', { when: new Date(draft.expires_at).toLocaleString() })}
+                  {t('Decide by {when} — after that the draft expires.', { when: formatDateTime(draft.expires_at) })}
                 </p>
               )}
               {targetName && targetName !== draft.name && (
@@ -293,14 +315,17 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
 
           {draft.status === 'active' && draft.decided_at && (
             <p className="text-[12px] text-muted-foreground">
-              {t('Activated on {when}.', { when: new Date(draft.decided_at).toLocaleString() })}
+              {t('Activated on {when}.', { when: formatDateTime(draft.decided_at) })}
             </p>
           )}
 
           {staged && (draft.status === 'testing' || draft.status === 'awaiting_review') && (
             <section className="space-y-2">
               <h3 className={FONT.label}>{t('Credential and test')}</h3>
-              {draft.auth_type && draft.auth_type !== 'none' && (
+              {draft.auth_type === 'oauth' && (
+                <OAuthDraftSignIn draft={draft} staged={staged} canReview={canReview} onChanged={onChanged} />
+              )}
+              {draft.auth_type && draft.auth_type !== 'none' && draft.auth_type !== 'oauth' && (
                 <div className="space-y-2">
                   <p className="text-[12px] text-muted-foreground">
                     {staged.secret_id ? t('A credential is stored. Enter a new one to replace it.') : t('No credential stored yet.')}
@@ -323,7 +348,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
               {draft.status === 'testing' && canReview && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => void test(false)} disabled={testBusy}>
+                    <Button size="sm" onClick={() => void test(false)} disabled={testBusy || (draft.auth_type === 'oauth' && !staged.secret_id)}>
                       {testBusy ? t('Testing…') : t('Run the test')}
                     </Button>
                     {latestRound && (latestRound.outcome === 'auth_unverified' || latestRound.outcome === 'unverifiable') && (
@@ -370,7 +395,7 @@ export function IntegrationDraftDialog({ draft, spaceId, integrations, canReview
               {sendError && <p className="text-[12px] text-[var(--status-danger)]">{sendError}</p>}
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12px] text-muted-foreground">
-                  {run.status === 'queued' || run.status === 'running' ? t('The AI is working…') : !runAtRest ? t('The drafting run has ended.') : null}
+                  {run.status === 'queued' || run.status === 'running' ? t('The AI is working…') : !runAtRest ? t('The drafting run has ended.') : !isStarter ? t('Only the person who started this draft can talk to the drafting AI.') : null}
                 </p>
                 <Button size="sm" onClick={() => void send()} disabled={!canSend || !words.trim()}>
                   {t('Send')}
@@ -410,6 +435,108 @@ function CommandGroup({ title, rows, t }: {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** An OAuth draft's sign-in on its staged row: the hosts it goes to, the
+ *  redirect URI to register, the client the owner brings, and the sign-in
+ *  itself. The test runs once it is signed in. */
+function OAuthDraftSignIn({ draft, staged, canReview, onChanged }: {
+  draft: IntegrationDraft;
+  staged: Integration;
+  canReview: boolean;
+  onChanged?: () => void;
+}) {
+  const { t } = useI18n();
+  const actions = useIntegrationActions(staged.activity_space_id);
+  const stagedForm = customOAuthFormOf(staged.oauth_config);
+  const [clientId, setClientId] = useState(stagedForm.clientId);
+  const [clientSecret, setClientSecret] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const hosts = customOAuthHosts(draft.oauth_config);
+  // The same base the drafting rules held the hosts to: the person's own
+  // documentation URL when they gave one, else the API's endpoint.
+  const baseHost = hostOf(draft.request_context.docsUrl ?? null) ?? hostOf(draft.endpoint);
+  const offSite = [hosts.authorize, hosts.token, hosts.revoke]
+    .filter((h): h is string => !!h && !!baseHost && !sameSiteWeb(h, baseHost));
+  const needsSecret = customOAuthFormOf(draft.oauth_config).tokenAuth !== 'none';
+  const clientSaved = !!stagedForm.clientId && stagedForm.clientId === clientId.trim();
+  const ready = clientSaved && (!needsSecret || !!staged.oauth_client_secret_id);
+  const busy = actions.update.isPending || actions.clientSecret.isPending || actions.signIn.isPending;
+
+  const saveClientId = async () => {
+    const id = clientId.trim();
+    if (!id || /\s/.test(id)) { setError(t('Enter the client ID of the app you registered at the service.')); return; }
+    setError(null);
+    const base = staged.oauth_config && typeof staged.oauth_config === 'object' && !Array.isArray(staged.oauth_config) ? staged.oauth_config : {};
+    try {
+      await actions.update.mutateAsync({ id: staged.id, patch: { oauth_config: { ...base, client_id: id } } });
+      onChanged?.();
+    } catch (e) { setError(formatError(e)); }
+  };
+  const saveClientSecret = async () => {
+    if (!clientSecret.trim()) return;
+    setError(null);
+    try {
+      await actions.clientSecret.mutateAsync({ id: staged.id, value: clientSecret.trim() });
+      setClientSecret('');
+      onChanged?.();
+    } catch (e) { setError(formatError(e)); }
+  };
+  const signIn = async () => {
+    setError(null);
+    try { window.location.assign(await actions.signIn.mutateAsync(staged.id)); } catch (e) { setError(formatError(e)); }
+  };
+
+  return (
+    <div className="space-y-2">
+      {hosts.authorize && hosts.token && (
+        <p className="text-[12px] text-muted-foreground">
+          {hosts.revoke
+            ? t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}. To revoke access, the client secret and the token are sent to {revoke}.', { host: hosts.authorize, token: hosts.token, revoke: hosts.revoke })
+            : t('Sign-in opens {host}. The client secret and the authorization code are sent only to {token}.', { host: hosts.authorize, token: hosts.token })}
+        </p>
+      )}
+      {offSite.length > 0 && baseHost && (
+        <p className="rounded-md bg-[var(--status-warning-subtle)] px-3 py-2 text-[12px] text-foreground">
+          {t('{host} is not on the same domain as {base}. Make sure the service’s own documentation names it before you sign in.', { host: [...new Set(offSite)].join(', '), base: baseHost })}
+        </p>
+      )}
+      <CopyField value={oauthRedirectUriFor(supabaseProjectUrl)} label={t('Redirect URI')} />
+      <p className="text-[12px] text-muted-foreground">{t('Register an app at the service with this redirect URI, then enter its client ID and secret here.')}</p>
+      {canReview ? (
+        <>
+          <div className="flex gap-2">
+            <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder={t('Client ID')} aria-label={t('Client ID')}
+              className="h-8 flex-1 font-mono text-[12px] md:text-[12px]" autoComplete="off" />
+            <Button size="sm" variant="secondary" onClick={() => void saveClientId()} disabled={busy || !clientId.trim() || clientSaved}>
+              {t('Save client ID')}
+            </Button>
+          </div>
+          {needsSecret && (
+            <div className="flex gap-2">
+              <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)}
+                placeholder={staged.oauth_client_secret_id ? t('Set') : t('Client secret')} aria-label={t('Client secret')}
+                className="h-8 flex-1 text-[13px] md:text-[13px]" autoComplete="off" />
+              <Button size="sm" variant="secondary" onClick={() => void saveClientSecret()} disabled={busy || !clientSecret.trim() || !clientSaved}>
+                {t('Save client secret')}
+              </Button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant={staged.secret_id ? 'ghost' : 'secondary'} onClick={() => void signIn()} disabled={busy || !ready}>
+              {actions.signIn.isPending ? t('Opening sign-in…') : staged.secret_id ? t('Reconnect') : t('Sign in')}
+            </Button>
+            <span className="text-[12px] text-muted-foreground">
+              {staged.secret_id ? t('Signed in. Run the test next.') : t('Not signed in yet. Save the client, then sign in.')}
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="text-[12px] text-muted-foreground">{t('Only Space owners can enter the credential and run the test.')}</p>
+      )}
+      {error && <p className="text-[12px] text-[var(--status-danger)]">{error}</p>}
     </div>
   );
 }

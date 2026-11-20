@@ -1,57 +1,41 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus } from '@/ui/icons';
-import { Button } from '@/ui/button';
 import { FONT } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import type { Integration } from '@/types/database';
 import { readLastTest, testOutcomeLabel } from './catalog';
-import { useSiteCredentials, type SiteCredentialRow } from './siteCredentialData';
+import type { SiteCredentialRow } from './siteCredentialData';
 import { SITE_CREDENTIAL_STATUS_LABELS, siteCredentialStatus } from './siteCredentialModel';
-import { SiteCredentialDialog } from './SiteCredentialDialog';
 
-// Settings › Customize › Yours: the Space's site logins, beside its
-// connections (secure-login PR1). A site login is the credential for a
-// website that has no connection — the agent signs in with the saved
-// username/password pair on that origin only. Members see which sites
-// have one; saving, replacing and deleting are the owner's acts, and
+// Settings › Connectors: the Space's site logins, beside its connections
+// (secure-login PR1). A site login is the credential for a website that
+// has no connection — the agent signs in with the saved username/password
+// pair on that origin only. They are things the Space already has, so they
+// sit on the first screen once one exists; adding one is under "Other ways
+// to connect", and the page owns the dialog both open. Members see which
+// sites have one; saving, replacing and deleting are the owner's acts, and
 // the password itself is never shown (no read path exists for it).
 
-export function SiteCredentialsSection({ spaceId, integrations, isOwner, ownerKnown, addOpen = false, onAddOpenChange }: {
-  spaceId: string;
-  integrations: Integration[];
+export function SiteCredentialsSection({ credentials, loading, error, isOwner, ownerKnown, onOpen }: {
+  credentials: SiteCredentialRow[];
+  loading: boolean;
+  error: Error | null;
   isOwner: boolean;
   ownerKnown: boolean;
-  /** The catalog's website sign-in entry card opens the same add dialog
-   *  from outside the section; the section reports it closed. */
-  addOpen?: boolean;
-  onAddOpenChange?: (open: boolean) => void;
+  onOpen: (credential: SiteCredentialRow) => void;
 }) {
   const { t } = useI18n();
-  const { data: credentials, loading, error, refetch } = useSiteCredentials(spaceId);
-  const [opened, setOpened] = useState<SiteCredentialRow | 'new' | null>(null);
-  const openedCred = opened && opened !== 'new'
-    ? credentials.find((c) => c.id === opened.id) ?? opened
-    : null;
-  const closeDialog = () => { setOpened(null); onAddOpenChange?.(false); };
+  // Nothing saved: nothing to show here.
+  if (!error && !loading && credentials.length === 0) return null;
+  if (!error && loading) return null;
 
   return (
     <section className="space-y-3">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className={FONT.label}>{t('Site logins')}</h3>
-          <p className="mt-1 max-w-xl text-[12px] text-muted-foreground">
-            {t('Sign-ins for websites that have no connection. The saved username and password are used only on that site, and the password is never shown back.')}
-          </p>
-        </div>
-        {isOwner && (
-          <Button variant="ghost" size="sm" onClick={() => setOpened('new')}>
-            <Plus size={14} aria-hidden="true" />
-            <span>{t('Add site login')}</span>
-          </Button>
-        )}
+      <div>
+        <h2 className={`${FONT.lg} text-foreground`}>{t('Site logins')}</h2>
+        <p className="mt-1 max-w-xl text-[12px] text-muted-foreground">
+          {t('Sign-ins for websites that have no connection. The saved username and password are used only on that site, and the password is never shown back.')}
+        </p>
       </div>
 
       {ownerKnown && !isOwner && (
@@ -60,27 +44,12 @@ export function SiteCredentialsSection({ spaceId, integrations, isOwner, ownerKn
 
       {error ? (
         <p className="text-[12px] text-[var(--status-danger)]">{t("Couldn't load site logins: {error}", { error: error.message })}</p>
-      ) : loading ? (
-        <p className="text-[12px] text-muted-foreground">{t('Loading…')}</p>
-      ) : credentials.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">{t('No site logins saved yet.')}</p>
       ) : (
         <div>
           {credentials.map((c) => (
-            <SiteCredentialRowView key={c.id} credential={c} onOpen={() => setOpened(c)} />
+            <SiteCredentialRowView key={c.id} credential={c} onOpen={() => onOpen(c)} />
           ))}
         </div>
-      )}
-
-      {(opened || addOpen) && (
-        <SiteCredentialDialog
-          spaceId={spaceId}
-          credential={opened && opened !== 'new' ? openedCred : null}
-          integrations={integrations}
-          canEdit={isOwner}
-          onClose={closeDialog}
-          onChanged={() => { void refetch(); }}
-        />
       )}
     </section>
   );

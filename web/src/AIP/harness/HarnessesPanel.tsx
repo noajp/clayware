@@ -7,10 +7,11 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { MoreHorizontal } from '@/ui/icons';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
+import { Plus } from '@/ui/icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { Switch } from '@/Function/settings/SettingsControls';
 import { appDialog } from '@/Function/shared/appDialogStore';
-import { CARD_FLAT, FONT } from '@/shared/designTokens';
+import { CARD_FLAT, FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
@@ -18,7 +19,7 @@ import { MarkdownLite } from '@/Function/shared/MarkdownLite';
 import { useIntegrations, useIsSpaceOwner } from '@/AIP/connectors/data';
 import { signsInWithOAuth } from '@/AIP/connectors/catalog';
 import { ConnectDialogHost, openedForPreset, openedForRegistryEntry, type OpenedConnection } from '@/AIP/connectors/ConnectDialogHost';
-import { saveOAuthReturnSettingsTab, useOAuthOutcome } from '@/AIP/connectors/oauthReturn';
+import { saveOAuthReturnSettingsPage, useOAuthOutcome } from '@/AIP/connectors/oauthReturn';
 import { applyDefinitionCatalogUpdate, createDefinition, deleteDefinition, markDefinitionCatalogVersion, setDefinitionEnabled, updateDefinition, useDefinitions, useSpaceDefaultHarness, type Definition } from '@/hooks/definitionData';
 import { resolveRevisionCandidate, useDefinitionCalibration } from '@/hooks/calibrationData';
 import { calibrationSummaryOf, candidateErrorCount, ratePercent } from './calibrationModel';
@@ -37,16 +38,16 @@ import { enabledConnectedNames, installReadiness, missingConnectors } from './in
 import { clearInstallSession, saveInstallSession, takeInstallSession } from './installReturn';
 import { RegistrySection } from './RegistrySection';
 import { PromotionsSection } from './PromotionDrafts';
-import { YoursDiscover, type CustomizeMode } from './YoursDiscover';
 import { TryDefinition } from './TryDefinition';
 
 // Settings › AI › Harnesses: how a kind of work is carried out by AI — the
 // goal, the steps or loop, where it stops, the result's shape, the
-// connectors it uses and, for a Strategy, how it is broken down. Yours is the
-// Space's library, shared by its members; one of them may be the Space's
-// default, which Strategies are worked by when they name none (otherwise
-// Alcon's built-in way). Discover is the catalog Alcon offers to start from,
-// added by copying into the library. Adding one starts an install walk: the
+// connectors it uses and, for a Strategy, how it is broken down. One page,
+// top to bottom: the Space's own harnesses, shared by its members (one of
+// them may be the Space's default, which Strategies are worked by when they
+// name none — otherwise Clayware's built-in way), then the catalog Clayware offers
+// to start from, added by copying into the Space. Adding one starts an
+// install walk: the
 // connectors it still needs are connected one at a time through the usual
 // connection dialog, then the harness is checked again. A walk left
 // unfinished is not a failure — the definition stays installed and its row
@@ -89,7 +90,6 @@ export function HarnessesPanel() {
   // "Connected" is the runtime's test: enabled connections only.
   const connected = useMemo(() => enabledConnectedNames(integrations.data), [integrations.data]);
   const connectedEndpoints = useMemo(() => new Set(integrations.data.map((i) => i.endpoint)), [integrations.data]);
-  const [mode, setMode] = useState<CustomizeMode>('yours');
   const [editing, setEditing] = useState<Definition | 'new' | null>(null);
   const [preview, setPreview] = useState<CatalogDefinition | null>(null);
   const [trying, setTrying] = useState<Definition | null>(null);
@@ -145,7 +145,7 @@ export function HarnessesPanel() {
       // A sign-in with OAuth leaves the app: keep the walk's place for the return.
       if (signsInWithOAuth(next.preset)) {
         saveInstallSession({ spaceId, definitionId: session.definitionId, catalogId: session.catalogId });
-        saveOAuthReturnSettingsTab('definitions');
+        saveOAuthReturnSettingsPage('harnesses');
       }
       setActiveNeed(next.name);
       setOpened(openedForPreset(next.preset, integrations.data));
@@ -198,10 +198,12 @@ export function HarnessesPanel() {
     if (!stored || stored.spaceId !== spaceId) return;
     const def = library.data.find((d) => d.id === stored.definitionId);
     if (!def) return;
-    if (oauthOutcome.status === 'error') {
+    if (oauthOutcome.status === 'error' || oauthOutcome.status === 'admin_consent') {
       setSession({
         definitionId: def.id, catalogId: stored.catalogId, phase: 'incomplete', totalMissing: 1, attempted: [],
-        note: t('Sign-in did not finish, so nothing was connected. Try again.'),
+        note: oauthOutcome.status === 'admin_consent'
+          ? t('Your organization requires an administrator to approve Clayware before this can be connected. Settings › Connectors has the approval link.')
+          : t('Sign-in did not finish, so nothing was connected. Try again.'),
       });
       return;
     }
@@ -253,23 +255,6 @@ export function HarnessesPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className={`${FONT.lg} text-foreground`}>{t('Harnesses')}</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <YoursDiscover mode={mode} onChange={setMode} />
-          {mode === 'yours' && <Button size="sm" variant="secondary" onClick={() => setEditing('new')} disabled={!spaceId}>{t('New harness')}</Button>}
-        </div>
-      </div>
-
-      <div className="rounded-md bg-[var(--surface-strong)] px-3 py-2 text-[12px] text-foreground">
-        {defaultHarness
-          ? defaultHarness.enabled
-            ? t('Default harness: {name}', { name: defaultHarness.name })
-            : t('Default harness: {name} · Off — Strategies use Alcon’s built-in way', { name: defaultHarness.name })
-          : t('No default harness — Strategies use Alcon’s built-in way')}
-      </div>
       {error && <p className="text-[12px] text-[var(--status-danger)]">{error}</p>}
 
       {session && (
@@ -299,21 +284,34 @@ export function HarnessesPanel() {
         </div>
       )}
 
-      {mode === 'yours' && (
-        <PromotionsSection spaceId={spaceId} isOwner={isOwner} definitions={library.data}
-          onChanged={() => { void library.refetch(); }} />
-      )}
+      <PromotionsSection spaceId={spaceId} isOwner={isOwner} definitions={library.data}
+        onChanged={() => { void library.refetch(); }} />
 
-      {mode === 'yours' && (
-        <ConstraintsSection spaceId={spaceId} isOwner={isOwner}
-          bodiesById={new Map(library.data.map((d) => [d.id, d.body]))} />
-      )}
+      <ConstraintsSection spaceId={spaceId} isOwner={isOwner}
+        bodiesById={new Map(library.data.map((d) => [d.id, d.body]))} />
 
-      {mode === 'yours' ? (
-        library.loading ? <p className="text-[12px] text-muted-foreground">{t('Loading…')}</p>
-          : library.data.length === 0 ? (
-            <p className="text-[12px] text-muted-foreground">{t('This Space has no harnesses yet. Add one from Discover or write a new one.')}</p>
-          ) : (
+      <section className="space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className={`${FONT.lg} text-foreground`}>{t('In this Space')}</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              {defaultHarness
+                ? defaultHarness.enabled
+                  ? t('Default harness: {name}', { name: defaultHarness.name })
+                  : t('Default harness: {name} · Off — Strategies use Clayware’s built-in way', { name: defaultHarness.name })
+                : t('A Strategy that names no harness is worked the way built into Clayware. Make one of these the default to change that.')}
+            </p>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setEditing('new')} disabled={!spaceId}>
+            <Plus size={14} aria-hidden="true" />
+            <span>{t('New harness')}</span>
+          </Button>
+        </div>
+        <div className={`${SETTINGS_ISLAND} px-5 py-1.5`}>
+          {library.loading ? <p className="py-2.5 text-[13px] text-muted-foreground">{t('Loading…')}</p>
+            : library.data.length === 0 ? (
+              <p className="py-2.5 text-[13px] text-muted-foreground">{t('No harnesses yet. Add one from the catalog below, or write a new one.')}</p>
+            ) : (
             <div>
               {library.data.map((d) => {
                 const isDefault = d.id === fallback.data;
@@ -327,6 +325,7 @@ export function HarnessesPanel() {
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="truncate text-[13px] font-medium text-foreground">{d.name}</span>
+                          {d.source_id && <span className="shrink-0 rounded-[5px] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-text)]">{t('Official')}</span>}
                           {isDefault && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t('Default')}</span>}
                           {d.promoted_from_draft_id && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]">{t('Promoted')}</span>}
                           {!d.enabled && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('Off')}</span>}
@@ -394,9 +393,16 @@ export function HarnessesPanel() {
                 );
               })}
             </div>
-          )
-      ) : catalog.loading ? <p className="text-[12px] text-muted-foreground">{t('Loading…')}</p> : (
-        <div className="space-y-6">
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className={`${FONT.lg} text-foreground`}>{t('Add from the catalog')}</h2>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">{t('Ready-made harnesses from Clayware. Adding one copies it into this Space, where you can change it.')}</p>
+        </div>
+        {catalog.loading ? <p className="text-[12px] text-muted-foreground">{t('Loading…')}</p> : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {catalog.definitions.map((item) => (
             <div key={item.id} className={`${CARD_FLAT} flex flex-col gap-2 p-4`}>
@@ -412,9 +418,10 @@ export function HarnessesPanel() {
             </div>
           ))}
         </div>
-        <ExceptionCatalogSection spaceId={spaceId} isOwner={isOwner} />
-        </div>
-      )}
+        )}
+      </section>
+
+      <ExceptionCatalogSection spaceId={spaceId} isOwner={isOwner} />
 
       {preview && (
         <Dialog open onOpenChange={(o) => { if (!o) setPreview(null); }}>

@@ -21,6 +21,10 @@ import {
 import { NotebookList } from './NotebookList';
 import { SectionsPane } from './SectionsPane';
 import { IslandHeader } from '@/Function/shared/MainIsland';
+import { ActionsButton, type ActionItem } from '@/Function/shared/ActionMenus';
+import { FileDown, FilePlus, Trash2 } from '@/ui/icons';
+import { DOCX_MIME, writeDocx } from '@/Function/office/docxWriter';
+import { downloadBytes } from '@/Function/office/downloadFile';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { NavNoteIcon } from '@/Frame/sidebar/NavIcons';
 
@@ -197,6 +201,18 @@ export function NotebookSurface({ visible, navigation, onNavigate, onViewChange,
   };
 
 
+  // The "⋯" beside the path: what can be done with the page open here.
+  const pageItems: ActionItem[] = [
+    ...(filesParentId ? [{ key: 'new-page', label: t('New page'), icon: <FilePlus size={14} />, onSelect: () => void handleAddFile() }] : []),
+    ...(selectedFile && !contentLoading ? [
+      { key: 'export-word', label: t('Export to Word'), icon: <FileDown size={14} />, onSelect: () => {
+        const name = selectedFile.name || t('Untitled');
+        void writeDocx(html, name).then((bytes) => downloadBytes(bytes, `${name}.docx`, DOCX_MIME));
+      } },
+      { key: 'delete-page', label: t('Delete page'), icon: <Trash2 size={14} />, destructive: true, separatorBefore: true, onSelect: () => void handleDeleteFile(selectedFile.id) },
+    ] : []),
+  ];
+
   if (!visible) return null;
 
   return (
@@ -217,7 +233,7 @@ export function NotebookSurface({ visible, navigation, onNavigate, onViewChange,
                 onClick: activeSectionName ? () => onNavigate({ noteFolderId: resolvedFolderId, noteSectionId: null, noteId: null }) : undefined,
               }] : []),
               ...(activeSectionName ? [{ id: 'section', label: activeSectionName }] : []),
-            ]} />
+            ]} menu={<ActionsButton items={pageItems} label={t('{name} actions', { name: activeSectionName ?? folderDisplayName(nodes, resolvedFolderId) ?? t('Note') })} />} />
             <div className="flex-1 flex overflow-hidden bg-card">
               {/* Left to right: the notebook's Sections, the active Section's
                   pages, the editor. */}

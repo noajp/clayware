@@ -51,39 +51,54 @@ export interface IntegrationPreset {
   bundledManifest?: Json;
   /** Why the preset cannot be connected yet; the connect button is disabled. */
   unavailableReason?: string;
+  /** The service's own documentation for this kind of connection, linked
+   *  from the connection's dialog. */
+  docsUrl?: string;
 }
 
 export const INTEGRATION_PRESETS: readonly IntegrationPreset[] = [
   {
     id: 'linear', name: 'Linear', icon: '/integrations/linear.svg', kind: 'mcp', endpoint: 'https://mcp.linear.app/mcp', auth: 'bearer',
-    description: "Read and update Linear issues, projects and cycles through Linear's MCP server.",
+    description: 'Let the AI look up and update your Linear issues, projects and cycles.',
     credentialLabel: 'Linear API key', category: 'project', source: 'official', builtBy: 'Linear', featured: true, custom: false,
+    docsUrl: 'https://linear.app/docs/mcp',
   },
   {
     id: 'asana', name: 'Asana', icon: '/integrations/asana.svg', kind: 'http', endpoint: 'https://app.asana.com/api/1.0', auth: 'bearer',
-    description: 'Read and update Asana projects and their work through the Asana REST API.',
+    description: 'Let the AI look up and update your Asana projects and tasks.',
     credentialLabel: 'Personal access token', category: 'project', source: 'official', builtBy: 'Asana', featured: true, custom: false,
+    docsUrl: 'https://developers.asana.com/docs',
   },
   {
     id: 'google-drive', name: 'Google Drive', icon: '/integrations/google-drive.svg', kind: 'http', endpoint: 'https://www.googleapis.com/drive/v3', auth: 'oauth',
-    description: 'Search, read, create and update Google Drive files. Agents see only files Alcon created or that you chose.',
+    description: 'Let the AI find, read and write files in Google Drive — only files Clayware created or that you choose.',
     credentialLabel: 'Google account', category: 'files', source: 'official', builtBy: 'Google', featured: true, custom: false,
+    docsUrl: 'https://developers.google.com/drive/api',
   },
   {
     id: 'gmail', name: 'Gmail', icon: '/integrations/gmail.svg', kind: 'http', endpoint: 'https://gmail.googleapis.com/gmail/v1/users/me', auth: 'oauth',
-    description: 'Search, read and send Gmail messages, reply in threads, and mark messages with labels. Agents cannot delete mail.',
+    description: 'Let the AI search and read your mail, reply in threads, label messages and send mail. Whether sending waits for a person follows this Space’s approval mode; it never deletes mail.',
     credentialLabel: 'Google account', category: 'communication', source: 'official', builtBy: 'Google', featured: false, custom: false,
+    docsUrl: 'https://developers.google.com/gmail/api',
     bundledManifest: GMAIL_MANIFEST,
   },
   {
     id: 'github', name: 'GitHub', icon: '/integrations/github.svg', kind: 'mcp', endpoint: 'https://api.githubcopilot.com/mcp/', auth: 'oauth',
-    description: "Review and merge pull requests in Alcon, and let agents work with repositories, issues and pull requests through GitHub's MCP server.",
+    description: 'Review and merge pull requests in Clayware, and let the AI work with your repositories, issues and pull requests.',
     credentialLabel: 'GitHub account', category: 'development', source: 'official', builtBy: 'GitHub', featured: false, custom: false,
+    docsUrl: 'https://github.com/github/github-mcp-server',
+  },
+  {
+    id: 'microsoft-365', name: 'Microsoft 365', icon: '/integrations/microsoft.svg', kind: 'http', endpoint: 'https://graph.microsoft.com/v1.0', auth: 'oauth',
+    description: 'Sign in with your Microsoft 365 work or school account. Your organization’s administrator may need to approve Clayware first.',
+    credentialLabel: 'Microsoft work or school account', category: 'communication', source: 'official', builtBy: 'Microsoft', featured: false, custom: false,
+    docsUrl: 'https://learn.microsoft.com/graph/overview',
   },
   {
     id: 'slack', name: 'Slack', icon: '/integrations/slack.svg', kind: 'http', endpoint: 'https://slack.com/api', auth: 'bearer',
-    description: 'Read channels and post messages through the Slack Web API.',
+    description: 'Let the AI read your channels and post messages.',
     credentialLabel: 'Bot token (xoxb-)', category: 'communication', source: 'official', builtBy: 'Slack', featured: false, custom: false,
+    docsUrl: 'https://api.slack.com/web',
   },
   // Model providers. Each serves Anthropic's Messages format under the base
   // URL its own docs give for that format; any other such provider (GLM on
@@ -148,16 +163,28 @@ export function signsInWithOAuth(preset: IntegrationPreset): boolean {
   return !preset.custom && preset.auth === 'oauth';
 }
 
-export type OAuthProvider = 'google' | 'github';
+export type OAuthProvider = 'google' | 'github' | 'microsoft';
+
+/** The provider's proper name, for "Sign in with {provider}". */
+export const OAUTH_PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', github: 'GitHub', microsoft: 'Microsoft' };
+
+export const OAUTH_PROVIDERS = Object.keys(OAUTH_PROVIDER_NAMES) as OAuthProvider[];
+
+/** Whom each sign-in preset signs in with — the web side of the server's
+ *  provider registry (supabase/functions/_shared/oauthProviders.ts), which
+ *  web code cannot import; a test keeps the two in step. */
+const OAUTH_PRESET_PROVIDERS: Readonly<Record<string, OAuthProvider>> = {
+  'google-drive': 'google',
+  gmail: 'google',
+  github: 'github',
+  'microsoft-365': 'microsoft',
+};
 
 /** Whom a sign-in preset signs in with; null for one that takes a credential. */
 export function oauthProviderOf(preset: IntegrationPreset): OAuthProvider | null {
   if (!signsInWithOAuth(preset)) return null;
-  return preset.id === 'github' ? 'github' : 'google';
+  return OAUTH_PRESET_PROVIDERS[preset.id] ?? 'google';
 }
-
-/** The provider's proper name, for "Sign in with {provider}". */
-export const OAUTH_PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', github: 'GitHub' };
 
 // ── Connection method ──────────────────────────────────────────────────────
 //
@@ -186,7 +213,7 @@ export interface CatalogGroup {
 }
 
 /** The method groups' fixed order on the catalog page. */
-export const CONNECTION_METHOD_ORDER: readonly ConnectionMethod[] = ['sign-in', 'token', 'custom'];
+const CONNECTION_METHOD_ORDER: readonly ConnectionMethod[] = ['sign-in', 'token', 'custom'];
 
 /** The "Add a connection" groups over the presets offered: grouped by
  *  connection method in the fixed order, installed presets excluded (a
@@ -205,15 +232,85 @@ export function catalogGroups(
   for (const preset of presets) {
     if (!preset.custom && installed.has(preset.id)) continue;
     const method = connectionMethodOf(preset);
-    const provider = oauthProviderOf(preset);
-    const state: CatalogCardState = provider !== null && oauthConfigured[provider] === false ? 'setup-needed' : 'ready';
     const cards = byMethod.get(method) ?? [];
-    cards.push({ preset, state });
+    cards.push({ preset, state: catalogCardState(preset, oauthConfigured) });
     byMethod.set(method, cards);
   }
   return CONNECTION_METHOD_ORDER
     .filter((method) => byMethod.has(method))
     .map((method) => ({ method, cards: byMethod.get(method)! }));
+}
+
+/** Pure. A sign-in card whose provider the server reports as not
+ *  configured is 'setup-needed'; a provider still loading (null) reads
+ *  as ready — the dialog re-checks. */
+export function catalogCardState(preset: IntegrationPreset, oauthConfigured: Record<OAuthProvider, boolean | null>): CatalogCardState {
+  const provider = oauthProviderOf(preset);
+  return provider !== null && oauthConfigured[provider] === false ? 'setup-needed' : 'ready';
+}
+
+// ── Catalog by purpose ─────────────────────────────────────────────────────
+//
+// Settings › Connectors groups the services by what they are for — the way
+// people look for them — not by how the connection is made. Custom
+// connections are not a purpose: they sit under "Other ways to connect".
+// Model providers live in Settings › Team.
+
+/** The purpose sections' fixed order on the Connectors page. */
+export const CATALOG_CATEGORY_ORDER: readonly IntegrationCategory[] = ['communication', 'files', 'project', 'development'];
+
+/** The purpose sections' headings (t() keys). */
+export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  communication: 'Communication',
+  files: 'Files',
+  project: 'Project management',
+  development: 'Development',
+  models: 'AI models',
+  custom: 'Custom',
+};
+
+export interface CategoryGroup {
+  category: IntegrationCategory;
+  cards: { preset: IntegrationPreset; state: CatalogCardState }[];
+}
+
+/** Pure. The catalog by purpose, in CATALOG_CATEGORY_ORDER: presets the
+ *  Space already has are left out (they show under Connected), as are
+ *  custom presets and any category outside the order (models); empty
+ *  sections are omitted. */
+export function catalogByCategory(
+  presets: readonly IntegrationPreset[],
+  installed: ReadonlySet<string>,
+  oauthConfigured: Record<OAuthProvider, boolean | null>,
+): CategoryGroup[] {
+  return CATALOG_CATEGORY_ORDER
+    .map((category) => ({
+      category,
+      cards: presets
+        .filter((p) => p.category === category && !p.custom && !installed.has(p.id))
+        .map((preset) => ({ preset, state: catalogCardState(preset, oauthConfigured) })),
+    }))
+    .filter((g) => g.cards.length > 0);
+}
+
+const foldForSearch = (s: string) => s.normalize('NFKC').toLowerCase();
+
+/** Pure. Whether every word of the query appears somewhere in the texts
+ *  (case- and width-insensitive). An empty query matches everything. */
+export function matchesQuery(texts: readonly (string | null | undefined)[], query: string): boolean {
+  const words = foldForSearch(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = foldForSearch(texts.filter(Boolean).join(' '));
+  return words.every((w) => haystack.includes(w));
+}
+
+/** Pure. A preset against the search box, in English and in the reader's
+ *  language (`translate` is the page's t()). */
+export function presetMatchesQuery(preset: IntegrationPreset, query: string, translate: (s: string) => string = (s) => s): boolean {
+  return matchesQuery([
+    preset.id, preset.name, preset.description, preset.builtBy,
+    translate(preset.name), translate(preset.description), translate(CATEGORY_LABELS[preset.category]),
+  ], query);
 }
 
 /** The preset ids this Space already has at least one connection for. */
@@ -360,15 +457,113 @@ export function policyLineFor(delegation: IntegrationDelegation | string | null 
 
 // ── Building a row ─────────────────────────────────────────────────────────
 
+// ── A connection's own OAuth config ───────────────────────────────────────
+//
+// A custom API / MCP connection can sign in with OAuth 2.0 (authorization
+// code + PKCE) through an app the Space owner registered at the service:
+// the web twin of supabase/functions/_shared/customOAuth.ts, which the
+// server checks again before every use. The client secret is not part of
+// the config — it goes to Vault (set_integration_oauth_client_secret).
+
+export type TokenAuthMethod = 'client_secret_post' | 'client_secret_basic' | 'none';
+
+/** How the client authenticates at the token endpoint (English source strings for t()). */
+export const TOKEN_AUTH_LABELS: Record<TokenAuthMethod, string> = {
+  client_secret_post: 'Client secret in the request body',
+  client_secret_basic: 'Client secret as HTTP Basic',
+  none: 'No client secret (public client with PKCE)',
+};
+
+/** The form's view of a config: scopes as one space-separated line. */
+export interface CustomOAuthForm {
+  authorizeUrl: string;
+  tokenUrl: string;
+  revokeUrl: string;
+  scopes: string;
+  clientId: string;
+  tokenAuth: TokenAuthMethod;
+}
+
+export const EMPTY_CUSTOM_OAUTH: CustomOAuthForm = { authorizeUrl: '', tokenUrl: '', revokeUrl: '', scopes: '', clientId: '', tokenAuth: 'client_secret_post' };
+
+/** Whitespace or a control character: a value that could break a URL or a header. */
+const oauthUnsafe = (v: string) => /\s/.test(v) || [...v].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127);
+
+function oauthUrlOk(raw: string): boolean {
+  if (raw.length > 2000 || !isSafeEndpoint(raw)) return false;
+  try { return !new URL(raw).hash; } catch { return false; }
+}
+
+/** Pure. The config to store from the form, or why it can't be (an
+ *  English source string for t()). Extra parameters already on a stored
+ *  config (authorize_params / token_params, set by a draft) are kept. */
+export function buildCustomOAuthConfig(form: CustomOAuthForm, keep?: Json | null): { ok: true; config: Record<string, Json> } | { ok: false; error: string } {
+  const authorize = form.authorizeUrl.trim();
+  const token = form.tokenUrl.trim();
+  const revoke = form.revokeUrl.trim();
+  if (!oauthUrlOk(authorize)) return { ok: false, error: 'Enter the authorization URL as an https URL on a public host.' };
+  if (!oauthUrlOk(token)) return { ok: false, error: 'Enter the token URL as an https URL on a public host.' };
+  if (revoke && !oauthUrlOk(revoke)) return { ok: false, error: 'Enter the revocation URL as an https URL on a public host, or leave it empty.' };
+  const scopes = [...new Set(form.scopes.split(/\s+/).filter(Boolean))];
+  if (scopes.length > 50 || scopes.some((s) => s.length > 256)) return { ok: false, error: 'Enter at most 50 scopes, separated by spaces.' };
+  const clientId = form.clientId.trim();
+  if (!clientId || clientId.length > 512 || oauthUnsafe(clientId)) return { ok: false, error: 'Enter the client ID of the app you registered at the service.' };
+  if (!(form.tokenAuth in TOKEN_AUTH_LABELS)) return { ok: false, error: 'Choose how the client authenticates.' };
+  const config: Record<string, Json> = { authorize_url: authorize, token_url: token, scopes, client_id: clientId, token_auth: form.tokenAuth };
+  if (revoke) config.revoke_url = revoke;
+  const kept = keep && typeof keep === 'object' && !Array.isArray(keep) ? keep as Record<string, Json> : null;
+  for (const extra of ['authorize_params', 'token_params'] as const) {
+    if (kept?.[extra] && typeof kept[extra] === 'object' && !Array.isArray(kept[extra])) config[extra] = kept[extra];
+  }
+  return { ok: true, config };
+}
+
+/** Pure. A stored config as the form shows it; empty fields when there is none. */
+export function customOAuthFormOf(raw: Json | null | undefined): CustomOAuthForm {
+  const o = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, Json> : null;
+  if (!o) return EMPTY_CUSTOM_OAUTH;
+  const str = (v: Json | undefined) => (typeof v === 'string' ? v : '');
+  const auth = str(o.token_auth);
+  return {
+    authorizeUrl: str(o.authorize_url),
+    tokenUrl: str(o.token_url),
+    revokeUrl: str(o.revoke_url),
+    scopes: Array.isArray(o.scopes) ? o.scopes.filter((s): s is string => typeof s === 'string').join(' ') : '',
+    clientId: str(o.client_id),
+    tokenAuth: auth in TOKEN_AUTH_LABELS ? auth as TokenAuthMethod : 'client_secret_post',
+  };
+}
+
+function hostLabel(raw: string): string | null {
+  try { return new URL(raw).hostname.toLowerCase().replace(/\.+$/, ''); } catch { return null; }
+}
+
+/** Pure. Where a config sends the person to sign in, and where the client
+ *  secret and the authorization code go — what the person confirms. */
+export function customOAuthHosts(raw: Json | null | undefined): { authorize: string | null; token: string | null; revoke: string | null } {
+  const form = customOAuthFormOf(raw);
+  return { authorize: hostLabel(form.authorizeUrl), token: hostLabel(form.tokenUrl), revoke: form.revokeUrl ? hostLabel(form.revokeUrl) : null };
+}
+
+/** Pure. The URL to register at the service as the app's redirect URI:
+ *  the integration-oauth callback (the server's redirectUriFor). */
+export function oauthRedirectUriFor(supabaseUrl: string): string {
+  return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/integration-oauth/callback`;
+}
+
 export interface IntegrationDraft {
   /** Custom presets only. */
   name?: string;
   /** Custom presets only. */
   endpoint?: string;
-  /** Custom presets only: 'none' | 'bearer' | 'header'. */
+  /** Custom presets only: 'none' | 'bearer' | 'header' | 'oauth' (an API or MCP connection's own sign-in). */
   auth?: IntegrationAuthType;
   /** Custom presets with auth 'header': the header the credential goes in. */
   authHeader?: string;
+  /** Custom presets with auth 'oauth': the sign-in config. */
+  oauth?: CustomOAuthForm;
+  /** The stored config being edited, whose extra parameters are kept. */
+  oauthKeep?: Json | null;
   delegation: IntegrationDelegation;
   enabled: boolean;
 }
@@ -387,6 +582,8 @@ export interface IntegrationInsertRow {
   enabled: boolean;
   /** A preset's bundled first-party manifest, when it carries one. */
   manifest: Json | null;
+  /** A custom connection's own OAuth config, when it signs in with one. */
+  oauth_config: Json | null;
 }
 
 export type BuildResult = { ok: true; row: IntegrationInsertRow } | { ok: false; error: string };
@@ -405,7 +602,7 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
         activity_space_id: spaceId, preset: preset.id, kind: preset.kind, name: preset.name,
         description: preset.description, icon: preset.icon, endpoint: preset.endpoint!, auth_type: preset.auth,
         auth_header: null, delegation: draft.delegation, enabled: draft.enabled,
-        manifest: preset.bundledManifest ?? null,
+        manifest: preset.bundledManifest ?? null, oauth_config: null,
       },
     };
   }
@@ -415,7 +612,12 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
   if (!isSafeEndpoint(endpoint)) return { ok: false, error: 'Enter an https URL on a public host.' };
   // A model provider always takes its key as a bearer credential.
   const auth = preset.kind === 'model' ? 'bearer' : draft.auth ?? 'bearer';
-  if (auth === 'oauth') return { ok: false, error: 'OAuth is not available for custom connections.' };
+  let oauthConfig: Json | null = null;
+  if (auth === 'oauth') {
+    const built = buildCustomOAuthConfig(draft.oauth ?? EMPTY_CUSTOM_OAUTH, draft.oauthKeep);
+    if (!built.ok) return built;
+    oauthConfig = built.config;
+  }
   let authHeader: string | null = null;
   if (auth === 'header') {
     authHeader = (draft.authHeader ?? '').trim();
@@ -428,7 +630,7 @@ export function buildIntegrationRow(preset: IntegrationPreset, spaceId: string, 
     row: {
       activity_space_id: spaceId, preset: preset.id, kind: preset.kind, name, description: null, icon: null,
       endpoint, auth_type: auth, auth_header: authHeader, delegation: draft.delegation, enabled: draft.enabled,
-      manifest: null,
+      manifest: null, oauth_config: oauthConfig,
     },
   };
 }
@@ -477,16 +679,26 @@ export type IntegrationStatus = 'off' | 'not-tested' | 'connected' | 'reachable'
 
 /** The one status word a connector row shows, derived from the last test
  *  (the dialog keeps the detail, via testOutcomeLabel). Precedence: off →
- *  never tested → a sign-in problem needs the person → verified connected →
- *  reachable without a credential check → anything else that failed. */
-export function integrationStatus(i: { enabled: boolean; last_test: unknown }): IntegrationStatus {
+ *  a sign-in that never finished → never tested → a sign-in problem needs
+ *  the person → verified connected → reachable without a credential check
+ *  → anything else that failed. */
+export function integrationStatus(i: { enabled: boolean; last_test: unknown; auth_type?: string | null; secret_id?: string | null }): IntegrationStatus {
   if (!i.enabled) return 'off';
+  if (signInUnfinished(i)) return 'action-needed';
   const last = readLastTest(i.last_test);
   if (!last) return 'not-tested';
   if (!last.ok && (last.code === 'auth_failed' || last.code === 'oauth_expired' || last.code === 'oauth_required' || last.code === 'oauth_scope_missing')) return 'action-needed';
   if (last.code === 'connected') return 'connected';
   if (last.ok) return 'reachable';
   return 'action-needed';
+}
+
+/** Pure. A sign-in connection holding no token: its sign-in was abandoned,
+ *  refused or is still waiting for an administrator's approval — none of
+ *  which writes a test result. Only a row that says it has no token
+ *  (secret_id null) counts; one read without the column does not. */
+export function signInUnfinished(i: { auth_type?: string | null; secret_id?: string | null }): boolean {
+  return i.auth_type === 'oauth' && i.secret_id === null;
 }
 
 export const INTEGRATION_STATUS_LABELS: Record<IntegrationStatus, string> = {

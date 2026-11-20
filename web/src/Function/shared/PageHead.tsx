@@ -1,7 +1,7 @@
 'use client';
 
 import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
-import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { isCancelKey, isCommitEnter, isSubmitChord } from '@/Function/shared/keyboard';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { FONT } from '@/shared/designTokens';
@@ -48,28 +48,53 @@ export const PAGE_TITLE = 'text-2xl leading-tight tracking-[-0.012em] text-foreg
 export const PAGE_TITLE_WEIGHT = { fontWeight: 600 } as const;
 
 /**
- * Every concept page's layout: the document on the left (icon, title,
- * description, then what you can do), the concept's facts on the right as
- * islands (Properties, …). Below the `lg` breakpoint the rail drops under the
- * document instead of disappearing, so no field is ever out of reach.
+ * Every concept page's body — Vision, Portfolio, Domain, Object, Element —
+ * one structure, so no page builds its own:
+ *
+ *   head      icon, title, description (PageHead; Element passes its own)
+ *   actions   the quiet row under it: reactions, "…" (PageActionRow)
+ *   children  the page's sections (ConceptSection, PageSection), in order
+ *   rail      the concept's facts on the right (Properties, …)
+ *
+ * Below the `lg` breakpoint the rail drops under the document instead of
+ * disappearing, so no field is ever out of reach. `reader` is Element's
+ * narrow reading width, its rail always under the document.
  */
-export function PageLayout({ rail, children }: { rail?: ReactNode; children: ReactNode }) {
+export function DetailPage({ head, actions, rail, reader = false, children }: {
+  head: ReactNode;
+  actions?: ReactNode;
+  rail?: ReactNode;
+  reader?: boolean;
+  children?: ReactNode;
+}) {
   return (
-    <div className={PAGE_BODY}>
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-8">{children}</div>
-        {rail && <aside className="w-full shrink-0 space-y-4 lg:w-72">{rail}</aside>}
+    <div className={reader ? 'mx-auto w-full max-w-4xl px-5 py-7' : PAGE_BODY}>
+      <div className={`grid grid-cols-1 items-start gap-8 ${reader || !rail ? '' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
+        <div className="flex min-w-0 flex-col gap-6">
+          {head}
+          {actions}
+          {children}
+        </div>
+        {rail && <aside className="min-w-0 space-y-3">{rail}</aside>}
       </div>
     </div>
   );
 }
 
-/** A textarea that is as tall as its text — and stays so when the column
- *  is resized (a sidebar toggled, a split pane dragged). */
-function AutoField({ value, onChange, onBlur, onKeyDown, className, style, label, placeholder }: {
-  value: string; onChange: (v: string) => void; onBlur: () => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  className: string; style?: React.CSSProperties; label: string; placeholder: string;
+/** A concept page's title, edited in place: as tall as its text (and
+ *  staying so when the column is resized — a sidebar toggled, a split pane
+ *  dragged), one line of meaning. Enter, ⌘Enter and Escape end the edit —
+ *  the title autosaves, so Escape saves too and is consumed here, leaving the
+ *  page's own Escape (back one level) for the next press. Shift+Enter is the
+ *  only way to a newline. Every concept page's title is this field. */
+export function PageTitleField({ value, onChange, onCommit, label, placeholder, readOnly = false }: {
+  value: string;
+  onChange: (value: string) => void;
+  /** The edit ended (blur, Enter, Escape): save it. */
+  onCommit: () => void;
+  label: string;
+  placeholder: string;
+  readOnly?: boolean;
 }) {
   const ref: Ref<HTMLTextAreaElement> & { current: HTMLTextAreaElement | null } = useRef<HTMLTextAreaElement | null>(null);
   const fit = () => {
@@ -78,7 +103,8 @@ function AutoField({ value, onChange, onBlur, onKeyDown, className, style, label
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   };
-  useEffect(fit, [value]);
+  // Measured before paint, so a long title never flashes at one line.
+  useLayoutEffect(fit, [value]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -92,9 +118,16 @@ function AutoField({ value, onChange, onBlur, onKeyDown, className, style, label
     return () => observer.disconnect();
   }, []);
   return (
+    // The global base resets typed content to weight 400, which beats a
+    // `font-semibold` utility — so the title's weight is set inline.
     <textarea ref={ref} value={value} rows={1} aria-label={label} placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)} onBlur={onBlur} onKeyDown={onKeyDown}
-      className={className} style={style} />
+      readOnly={readOnly} aria-readonly={readOnly || undefined} tabIndex={readOnly ? -1 : undefined}
+      onChange={(e) => onChange(e.target.value)} onBlur={onCommit}
+      onKeyDown={(e) => {
+        if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) { e.preventDefault(); e.currentTarget.blur(); }
+      }}
+      className={`w-full resize-none overflow-hidden border-none bg-transparent focus:outline-none ${PAGE_TITLE}`}
+      style={PAGE_TITLE_WEIGHT} />
   );
 }
 
@@ -114,7 +147,7 @@ const message = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
 
 export function PageHead({
   icon, title, description, canEdit, titleLabel, titlePlaceholder, descriptionLabel, descriptionPlaceholder, emptyDescription,
-  onSaveTitle, onSaveDescription, under,
+  onSaveTitle, onSaveDescription, onDescriptionChange, under,
 }: {
   /** A line between the title and the description — where it sits
    *  ("Inside …"). */
@@ -136,6 +169,8 @@ export function PageHead({
   /** Omit when the description is not the subject's own (a tool's fixed
    *  explanation): it is then shown as text even while the title edits. */
   onSaveDescription?: (value: string) => void | Promise<void>;
+  /** The description as it is typed, before it is saved. */
+  onDescriptionChange?: (markdown: string) => void;
 }) {
   const { t } = useI18n();
   const [titleDraft, setTitleDraft, savedTitle] = useDraft(title);
@@ -170,20 +205,12 @@ export function PageHead({
   return (
     <div>
       {icon && <PageIcon>{icon}</PageIcon>}
-      {/* The global base resets typed content to weight 400, which beats a
-          `font-semibold` utility — so the title's weight is set inline, as it
-          is on Element detail. */}
-      <AutoField label={titleLabel} placeholder={titlePlaceholder} value={titleDraft} onChange={setTitleDraft} onBlur={() => void commitTitle()}
-        onKeyDown={(e) => {
-          // Enter, ⌘Enter and Escape end the edit, which saves it.
-          if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) { e.preventDefault(); e.currentTarget.blur(); }
-        }}
-        className={`w-full resize-none overflow-hidden border-none bg-transparent focus:outline-none ${PAGE_TITLE}`}
-        style={PAGE_TITLE_WEIGHT} />
+      <PageTitleField label={titleLabel} placeholder={titlePlaceholder} value={titleDraft} onChange={setTitleDraft}
+        onCommit={() => void commitTitle()} />
       {under && <div className="mt-2">{under}</div>}
-      <div className="mt-3" aria-label={descriptionLabel}>
+      <div className="mt-3" role="group" aria-label={descriptionLabel}>
         <DescriptionEditor value={description} readOnly={!onSaveDescription}
-          placeholder={descriptionPlaceholder} onSave={commitDescription} />
+          placeholder={descriptionPlaceholder} onSave={commitDescription} onChange={onDescriptionChange} />
       </div>
       {error && <div role="alert" className="text-[11px] text-destructive">{error}</div>}
     </div>

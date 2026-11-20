@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSessionUserId, useWidgetDocument, useWidgetViewerState } from './useWidgetDocument';
 import { supabase } from '@/lib/supabase';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { parseDesign, type DesignSource } from '@/Function/widget/design/model';
 import { translate } from '@/Function/i18n/I18nProvider';
 
@@ -62,7 +63,7 @@ export function useDesign(widgetId: string) {
     /** Asks AI for a design, or a revision of the one shown; the result is a private draft. */
     generate: (prompt: string) => serial(async () => {
       await saveOwn({ prompt });
-      const { data: reply, error } = await supabase.functions.invoke('generate-design', { body: { widgetId, prompt } });
+      const { data: reply, error } = await supabase.functions.invoke('generate-design', { body: { widgetId, prompt, spaceId: getActiveSpaceId() } });
       if (error) {
         let message = error.message;
         if ('context' in error && error.context instanceof Response) { try { message = (await error.context.json()).error ?? message; } catch { /* Keep the transport error. */ } }

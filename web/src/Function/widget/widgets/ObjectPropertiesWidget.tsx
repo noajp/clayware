@@ -2,7 +2,7 @@
 import { Button } from '@/ui/button';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Calendar, Check, User as UserIcon, X } from '@/ui/icons';
+import { Calendar, User as UserIcon, X } from '@/ui/icons';
 import type { CustomColumnWithValues } from '@/hooks/useSupabase';
 import {
   fetchDomainCustomColumnsWithValues,
@@ -20,7 +20,12 @@ import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
 import { CustomColumnCell } from '@/Function/property/CustomColumnCell';
 import { RailRow } from '@/Function/shared/RailRow';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
-import { SegmentedProgress } from '@/Function/shared/SegmentedProgress';
+import { useWorkStatuses } from '@/hooks/workStatuses';
+import { statusOf } from '@/Function/shared/workStatus';
+import { WorkStatusMark, WorkStatusPicker } from '@/Function/shared/WorkStatusPicker';
+import { useStatusName } from '@/Function/shared/StatusLook';
+import { ProgressBelt } from '@/Function/shared/ProgressBelt';
+import { outlook, withStates } from '@/Function/shared/pace';
 import { ReachHint, WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { workerTriggerLabel } from '@/Function/shared/workerReach';
 import {
@@ -29,6 +34,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MenuCheck,
 } from '@/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '@/ui/popover';
 import { Calendar as DateCalendar } from '@/ui/calendar';
@@ -37,6 +43,8 @@ import type { WidgetHost } from '../types';
 import { completionOf, isOpenStatus } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { parseDateOnly, toDateOnlyString, isOverdue } from '@/Function/shared/dateUtils';
+import { useModelKeyCheck } from '@/Function/team/useModelKeyCheck';
+import { ModelKeyRow } from '@/Function/team/ModelKeyRow';
 
 // =============================================================
 // Properties — the Object's typed metadata, as a rail island.
@@ -82,6 +90,10 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
   const primaryDomain: Domain | null =
     domains.find((d) => d.id === object?.domain_id) ?? null;
   const objectTypes: string[] = primaryDomain?.object_types ?? [];
+  // The statuses the Object's Space defines; the Object stands in one of them.
+  const { rows: statusRows } = useWorkStatuses(primaryDomain?.activity_space_id);
+  const nameOf = useStatusName();
+  const status = statusOf('work', statusRows, object?.work_stage, object?.work_status_id);
 
   // Resolved by id: a lead from outside the picker's list still shows by name.
   const leadWorker: Worker | null = useWorkerById(object?.lead_id ?? null, allWorkers);
@@ -130,6 +142,8 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
     start_date?: string | null;
     due_date?: string | null;
     lead_id?: string | null;
+    work_stage?: string;
+    work_status_id?: string | null;
   }) => {
     if (!objectId) return;
     try {
@@ -169,6 +183,14 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
         </>
       )}
 
+      {/* The stage it stands in, and the Space's own status within it. */}
+      <WorkStatusPicker scope="work" rows={statusRows} stage={object.work_stage} statusId={object.work_status_id} progress={stats.progress}
+        onChange={(next) => handleFieldSave({ work_stage: next.stage, work_status_id: next.statusId })}>
+        <button type="button" className="w-full text-left">
+          <RailRow name={t('Status')} icon={<WorkStatusMark status={status} progress={stats.progress} />} label={nameOf(status)} />
+        </button>
+      </WorkStatusPicker>
+
       <TypePickerRow
         currentType={object.type}
         options={objectTypes}
@@ -201,7 +223,7 @@ export function ObjectPropertiesWidget({ host }: { host: WidgetHost }) {
         name={t('Progress')}
         label={
           <span className="flex items-center gap-2 w-full">
-            <SegmentedProgress value={stats.progress} className="flex-1" />
+            <ProgressBelt value={stats.progress} outlook={withStates(outlook(stats.progress, object.start_date, object.due_date, toDateOnlyString(new Date())), elements, toDateOnlyString(new Date()))} className="flex-1" />
             <span className="text-[12px] tabular-nums text-muted-foreground shrink-0">
               {stats.progress}%
             </span>
@@ -281,7 +303,7 @@ function TypePickerRow({
           <DropdownMenuItem key={option} onClick={() => onChange(option)} className="gap-2">
             <ElementTypeIcon size={12} />
             <span className="flex-1 truncate">{option}</span>
-            {currentType === option && <Check size={13} className="shrink-0" />}
+            {currentType === option && <MenuCheck />}
           </DropdownMenuItem>
         ))}
         {currentType && (
@@ -369,6 +391,7 @@ function LeadPickerRow({
   onChange: (leadId: string | null) => void;
 }) {
   const { t } = useI18n();
+  const keyMissing = useModelKeyCheck();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -393,12 +416,12 @@ function LeadPickerRow({
         {workers.length === 0 && (
           <div className="px-2 py-1.5 text-[12px] text-muted-foreground italic">{t('No Workers')}</div>
         )}
-        {workers.map((w) => (
+        {workers.map((w) => lead?.id !== w.id && keyMissing(w) ? <ModelKeyRow key={w.id} worker={w} /> : (
           <DropdownMenuItem key={w.id} onClick={() => onChange(w.id)} className="gap-2">
             <WorkerAvatar worker={w} size={16} />
             <span className="flex-1 truncate">{w.name}</span>
             <ReachHint worker={w} />
-            {lead?.id === w.id && <Check size={13} className="shrink-0" />}
+            {lead?.id === w.id && <MenuCheck />}
           </DropdownMenuItem>
         ))}
         {lead && (

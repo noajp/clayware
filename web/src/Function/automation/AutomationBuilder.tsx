@@ -9,8 +9,9 @@ import { appDialog } from '@/Function/shared/appDialogStore';
 import { OptionMenu } from '@/Function/shared/OptionMenu';
 import { Switch } from '@/Function/settings/SettingsControls';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { formatError } from '@/Function/shared/formatError';
-import { formatRelative } from '@/Function/shared/dateUtils';
+import { formatRelative, formatDateTime } from '@/Function/shared/dateUtils';
 import { NavAutomationIcon } from '@/Frame/sidebar/NavIcons';
 import { SETTINGS_ISLAND } from '@/shared/designTokens';
 import { CopyField } from '@/AIP/connectors/CopyField';
@@ -156,7 +157,7 @@ export function AutomationBuilder({ a, spaceId, harnesses, objects, sources, tok
   const trigger = a.kind === 'schedule' ? describeCron(a.cron ?? '') : t('When an outside service posts');
   const statusText = status.kind === 'off' ? t('Off')
     : status.kind === 'failed' ? t('Last start failed')
-    : status.kind === 'next' ? t('Next {when}', { when: new Date(status.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })
+    : status.kind === 'next' ? t('Next {when}', { when: formatDateTime(status.at, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) })
     : status.kind === 'last' ? t('Last {when}', { when: formatRelative(status.at) }) : '';
 
   const act = async (f: () => Promise<void>, done?: string) => {
@@ -276,7 +277,7 @@ export function AutomationBuilder({ a, spaceId, harnesses, objects, sources, tok
                   <TriggerEditor key={`${a.kind}|${a.cron ?? ''}|${a.timezone}`} a={a} busy={busy}
                     onSave={(input) => void act(() => updateAutomationBinding(a.id, input))}>
                     <div className="mt-2 space-y-1.5">
-                      <p className="text-[11px] text-muted-foreground">{t('POST JSON to this URL with the token in the x-alcon-token header. The body becomes the input of the Element it makes.')}</p>
+                      <p className="text-[11px] text-muted-foreground">{t('POST JSON to this URL with the token in the x-clayware-token header. The body becomes the input of the Element it makes.')}</p>
                       <CopyField value={webhookUrl(a.id)} label={t('URL')} />
                       {token ? (
                         <>
@@ -571,7 +572,7 @@ function TriggerEditor({ a, busy, onSave, children }: {
               options={timezones.map((z) => ({ value: z, label: z }))} />
           </div>
           <p className={`text-[12px] ${problem ? 'text-[var(--status-danger)]' : 'text-muted-foreground'}`}>
-            {problem ?? (next ? t('{when} — next {at} ({zone})', { when: describeCron(cron), at: next.toLocaleString(), zone: timezone }) : t('This never runs.'))}
+            {problem ?? (next ? t('{when} — next {at} ({zone})', { when: describeCron(cron), at: formatDateTime(next), zone: timezone }) : t('This never runs.'))}
           </p>
         </div>
       ) : a.kind === 'webhook' ? children : null}

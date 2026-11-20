@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@/Function/shared/dateUtils';
 import { useMemo, useState } from 'react';
 import { FileText, Pencil } from '@/ui/icons';
 import { Button } from '@/ui/button';
@@ -11,7 +12,7 @@ import { MyElementsView } from '@/ActivitySpace/home/MyElementsView';
 import { ProfileOverview } from '@/ActivitySpace/home/ProfileOverview';
 import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ViewTabs } from '@/Function/shared/ViewTabs';
-import { PageLayout } from '@/Function/shared/PageHead';
+import { DetailPage } from '@/Function/shared/PageHead';
 import { useActivitySpaces, useSpaceRole } from '@/Function/space/data';
 import { useNowMinute } from '@/Function/shared/useNow';
 import { MyCalendarView } from '@/ActivitySpace/home/MyCalendarView';
@@ -46,7 +47,7 @@ export function ProfileView({ onNavigate, onViewChange, onOpenSettings }: Props)
   const role = useSpaceRole(spaceId);
   // Their local time, as the card reads it.
   const now = useNowMinute(true);
-  const localTime = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(now);
+  const localTime = formatDateTime(now, { hour: '2-digit', minute: '2-digit' });
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const name = profile?.display_name || user?.email?.split('@')[0] || t('You');
   // The person's Worker id (wrk_015) is the handle other surfaces show.
@@ -86,7 +87,7 @@ export function ProfileView({ onNavigate, onViewChange, onOpenSettings }: Props)
       <ViewTabs tabs={tabs} active={tab} onSelect={setTab} label={t('Profile sections')}
         actions={<div ref={setControlsSlot} className={tab === 'elements' ? 'flex items-center' : 'hidden'} />} />
       <div className={tab === 'overview' ? 'min-h-0 flex-1 overflow-y-auto' : 'hidden'}>
-        <PageLayout>
+        <DetailPage head={
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <WorkerAvatar worker={{ name, avatar_url: profile?.avatar_url }} size={56} className="ring-0" />
@@ -107,8 +108,9 @@ export function ProfileView({ onNavigate, onViewChange, onOpenSettings }: Props)
             </div>
             {profile?.bio && <p className="max-w-2xl whitespace-pre-wrap text-[13px] leading-6 text-muted-foreground">{profile.bio}</p>}
           </div>
+        }>
           <ProfileOverview userId={user?.id ?? null} onNavigate={onNavigate} onViewChange={onViewChange} />
-        </PageLayout>
+        </DetailPage>
       </div>
       {/* MyElementsView lays itself out as a flex child (header + scrolling
           list), so its wrapper has to be a bounded flex column or the list

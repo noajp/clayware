@@ -1,14 +1,11 @@
 'use client';
 
 import { railModeOf } from '@/Frame/railApps';
-import { SidebarSectionLabel } from '@/Function/shared/SidebarRow';
 import { PanelBody } from '@/Function/shared/PanelLayout';
 import { AiSidebar } from '@/AIP/ai/AiSidebar';
 import { SlidesSidebar } from '@/ActivitySpace/artifacts/slides/SlidesSidebar';
 import { InboxList } from '@/ActivitySpace/home/InboxList';
-import { CalendarSidebar } from '@/ActivitySpace/calendar/CalendarSidebar';
 import type { NavigationState } from '@/types/navigation';
-import { useI18n } from '@/Function/i18n/I18nProvider';
 import { ButtonAppearanceProvider } from '@/ui/button';
 
 // A tool's own list — the inbox, the calendar, the notebooks — as a column inside the main pane, left of what it opens. The
@@ -21,7 +18,6 @@ export function ModePanel({ activeView, onNavigate, onViewChange }: {
   onNavigate: (nav: Partial<NavigationState>) => void;
   onViewChange: (view: string) => void;
 }) {
-  const { t } = useI18n();
   const mode = railModeOf(activeView);
 
   let body: React.ReactNode = null;
@@ -31,9 +27,8 @@ export function ModePanel({ activeView, onNavigate, onViewChange }: {
     case 'inbox':
       body = <InboxList onNavigate={onNavigate} onViewChange={onViewChange} onOpen={() => onViewChange('inbox')} />;
       break;
-    case 'calendar':
-      body = <PanelBody><SidebarSectionLabel>{t('Calendar')}</SidebarSectionLabel><CalendarSidebar /></PanelBody>;
-      break;
+    // Calendar needs no list beside it either: whose Elements it shows and
+    // the day it is on are chosen in its own bars (CalendarPickers).
     // Artifacts, People and Table need no list beside them: the page itself is the list.
     case 'ai':
       body = <AiSidebar onOpen={() => { if (activeView !== 'ai') onViewChange('ai'); }} />;
@@ -47,7 +42,9 @@ export function ModePanel({ activeView, onNavigate, onViewChange }: {
   if (!body) return null;
   return (
     <ButtonAppearanceProvider appearance="navigation">
-      <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col overflow-hidden border-r border-[var(--gloss-rim)] bg-[var(--surface-well)]">{body}</aside>
+      {/* The Inbox list is read, not just picked from: its subjects need the
+          room to show a line, so it is wider than the other panels. */}
+      <aside className={`island-sidebar flex ${mode === 'inbox' ? 'w-[320px] max-w-[40%]' : 'w-[var(--sidebar-width)]'} shrink-0 flex-col overflow-hidden border-r border-[var(--gloss-rim)] bg-card`}>{body}</aside>
     </ButtonAppearanceProvider>
   );
 }

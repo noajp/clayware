@@ -65,7 +65,7 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   'This paragraph has a picture, note or field, so it cannot be edited here yet.': ['この段落には画像・脚注・フィールドが含まれているため、まだここでは編集できません。', '이 단락에는 그림·각주·필드가 있어 아직 여기서 편집할 수 없습니다.', 'Ce paragraphe contient une image, une note ou un champ : il ne peut pas encore être modifié ici.', 'Este párrafo tiene una imagen, una nota o un campo, así que aún no se puede editar aquí.'],
   'This paragraph has a line break or field, so it cannot be edited here yet.': ['この段落には改行かフィールドが含まれているため、まだここでは編集できません。', '이 단락에는 줄 바꿈이나 필드가 있어 아직 여기서 편집할 수 없습니다.', 'Ce paragraphe contient un saut de ligne ou un champ : il ne peut pas encore être modifié ici.', 'Este párrafo tiene un salto de línea o un campo, así que aún no se puede editar aquí.'],
   'Search names and contents': ['名前と中身を検索', '이름과 내용 검색', 'Rechercher noms et contenus', 'Buscar nombres y contenido'],
-  'Add a file from Alcon': ['Alcon のファイルを添える', 'Alcon의 파일 추가', 'Ajouter un fichier d’Alcon', 'Añadir un archivo de Alcon'],
+  'Add a file from Clayware': ['Clayware のファイルを添える', 'Clayware의 파일 추가', 'Ajouter un fichier d’Clayware', 'Añadir un archivo de Clayware'],
   'This file has no text the AI can read.': ['このファイルには AI が読める文字がありません。', '이 파일에는 AI가 읽을 수 있는 텍스트가 없습니다.', 'Ce fichier ne contient aucun texte lisible par l’IA.', 'Este archivo no tiene texto que la IA pueda leer.'],
   'Folders': ['フォルダ', '폴더', 'Dossiers', 'Carpetas'],
   'Folder name': ['フォルダ名', '폴더 이름', 'Nom du dossier', 'Nombre de la carpeta'],
@@ -170,8 +170,14 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   'Pinned': ['ピン留め済み', '고정됨', 'Épinglé', 'Fijado'],
   'Pin': ['ピン留め', '고정', 'Épingler', 'Fijar'],
   'Unpin': ['ピン留めを解除', '고정 해제', 'Désépingler', 'Desfijar'],
-  'No activity yet': ['アクティビティはまだありません', '아직 활동이 없습니다', 'Aucune activité pour l’instant', 'Aún no hay actividad'],
-  'Activity · {n}': ['アクティビティ · {n}', '활동 · {n}', 'Activité · {n}', 'Actividad · {n}'],
+  'Handed over: {from} → {to}': ['引き継ぎ：{from} → {to}', '인계: {from} → {to}', 'Transmis : {from} → {to}', 'Traspasado: {from} → {to}'],
+  'Handed to {to}': ['{to} が担当', '{to} 담당', 'Confié à {to}', 'Asignado a {to}'],
+  'Asked for approval': ['承認依頼', '승인 요청', 'Approbation demandée', 'Aprobación solicitada'],
+  'Sent back': ['差し戻し', '반려', 'Renvoyé', 'Devuelto'],
+  'Closed without approval': ['承認せずに閉じた', '승인 없이 종료', 'Fermé sans approbation', 'Cerrado sin aprobación'],
+  'Earlier · {n}': ['それ以前の {n} 件', '이전 {n}건', '{n} plus anciens', '{n} anteriores'],
+  'Small changes · {n}': ['細かい変更 {n} 件', '작은 변경 {n}건', '{n} petits changements', '{n} cambios pequeños'],
+  'No history yet': ['履歴はまだありません', '아직 기록이 없습니다', 'Aucun historique pour l’instant', 'Aún no hay historial'],
   'Created “{title}”': ['「{title}」を作成', '“{title}” 생성', 'A créé « {title} »', 'Creó «{title}»'],
   'just now': ['たった今', '방금', 'à l’instant', 'justo ahora'],
   '{n}m ago': ['{n} 分前', '{n}분 전', 'il y a {n} min', 'hace {n} min'],
@@ -480,6 +486,9 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
   // rows (cards flow sideways).
   'Vertical': ['縦', '세로', 'Vertical', 'Vertical'],
   'Horizontal': ['横', '가로', 'Horizontal', 'Horizontal'],
+  'Rename {title}': ['「{title}」の名前を変更', '“{title}” 이름 바꾸기', 'Renommer « {title} »', 'Cambiar el nombre de «{title}»'],
+  'Delete “{title}”? You can restore it from the Object’s Deleted Elements.': ['「{title}」を削除しますか？Object の「削除した Element」から元に戻せます。', '“{title}”을(를) 삭제할까요? Object의 삭제된 Element에서 복원할 수 있습니다.', 'Supprimer « {title} » ? Vous pourrez le restaurer depuis les Elements supprimés de l’Object.', '¿Eliminar «{title}»? Puedes restaurarlo desde los Elements eliminados del Object.'],
+  'Could not delete the Element.': ['Element を削除できませんでした。', 'Element를 삭제하지 못했습니다.', 'Impossible de supprimer l’Element.', 'No se pudo eliminar el Element.'],
 };
 
 const column = (index: 0 | 1 | 2 | 3) => Object.fromEntries(Object.entries(EXECUTION_MESSAGES).map(([key, row]) => [key, row[index]]));

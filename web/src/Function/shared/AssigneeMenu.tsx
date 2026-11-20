@@ -2,11 +2,12 @@
 
 import { formatError } from './formatError';
 import * as React from 'react';
-import { Check, X } from '@/ui/icons';
+import { X } from '@/ui/icons';
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MenuCheck,
 } from '@/ui/dropdown-menu';
 import { useWorkerAvailability, useWorkerCommitments } from '@/hooks/useSupabase';
 import { formatElementDate, fromDateOnlyString, toDateOnlyString } from '@/Function/shared/dateUtils';
@@ -22,6 +23,8 @@ import { translate, useI18n } from '@/Function/i18n/I18nProvider';
 import { AI_AGENT_PRESETS, aiProviderOf, type AiAgentPreset } from '@/Function/team/aiAgents';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { createWorker } from '@/hooks/teamData';
+import { useModelKeyCheck } from '@/Function/team/useModelKeyCheck';
+import { ModelKeyRow } from '@/Function/team/ModelKeyRow';
 
 // Single source of truth for the assignee picker dropdown CONTENT. Triggers
 // legitimately differ per view (avatar stack in table rows, RailRow in the
@@ -84,6 +87,8 @@ export function AssigneeMenuContent({
   const current = assignees ?? [];
   const assigneeWorkerId = (a: AssigneeEntry) => a.worker_id ?? a.worker?.id;
   const readings = useAssignmentReadings(element, workers);
+  // An AI whose model has no API key yet is shown but sends to the key's settings.
+  const keyMissing = useModelKeyCheck();
 
   if (variant === 'toggle') {
     return (
@@ -93,6 +98,7 @@ export function AssigneeMenuContent({
         )}
         {workers.map((w) => {
           const existing = current.find((a) => assigneeWorkerId(a) === w.id);
+          if (!existing && keyMissing(w)) return <ModelKeyRow key={w.id} worker={w} avatarSize={20} />;
           return (
             <DropdownMenuItem
               key={w.id}
@@ -103,7 +109,7 @@ export function AssigneeMenuContent({
               <span className="flex-1 truncate">{w.name}</span>
               <ReachHint worker={w} />
               <LoadHint reading={readings[w.id]} name={w.name} />
-              {existing && <Check size={12} className="text-muted-foreground" />}
+              {existing && <MenuCheck />}
             </DropdownMenuItem>
           );
         })}
@@ -142,7 +148,7 @@ export function AssigneeMenuContent({
         </>
       )}
       {available.length > 0 ? (
-        available.map((w) => (
+        available.map((w) => keyMissing(w) ? <ModelKeyRow key={w.id} worker={w} avatarSize={20} /> : (
           <DropdownMenuItem
             key={w.id}
             onClick={() => onAdd(w.id)}
@@ -278,7 +284,7 @@ function useAssignmentReadings(
   }, [dated, workers, availability, commitments]);
 }
 
-/** The AI agents Alcon knows that the Space has not made yet — Claude,
+/** The AI agents Clayware knows that the Space has not made yet — Claude,
  *  ChatGPT, Gemini, DeepSeek… — offered under the Workers; picking one makes
  *  it a Worker of the Space (with its mark) and assigns it. */
 function AiPresetItems({ workers, onAdd }: { workers: AssignableWorker[]; onAdd: (workerId: string) => void }) {

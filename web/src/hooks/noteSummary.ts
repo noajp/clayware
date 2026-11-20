@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { extractPlainText } from '@/Function/notebook/contentUtils';
 import type { BriefStructured } from '@/types/notes';
 
@@ -13,7 +14,7 @@ export async function summarizeNoteContent(args: {
 }): Promise<{ structured: BriefStructured; plainTextLength: number }> {
   const plainText = extractPlainText(args.content);
   const { data, error } = await supabase.functions.invoke('summarize-note', {
-    body: { title: args.title, plainText },
+    body: { title: args.title, plainText, spaceId: getActiveSpaceId() },
   });
   if (error) throw error;
   const result = data as (BriefStructured & { error?: string });

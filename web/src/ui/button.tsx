@@ -30,8 +30,8 @@ const buttonVariants = cva(
     "font-medium",
     "disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
-    // design-lint-ignore — button keyboard focus ring (required by buttonControl.test.tsx; not an input).
-    "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-hover)]",
+    // Keyboard focus is the tint globals.css lays on every control — no ring.
+    "outline-none",
   ].join(" "),
   {
     variants: {

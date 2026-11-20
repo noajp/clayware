@@ -1,4 +1,4 @@
-// Which model an AI agent Worker runs on: Anthropic (Alcon's own key), or a
+// Which model an AI agent Worker runs on: Anthropic (Clayware's own key), or a
 // model connection of its Space (Settings › AI, kind 'model') with
 // the model named in ai_model. run-agent reads the same fields
 // (supabase/functions/run-agent/agentConfig.ts): ai_config.provider is the
@@ -11,9 +11,9 @@
 
 import type { Json } from '@/types/database';
 
-/** Where an AI agent's work runs: on Alcon's AI 基盤 (run-agent), or in Claude
+/** Where an AI agent's work runs: on Clayware's AI 基盤 (run-agent), or in Claude
  *  Code on a developer's machine, started by the dev loop's dispatcher. */
-export type AgentRunner = 'alcon' | 'claude-code';
+export type AgentRunner = 'clayware' | 'claude-code';
 const CLAUDE_CODE_RUNNER = 'claude-code';
 
 /** Pure. Whether a Worker's work runs in Claude Code. */
@@ -44,7 +44,7 @@ function priceText(v: unknown): string {
 export function agentModelDraft(worker: { ai_model: string | null; ai_config: Json | null }): AgentModelDraft {
   const c = record(worker.ai_config);
   return {
-    runner: runsInClaudeCode(c) ? 'claude-code' : 'alcon',
+    runner: runsInClaudeCode(c) ? 'claude-code' : 'clayware',
     providerId: typeof c.provider === 'string' && c.provider ? c.provider : null,
     model: worker.ai_model ?? '',
     priceInput: priceText(c.price_input),
@@ -87,4 +87,23 @@ export function agentModelPatch(aiConfig: Json | null, draft: AgentModelDraft): 
     config.price_output = output;
   }
   return { ok: true, patch: { ai_model: model, ai_config: config } };
+}
+
+/**
+ * Pure. Whether an AI agent Worker cannot run yet for want of a model API key.
+ * It runs on the model connection its ai_config names, when that connection
+ * is in `connected` (the Space's model connections that hold a key); with no
+ * connection named it runs on Anthropic with Clayware's own key — which only
+ * serves Claude, so a Worker that names another provider's model needs one.
+ * Claude Code Workers and people never do.
+ */
+export function needsModelKey(
+  worker: { type?: string | null; ai_model?: string | null; ai_config?: Json | null },
+  connected: ReadonlySet<string>,
+  provider: string | null,
+): boolean {
+  if (worker.type !== 'ai_agent' || runsInClaudeCode(worker.ai_config)) return false;
+  const named = record(worker.ai_config).provider;
+  if (typeof named === 'string' && named) return !connected.has(named);
+  return provider !== null && provider !== 'claude';
 }

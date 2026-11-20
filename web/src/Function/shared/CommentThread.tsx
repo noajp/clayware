@@ -17,7 +17,7 @@ import { splitMentions } from './mentions';
 // =============================================================
 // The parts every comment thread is made of.
 //
-// Alcon has two threads — one on an Element, one on a Strategy — and they are
+// Clayware has two threads — one on an Element, one on a Strategy — and they are
 // the same object with two homes, so they render through the same parts. What
 // differs between them (reactions, pinning, who may delete) is passed in as
 // slots rather than forked: a second hand-rolled entry is where the two
@@ -163,8 +163,9 @@ export function CommentMenu({
         <button
           type="button"
           title={t('More')}
+          aria-label={t('More')}
           className={`p-0.5 rounded hover:bg-muted/60 hover:text-foreground transition-opacity ${
-            open ? 'opacity-100 text-foreground' : 'opacity-0 group-hover:opacity-100'
+            open ? 'opacity-100 text-foreground' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
           }`}
         >
           <MoreHorizontal size={12} />
@@ -259,6 +260,7 @@ export function CommentComposer({
           value={value}
           onChange={onChange}
           placeholder={t(placeholder)}
+          aria-label={t('Comment')}
           rows={1}
           className="max-h-40 min-h-[24px] flex-1 resize-none overflow-hidden bg-transparent px-1.5 py-1 text-[12.5px] leading-[1.5] text-foreground outline-none placeholder:text-muted-foreground/70 no-focus-ring"
           style={{ fontWeight: 400 }}

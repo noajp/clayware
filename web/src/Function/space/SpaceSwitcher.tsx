@@ -13,6 +13,8 @@ import {
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useActiveSpaceId, setActiveSpaceId } from './activeSpaceStore';
 import { countSpaceDomains } from './data';
+import { MenuCheck } from '@/ui/dropdown-menu';
+import { useI18n } from '@/Function/i18n/I18nProvider';
 
 type Panel = 'main' | 'spaces' | 'create';
 
@@ -21,6 +23,7 @@ interface SpaceSwitcherProps {
 }
 
 export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
+  const { t } = useI18n();
   const { user, signOut } = useAuthContext();
   const { data: spaces } = useActivitySpaces();
   const [open, setOpen] = useState(false);
@@ -81,7 +84,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
         <button
           type="button"
           className="group/space flex h-7 max-w-full items-center gap-2 rounded-[6px] px-1.5 transition-colors hover:bg-sidebar-accent/70"
-          title="Switch Space"
+          title={t('Switch Space')}
         >
           <SpaceMark space={active} size={20} />
           <span className="min-w-0 max-w-[136px] truncate text-left text-[13px] font-semibold tracking-[-0.01em] text-foreground">
@@ -90,7 +93,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
           <ChevronsUpDown size={13} className="shrink-0 text-muted-foreground/60 transition-colors group-hover/space:text-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-60 p-1">
+      <PopoverContent align="start" aria-label={t('Switch Space')} className="w-60 p-1">
 
         {/* ── Main panel ── */}
         {panel === 'main' && (
@@ -155,7 +158,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
               >
                 <SpaceMark space={s} size={20} />
                 <span className="flex-1 truncate text-foreground">{s.name}</span>
-                {s.id === active?.id && <Check size={13} className="shrink-0 text-muted-foreground" />}
+                {s.id === active?.id && <MenuCheck />}
               </button>
             ))}
             <div className="my-0.5 border-t border-border/60" />

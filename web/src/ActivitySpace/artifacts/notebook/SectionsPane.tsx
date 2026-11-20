@@ -106,7 +106,7 @@ export function SectionsPane({
   };
 
   return (
-    <aside aria-label={t('Sections')} className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-border/40 bg-[var(--surface-well)]">
+    <aside aria-label={t('Sections')} className="flex w-56 shrink-0 flex-col overflow-hidden border-r border-border/40 bg-card">
       <PanelBody>
         <div className="flex flex-col">
           {sections.map((section) => {

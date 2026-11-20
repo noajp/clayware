@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-// The REST API (alcon-api, ELE_PLT-006): the pure routing layer.
-const routes = await import(new URL('../../supabase/functions/alcon-api/routes.ts', import.meta.url).pathname);
+// The REST API (clayware-api, ELE_PLT-006): the pure routing layer.
+const routes = await import(new URL('../../supabase/functions/clayware-api/routes.ts', import.meta.url).pathname);
 const external = await import(new URL('../../supabase/functions/_shared/externalTools.ts', import.meta.url).pathname);
-const { MCP_READ_TOOLS, MCP_WRITE_TOOLS } = await import(new URL('../../supabase/functions/alcon-mcp/tools.ts', import.meta.url).pathname);
+const { mcpTools } = await import(new URL('../../supabase/functions/clayware-mcp/tools.ts', import.meta.url).pathname);
 
 const {
   ROUTES, apiPath, matchRoute, planRequest, validateArgs, queryArgs, errorForToolFailure, toResponse,
@@ -27,9 +27,9 @@ function plan(method: string, path: string, opts: { query?: string; body?: unkno
 }
 
 describe('the allowlist', () => {
-  it('is the one MCP offers', () => {
-    expect([...MCP_READ_TOOLS]).toEqual([...EXTERNAL_READ_TOOLS]);
-    expect([...MCP_WRITE_TOOLS]).toEqual([...EXTERNAL_WRITE_TOOLS]);
+  it('is a part of what MCP offers', () => {
+    const mcp = mcpTools().map((t: { name: string }) => t.name);
+    for (const n of [...EXTERNAL_READ_TOOLS, ...EXTERNAL_WRITE_TOOLS]) expect(mcp).toContain(n);
   });
 
   it('gives every allowed tool exactly one route and no route to anything else', () => {
@@ -60,10 +60,10 @@ describe('the allowlist', () => {
 
 describe('paths', () => {
   it('strips the function prefix', () => {
-    expect(apiPath('/alcon-api/elements')).toBe('/elements');
-    expect(apiPath('/functions/v1/alcon-api/elements/ELE_PLT-006/')).toBe('/elements/ELE_PLT-006');
-    expect(apiPath('/alcon-api')).toBe('/');
-    expect(apiPath('/alcon-apiary/elements')).toBe('/alcon-apiary/elements');
+    expect(apiPath('/clayware-api/elements')).toBe('/elements');
+    expect(apiPath('/functions/v1/clayware-api/elements/ELE_PLT-006/')).toBe('/elements/ELE_PLT-006');
+    expect(apiPath('/clayware-api')).toBe('/');
+    expect(apiPath('/clayware-apiary/elements')).toBe('/clayware-apiary/elements');
   });
 
   it('matches a route and reads its id', () => {
@@ -81,6 +81,14 @@ describe('paths', () => {
 });
 
 describe('planRequest', () => {
+  it('reads one Object by UUID, and answers 404 for anything else', () => {
+    expect(plan('GET', `/objects/${UUID}`, { access: 'read' })).toEqual({
+      ok: true,
+      call: { tool: 'getObject', args: { id: UUID }, successStatus: 200 },
+    });
+    expect(plan('GET', '/objects/OBJ-1')).toMatchObject({ ok: false, error: { status: 404, message: 'Object not found' } });
+  });
+
   it('types query values by the tool schema', () => {
     expect(plan('GET', '/elements', { query: 'objectId=o&status=todo&limit=20&overdueOnly=true' })).toEqual({
       ok: true,
@@ -189,7 +197,7 @@ describe('validateArgs and queryArgs', () => {
 
 describe('openApiDocument', () => {
   it('describes every route from the tool schemas', () => {
-    const doc = openApiDocument('https://example.test/functions/v1/alcon-api') as {
+    const doc = openApiDocument('https://example.test/functions/v1/clayware-api') as {
       paths: Record<string, Record<string, { operationId: string; requestBody?: { content: Record<string, { schema: { properties: Record<string, unknown>; required?: string[] } }> } }>>;
     };
     const ops = Object.values(doc.paths).flatMap((p) => Object.values(p).map((o) => o.operationId)).sort();

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Check, FolderInput, Trash2 } from '@/ui/icons';
+import { FolderInput, Trash2 } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { ActionsButton, ActionsContextMenu, type ActionItem } from '@/Function/shared/ActionMenus';
@@ -15,6 +15,7 @@ import { useSpaceRole } from '@/Function/space/data';
 import { canEditInitiative } from '@/Function/strategy/initiativeAccess';
 import { deleteStrategy, moveInitiative, useStrategies } from '@/hooks/strategyData';
 import { buildInitiativeTree, flattenInitiativeTree, inSpace } from './initiativeTree';
+import { MenuCheck } from '@/ui/dropdown-menu';
 
 /** The Strategy a menu acts on — where it sits and who made it. */
 interface InitiativeRef {
@@ -73,12 +74,17 @@ export function InitiativeMenu({ initiative, children }: { initiative: Initiativ
 
 /** The "…" for a Strategy — on its row, or beside its name on its page.
  *  `onDelete` replaces the plain confirm (the page asks in its own dialog). */
-export function InitiativeActionsButton({ initiative, onDelete }: { initiative: InitiativeRef; onDelete?: () => void }) {
+export function InitiativeActionsButton({ initiative, onDelete, extraItems = [] }: {
+  initiative: InitiativeRef;
+  onDelete?: () => void;
+  /** After its own actions (its page's sections to show or hide). */
+  extraItems?: ActionItem[];
+}) {
   const { t } = useI18n();
   const { items, picker } = useInitiativeActions(initiative, { onDelete });
   return (
     <>
-      <ActionsButton items={items} label={t('Strategy actions')} />
+      <ActionsButton items={[...items, ...extraItems]} label={t('Strategy actions')} />
       {picker}
     </>
   );
@@ -133,13 +139,13 @@ function InitiativeMovePicker({ initiative, onClose }: { initiative: InitiativeR
             {!q && (
               <CommandItem value="__top" onSelect={() => void go({ parentId: null })}>
                 <span className="flex-1 text-muted-foreground">{t('Top level')}</span>
-                {atTop && <Check size={12} />}
+                {atTop && <MenuCheck />}
               </CommandItem>
             )}
             {targets.map(({ initiative: p, depth, key }) => (
               <CommandItem key={key} value={`strategy ${p.id}`} onSelect={() => void go({ parentId: p.id })}>
                 <span style={{ width: q ? 0 : depth * 12 }} className="shrink-0" /><NavStrategyIcon size={12} /><span className="flex-1 truncate">{p.name}</span>
-                {initiative.parentIds.includes(p.id) && <Check size={12} />}
+                {initiative.parentIds.includes(p.id) && <MenuCheck />}
               </CommandItem>
             ))}
           </CommandList>

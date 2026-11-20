@@ -45,7 +45,7 @@ export function ApprovalRequestBanner({ element, onRefresh }: { element: Element
     setError(null);
     try {
       const approverName = profile?.display_name || user?.email?.split('@')[0] || 'You';
-      await recordApprovalDecision({ elementId: element.id, approverId: user?.id ?? null, approverName, state, note: null });
+      await recordApprovalDecision({ elementId: element.id, approverId: user?.id ?? null, approverName, state, note: null, status: element.status });
       setDecidedKey(element.id);
       onRefresh?.();
     } catch (e) {

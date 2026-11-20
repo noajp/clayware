@@ -1,14 +1,17 @@
 'use client';
 
+import { Dialog, DialogContent, DialogTitle } from '@/ui/dialog';
 import { PageHeader } from '@/Function/shared/PageHeader';
 import { appDialog } from '@/Function/shared/appDialogStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, CirclePlay, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from '@/ui/icons';
+import { Check, ChevronDown, ChevronRight, CirclePlay, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from '@/ui/icons';
 import { isCommitEnter, useEscapeLayer } from '@/Function/shared/keyboard';
 import { NavPhaseIcon } from '@/Frame/sidebar/NavIcons';
 import { EmptyState } from '@/Function/shared/EmptyState';
 import { PageIcon, PageSection, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
 import { useI18n } from '@/Function/i18n/I18nProvider';
+import { appDialog } from '@/Function/shared/appDialogStore';
+import { notifyError } from '@/Function/shared/toastStore';
 import { ObjectIcon } from '@/Frame/icons';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
 import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
@@ -16,7 +19,7 @@ import { PhaseBurnup } from '@/Function/shared/PhaseBurnup';
 import { DateField as SharedDateField } from '@/Function/shared/date';
 import { MenuShell } from '@/Function/shared/menu';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
-import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, MenuCheck } from '@/ui/dropdown-menu';
 import {
   createPhase,
   deletePhase,
@@ -51,7 +54,7 @@ import {
 // time-boxed periods, scoped to the active Domain. A Phase is a named date
 // range ("要件定義", Jul 14 – Jul 27); Objects and Elements are assigned to
 // at most one Phase via their phase_id column. Unlike Linear's auto-rolling
-// cycles, Phases are created by hand — Alcon phases are milestones of a plan
+// cycles, Phases are created by hand — Clayware phases are milestones of a plan
 // (requirements → design → build), not a fixed sprint cadence.
 // =============================================================
 
@@ -421,11 +424,11 @@ function PhaseDetailView({
   };
 
   const handleDelete = async () => {
-    if (!(await appDialog.confirm(t('Delete the Phase "{name}"? Its Objects and Elements stay, just unassigned.', { name: phase.name })))) return;
+    if (!await appDialog.confirm(t('Delete the Phase “{name}”? Its Elements stay, without a Phase.', { name: phase.name }))) return;
     setActionError(null);
     try { await deletePhase(phase.id); onSaved(); onBack(); }
     catch (e) {
-      console.error('Failed to delete Phase', e);
+      notifyError(e, t('Could not delete the Phase.'));
       setActionError(e instanceof Error ? e.message : t('Failed to delete Phase'));
     }
   };
@@ -557,7 +560,9 @@ function PhaseDetailView({
                 className={`flex items-center gap-2 px-2 py-1 min-h-8 rounded-md group/row hover:bg-muted/40 transition-colors ${onOpenObject ? 'cursor-pointer' : ''}`}
               >
                 <ObjectIcon size={13} className="text-muted-foreground shrink-0" />
-                <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{o.name}</span>
+                {onOpenObject
+                  ? <button type="button" onClick={(e) => { e.stopPropagation(); onOpenObject(o.id, phase.domain_id); }} className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0 text-left">{o.name}</button>
+                  : <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{o.name}</span>}
                 {o.due_date && (
                   <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">{formatDateOnly(o.due_date, locale)}</span>
                 )}
@@ -565,7 +570,7 @@ function PhaseDetailView({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); void setObjectPhase(o.id, null); }}
                   aria-label={t('Remove {name} from this Phase', { name: o.name })}
-                  className="shrink-0 flex items-center justify-center size-5 rounded text-muted-foreground opacity-0 group-hover/row:opacity-100 hover:text-foreground hover:bg-muted/40 transition-opacity"
+                  className="shrink-0 flex items-center justify-center size-5 rounded text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:text-foreground hover:bg-muted/40 transition-opacity"
                 >
                   <X size={12} />
                 </button>
@@ -649,7 +654,7 @@ function PhaseDetailView({
                   type="button"
                   onClick={() => void setElementPhase(el.id, null)}
                   aria-label={t('Remove {name} from this Phase', { name: el.title })}
-                  className="shrink-0 flex items-center justify-center size-5 rounded text-muted-foreground opacity-0 group-hover/row:opacity-100 hover:text-foreground hover:bg-muted/40 transition-opacity"
+                  className="shrink-0 flex items-center justify-center size-5 rounded text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:text-foreground hover:bg-muted/40 transition-opacity"
                 >
                   <X size={12} />
                 </button>
@@ -823,7 +828,7 @@ function PhaseStatusMenu({
         {PHASE_STATUS_ORDER.map((s) => (
           <DropdownMenuItem key={s} onSelect={() => onSelect(s)} className="justify-between">
             {t(PHASE_STATUS_LABEL[s])}
-            {s === status && <Check size={13} className="text-muted-foreground" />}
+            {s === status && <MenuCheck />}
           </DropdownMenuItem>
         ))}
       </MenuShell>
@@ -926,13 +931,11 @@ function PhaseCreateDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-6" onClick={onClose}>
-      <div
-        className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
+    // The shared dialog keeps focus inside and hands it back on close.
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent showCloseButton={false} aria-describedby={undefined} className="w-full max-w-md gap-0 p-0">
         <div className="h-10 flex items-center px-4 border-b border-border/60">
-          <span className="text-[13px] font-semibold text-foreground">{t('New Phase')}</span>
+          <DialogTitle className="text-[13px] font-semibold leading-normal text-foreground">{t('New Phase')}</DialogTitle>
           <div className="flex-1" />
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label={t('Close')}>
             <X size={14} />
@@ -971,7 +974,7 @@ function PhaseCreateDialog({
             {saving ? t('Saving…') : t('Create')}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

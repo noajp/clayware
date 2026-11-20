@@ -6,8 +6,8 @@ export type { ExplorerData } from '@/Function/sync/explorerPatch';
 
 export type {
   AgentRun,
-  AlconObject,
-  AlconObjectWithChildren,
+  ClaywareObject,
+  ClaywareObjectWithChildren,
   ApprovalState,
   CustomColumnWithValues,
   DataTable,
@@ -58,6 +58,7 @@ export {
   createSubElement,
   decideApproval,
   deleteElement,
+  deleteElements,
   fetchElementApprovals,
   fetchElementWithDetails,
   getElementEdges,
@@ -201,6 +202,7 @@ export {
   useStrategiesInSpace,
   useStrategyComments,
   useStrategyIntentBundle,
+  strategyIntentBundleKey,
   type IntentBundle,
 } from '@/hooks/strategyData';
 

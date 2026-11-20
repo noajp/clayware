@@ -1,7 +1,7 @@
 'use client';
 
-import { AlconCopilotPanel } from '@/AIP/ai/AlconCopilotPanel';
-import type { CopilotSubject } from '@/AIP/ai/useAlconCopilot';
+import { ClaywareCopilotPanel } from '@/AIP/ai/ClaywareCopilotPanel';
+import type { CopilotSubject } from '@/AIP/ai/useClaywareCopilot';
 import dynamic from 'next/dynamic';
 import type { NavigationState } from '@/types/navigation';
 import { setActiveDomainId } from '@/Function/space/domainsStore';
@@ -19,6 +19,7 @@ const viewLoading = () => (
 );
 const InboxView = dynamic(() => import('@/ActivitySpace/home/InboxView').then(m => m.InboxView), { ssr: false, loading: viewLoading });
 const StrategyShell = dynamic(() => import('@/ActivitySpace/strategy/initiative/StrategyShell').then(m => m.StrategyShell), { ssr: false, loading: viewLoading });
+const VisionView = dynamic(() => import('@/ActivitySpace/strategy/vision/VisionView').then(m => m.VisionView), { ssr: false, loading: viewLoading });
 const PhaseView = dynamic(() => import('@/ActivitySpace/strategy/phase/PhaseView').then(m => m.PhaseView), { ssr: false, loading: viewLoading });
 const PeopleView = dynamic(() => import('@/ActivitySpace/people/PeopleView').then(m => m.PeopleView), { ssr: false, loading: viewLoading });
 const TimelineView = dynamic(() => import('@/ActivitySpace/strategy/timeline/TimelineView').then(m => m.TimelineView), { ssr: false, loading: viewLoading });
@@ -64,7 +65,9 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
   if (notebookVisible && !notebookOpened) setNotebookOpened(true);
 
   return (
-    <div className="flex-1 flex flex-col bg-card overflow-hidden">
+    // The open screen is the page's main region, so assistive tech can jump
+    // past the sidebar to it.
+    <main className="flex-1 flex flex-col bg-card overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden">
           {notebookOpened && <NotebookSurface
             visible={notebookVisible}
@@ -103,9 +106,19 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
               }} />
           )}
 
+          {activeActivity === 'vision' && (
+            <div className="flex-1 overflow-hidden bg-card">
+              <VisionView visionId={navigation.visionId ?? null}
+                onOpenPortfolio={(id, visionId) => { onNavigate({ strategyId: id, visionId }); onViewChange?.('strategy'); }}
+                onAddPortfolio={(visionId) => { onNavigate({ strategyId: null, visionId, strategyCreate: true }); onViewChange?.('strategy'); }} />
+            </div>
+          )}
+
           {activeActivity === 'strategy' && (
             <div className="flex-1 overflow-hidden bg-card">
               <StrategyShell
+                visionId={navigation.visionId ?? null}
+                onOpenVision={(visionId) => { onNavigate({ strategyId: null, visionId }); onViewChange?.('vision'); }}
                 activeStrategyId={navigation.strategyId ?? null}
                 createRequested={!!navigation.strategyCreate}
                 onCreateHandled={() => onNavigate({ strategyCreate: null })}
@@ -257,7 +270,7 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
           )}
 
           {/* The AI on a screen of its own — the same conversation as the pop-up. */}
-          {activeActivity === 'ai' && <AlconCopilotPanel variant="page" open onOpenChange={() => {}} subject={aiSubject} onMinimize={onMinimizeAi} />}
+          {activeActivity === 'ai' && <ClaywareCopilotPanel variant="page" open onOpenChange={() => {}} subject={aiSubject} onMinimize={onMinimizeAi} />}
 
           {activeActivity === 'profile' && <ProfileView onOpenSettings={onOpenSettings} onNavigate={onNavigate} onViewChange={onViewChange} />}
 
@@ -267,6 +280,6 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
             </div>
           )}
       </div>
-    </div>
+    </main>
   );
 }

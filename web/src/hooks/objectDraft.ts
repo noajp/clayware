@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import type { Brief } from '@/types/notes';
 
 export type ObjectDraftElementPriority = 'low' | 'medium' | 'high' | 'urgent';
@@ -16,7 +17,7 @@ export interface ObjectDraft {
   elements: ObjectDraftElement[];
 }
 
-// Calls the draft-object Edge Function and returns an Alcon Object +
+// Calls the draft-object Edge Function and returns an Clayware Object +
 // Elements proposal derived from the Brief's structured content.
 export async function draftObjectFromBrief(brief: Brief): Promise<ObjectDraft> {
   const body = {
@@ -25,6 +26,7 @@ export async function draftObjectFromBrief(brief: Brief): Promise<ObjectDraft> {
     summary: brief.summary,
     decisions: brief.structured?.decisions,
     action_items: brief.structured?.action_items,
+    spaceId: getActiveSpaceId(),
   };
   const { data, error } = await supabase.functions.invoke('draft-object', { body });
   if (error) throw error;

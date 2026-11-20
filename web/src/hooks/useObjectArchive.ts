@@ -5,11 +5,12 @@ import { normalizeExplorerData, type ExplorerData } from '@/Function/sync/explor
 import { getQueryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useCurrentUserId } from '@/providers/authContext';
-import type { AlconObject } from '@/types/database';
+import type { ClaywareObject } from '@/types/database';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useObjects } from '@/Function/sync/explorerData';
 import { countActiveObjects } from '@/Function/shared/objectArchive';
+import { deleteObject } from './objectData';
 
 // Archive / restore an Object, and the reads that still reach an archived
 // one: the Domain's "Archived" list and the Object opened by id. Rules live
@@ -20,7 +21,7 @@ const ARCHIVE_REFUSED = 'Only owners or admins of this Object’s Domain can arc
 const ARCHIVE_FAILED = 'The Object could not be archived. Try again.';
 const RESTORE_FAILED = 'The Object could not be restored. Try again.';
 
-export type ArchivedObject = Pick<AlconObject, 'id' | 'name' | 'color' | 'domain_id' | 'archived_at' | 'archived_by'>;
+export type ArchivedObject = Pick<ClaywareObject, 'id' | 'name' | 'color' | 'domain_id' | 'archived_at' | 'archived_by'>;
 
 function refreshAfterArchive(): void {
   const qc = getQueryClient();
@@ -44,6 +45,12 @@ export async function restoreObject(objectId: string): Promise<void> {
   const { error } = await supabase.rpc('restore_object', { p_object: objectId });
   if (error?.code === '42501') throw new Error(translate(ARCHIVE_REFUSED));
   if (error) throw new Error(translate(RESTORE_FAILED));
+  refreshAfterArchive();
+}
+
+/** Deletes an archived Object for good, from the Archived list. */
+export async function deleteArchivedObject(objectId: string): Promise<void> {
+  await deleteObject(objectId);
   refreshAfterArchive();
 }
 

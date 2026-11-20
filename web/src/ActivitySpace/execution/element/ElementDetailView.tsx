@@ -1,25 +1,26 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { IslandHeader } from '@/Function/shared/MainIsland';
 import { runsInClaudeCode } from '@/Function/team/agentModel';
 import { handOverLabels } from '@/ActivitySpace/strategy/initiative/mission/missionModel';
 import { markElementCommentsRead } from '@/hooks/notificationData';
-import { FollowButton } from '@/Function/shared/FollowButton';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { AiWorkingMark } from '@/Function/shared/element/AiWorkingMark';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentUserId } from '@/providers/authContext';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
-import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { Button } from '@/ui/button';
 import { ElementDependencies } from './ElementDependencies';
 import { CheckInDialog } from './checkIn/CheckInDialog';
-import { STATUS, PRIORITY, FONT } from '@/shared/designTokens';
+import { PRIORITY, FONT } from '@/shared/designTokens';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Calendar, User, Link2, Plus, CheckCircle2, Tag, Circle, Flag, History, Timer, ChevronRight, ChevronLeft, Pencil, Check, Compass } from '@/ui/icons';
+import { Calendar, User, Link2, Plus, Tag, Timer, ChevronLeft, Check } from '@/ui/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  MenuCheck,
 } from '@/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/dialog';
@@ -29,6 +30,8 @@ import type { DateRange } from 'react-day-picker';
 import type { ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { isAgentRunOpen } from '@/AIP/ai/agentData';
 import { AgentRunPanel, DelegateToAiForm } from './agent';
+import { ClaudeCodeStatus, claudeCodeBlockMessage } from './ClaudeCodeStatus';
+import { useClaudeCodeScope } from '@/hooks/claudeCodeScopeData';
 import { useRegisterPageCommand } from '@/Function/shared/pageCommands';
 import {
   updateElement,
@@ -57,7 +60,8 @@ import {
 } from '@/hooks/elementDetailQueries';
 import { CustomColumnCell } from '@/Function/property/CustomColumnCell';
 import type { Json } from '@/types/database';
-import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { ElementStatusMark, useElementStatusName } from '@/Function/shared/ElementStatusMark';
 import { WorkerAvatarStack } from '@/Function/shared/WorkerAvatar';
 import { workerTriggerLabel } from '@/Function/shared/workerReach';
 import { AssigneeMenuContent } from '@/Function/shared/AssigneeMenu';
@@ -83,7 +87,9 @@ const ELEMENT_ZONES: Zone[] = ['rail'];
 import { RailRow } from '@/Function/shared/RailRow';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { ObjectIcon } from '@/Frame/icons';
-import { PageSection, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
+import { DetailPage, PageSection, PageTitleField } from '@/Function/shared/PageHead';
+import { ArtifactsSection } from '@/ActivitySpace/strategy/ArtifactsSection';
+import { SectionMenuItems } from '@/Function/shared/sectionVisibility';
 import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { StatusPicker } from '@/Function/shared/StatusPicker';
@@ -93,24 +99,21 @@ import { ElementCommentsPanel } from './ElementCommentsPanel';
 import { ElementApprovalMenu } from './ElementApprovalMenu';
 import { ApprovalRequestBanner } from './ApprovalRequestBanner';
 import { ElementActionsMenu } from './ElementActionsMenu';
-import { FileText, FolderInput, Trash2, RotateCcw, MoreHorizontal } from '@/ui/icons';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
+import { FileText } from '@/ui/icons';
 import { ACTION_LABEL, ActionIcon, ActionPicker } from '@/Function/shared/elementAction';
 import { isElementAction, type ElementAction } from '@/Function/shared/elementActionKinds';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
 import { FileImportActions, canImport } from './FileImportActions';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
-import { isCancelKey, isCommitEnter, isSubmitChord, useEscapeLayer } from '@/Function/shared/keyboard';
+import { useEscapeLayer } from '@/Function/shared/keyboard';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
+import { ActivityFeed } from './ActivityFeed';
 import { logActivity, useElementActivityLog, invalidateElementActivity, mergeActivity, type ActivityKind } from '@/hooks/elementActivity';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { getActiveDomainId } from '@/Function/space/domainsStore';
-import { formatElementDate, parseDateOnly, toDateOnlyString, formatAge } from '@/Function/shared/dateUtils';
-import { MessageIcon } from '@/Function/shared/conceptIcons';
+import { formatElementDate, parseDateOnly, toDateOnlyString } from '@/Function/shared/dateUtils';
 import { TypeMark, useTypeIcons } from '@/Function/shared/elementTypeIcon';
 
 interface ElementDetailViewProps {
@@ -142,7 +145,7 @@ interface ElementDetailViewProps {
 
 /** Dependencies can be followed from every detail host, including Inbox and Calendar. */
 /** A chip under the title, in the Label chips' form (listTable LabelChip). */
-const TITLE_CHIP = 'inline-flex h-6 items-center gap-1.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/70 px-2 text-[12px] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)] hover:text-foreground data-[state=open]:bg-[var(--surface-strong)]';
+const TITLE_CHIP = 'inline-flex h-[22px] items-center gap-1.5 rounded-full border border-[var(--border-default)] px-2 text-[12px] text-[var(--text-secondary)] transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-muted/50';
 
 export function ElementDetailView(props: ElementDetailViewProps) {
   const userId = useCurrentUserId();
@@ -231,15 +234,6 @@ function ElementDetailBody({
   );
   const [title, setTitle] = useState(element.title);
   const [description, setDescription] = useState(element.description || '');
-  // Auto-grow the title textarea so long titles wrap into multiple
-  // visible rows. We re-measure on value change.
-  const titleRef = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => {
-    const el = titleRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [title]);
   const { t } = useI18n();
   // A description put back from an unsaved draft is what the editor starts
   // from instead of the saved one; any change from outside clears it again.
@@ -263,23 +257,6 @@ function ElementDetailBody({
     setUnsavedRev((n) => n + 1);
   };
   const offeredDraft = pendingDraft(unsaved, { title: element.title, description: element.description || '' });
-
-  // Readers can resize independently of the viewport (sidebar or split pane).
-  useEffect(() => {
-    const fields = [titleRef.current].filter((el): el is HTMLTextAreaElement => !!el);
-    const widths = new WeakMap<Element, number>();
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        if (widths.get(entry.target) === entry.contentRect.width) continue;
-        widths.set(entry.target, entry.contentRect.width);
-        const field = entry.target as HTMLTextAreaElement;
-        field.style.height = 'auto';
-        field.style.height = `${field.scrollHeight}px`;
-      }
-    });
-    fields.forEach(field => observer.observe(field));
-    return () => observer.disconnect();
-  }, []);
 
   // Esc goes back to the list this Element was opened from — one level.
   // Anything open above the page (a picker, a field
@@ -378,6 +355,8 @@ function ElementDetailBody({
   // AI agent execution — Symphony-style autonomous run for this Element.
   // (The quick-start button was removed; the run still surfaces in comments.)
   const agent = useAgentRun(element.id);
+  // Whether Claude Code's dispatcher can take this Element (its Domain).
+  const claudeScope = useClaudeCodeScope(element.object_id);
   const aiWorkers = useMemo(() => allWorkers.filter((w) => w.type === 'ai_agent'), [allWorkers]);
   // Preselect the assigned AI only when it is one this Element can be handed to.
   const assignedAiWorkerId = useMemo(
@@ -456,7 +435,7 @@ function ElementDetailBody({
 
   // Active left tab
 
-  const currentStatus = STATUS[(element.status ?? 'todo') as keyof typeof STATUS] ?? STATUS.todo;
+  const statusName = useElementStatusName();
   const currentPriority = priorityOptions.find(p => p.priority === element.priority) || priorityOptions[2];
 
   // Sync with prop changes
@@ -661,371 +640,50 @@ function ElementDetailBody({
     }
   };
 
-  // The breadcrumb's root segment: the Domain name when there is one, or —
-  // for a Domain-less Home surface (Inbox, My Elements) — a plain
-  // back-chevron, so there is always a way back to wherever this Element
-  // was opened from. `onNavigateRoot` is required for exactly this reason:
-  // a Domain-less caller has no name to show, only somewhere to go back to.
-  const rootSegment = domainName ? (
-    <button
-      type="button"
-      onClick={onNavigateRoot}
-      className="px-1.5 py-0.5 rounded text-muted-foreground truncate max-w-[160px] transition-colors hover:text-foreground hover:bg-muted/40"
-    >
-      {domainName}
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={onNavigateRoot}
-      aria-label={t('Back')}
-      title={t('Back')}
-      className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
-    >
-      <ChevronLeft size={13} />
-    </button>
-  );
-
   return (
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card">
-      {/* Breadcrumb — data hierarchy only: Domain > Object > Element. */}
-      {/* pl-6 + the crumb's px-1.5: the path starts 30px in, as on every
-          island, and the page below starts under it. */}
-      <div className="gloss-bar flex h-12 flex-shrink-0 items-center gap-1 bg-card pl-6 pr-3">
-        <SidebarReveal />
-        <div className="flex items-center gap-1 min-w-0 text-[13px] font-medium">
-          {rootSegment}
-          <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
-          {objectPath?.map((seg) => (
-            <span key={seg.id} className="flex items-center gap-1 min-w-0">
-              <button
-                type="button"
-                onClick={() => onNavigateObject?.(seg.id)}
-                disabled={!onNavigateObject}
-                className="px-1.5 py-0.5 rounded-[5px] text-muted-foreground truncate max-w-[160px] transition-colors enabled:hover:text-foreground enabled:hover:bg-[var(--surface-strong)] disabled:cursor-default"
-              >
-                {seg.name}
-              </button>
-              <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
-            </span>
-          ))}
-          <span className="font-semibold text-foreground truncate max-w-[240px]">{element.title}</span>
-          {/* ⋯ actions for the lowest breadcrumb item (this Element):
-              duplicate / move / multi-home / delete. */}
-          <span className="inline-flex">
-            <ElementActionsMenu element={element} onRefresh={onRefresh} onDeleted={onBack}
-              onAddDependency={() => setDependencySignal((n) => n + 1)}
-              onOpenApproval={() => setApprovalSignal((n) => n + 1)}
-              onDelegateToAi={() => setDelegateOpen(true)} />
-          </span>
-          {/* Handing the Element to an AI is a modal dialog, opened
-              directly from the menu item (or ⌘K): focus is trapped by
-              the dialog, so the menu's focus hand-back cannot close it
-              in the frame it opens — the anchored-Popover handoff it
-              replaces could, which read as the item doing nothing. */}
-          <Dialog open={delegateOpen} onOpenChange={setDelegateOpen}>
-            <DialogContent className="max-w-[420px]">
-              <DialogHeader>
-                <DialogTitle>{t('Delegate to AI…')}</DialogTitle>
-              </DialogHeader>
-              <DelegateToAiForm aiWorkers={aiWorkers}
-                defaultWorkerId={rerunWorkerId(agent.run?.worker_id)}
-                defaultPrompt={previousPrompt}
-                busy={agentBusy} starting={agent.starting} error={agent.error ?? null}
-                onStart={({ workerId, prompt, planMode }) => agent.start({ workerId, prompt, planMode, triggeredFrom: 'detail', domainId })}
-                onViewRun={() => setDelegateOpen(false)}
-                onStarted={() => setDelegateOpen(false)} />
-            </DialogContent>
-          </Dialog>
-          <FollowButton kind="element" id={element.id} />
-        </div>
-        <div className="flex-1" />
-      </div>
+      {/* The path from the top — Domain › Object › this Element — with its
+          "⋯" (duplicate / move / multi-home / delete) and follow star. Without a
+          Domain (Inbox, My Elements) the root is a back-chevron, so there
+          is always a way back to where this Element was opened from. */}
+      <IslandHeader crumbs={[
+        domainName
+          ? { id: 'domain', label: domainName, onClick: onNavigateRoot }
+          : { id: 'back', label: <ChevronLeft size={13} />, title: t('Back'), onClick: onNavigateRoot },
+        ...(objectPath ?? []).map((seg) => ({ id: seg.id, label: seg.name, onClick: onNavigateObject ? () => onNavigateObject(seg.id) : undefined })),
+        { id: element.id, label: element.title },
+      ]}
+        menu={<ElementActionsMenu element={element} onRefresh={onRefresh} onDeleted={onBack}
+          onAddDependency={() => setDependencySignal((n) => n + 1)}
+          onOpenApproval={() => setApprovalSignal((n) => n + 1)}
+          onDelegateToAi={() => setDelegateOpen(true)}
+          extra={<SectionMenuItems page="element" sections={[{ id: 'element-artifacts', label: t('Artifacts') }]} />} />}
+        follow={{ kind: 'element', id: element.id }} />
+      {/* Handing the Element to an AI is a modal dialog, opened
+          directly from the menu item (or ⌘K): focus is trapped by
+          the dialog, so the menu's focus hand-back cannot close it
+          in the frame it opens — the anchored-Popover handoff it
+          replaces could, which read as the item doing nothing. */}
+      <Dialog open={delegateOpen} onOpenChange={setDelegateOpen}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>{t('Delegate to AI…')}</DialogTitle>
+          </DialogHeader>
+          <DelegateToAiForm aiWorkers={aiWorkers}
+            defaultWorkerId={rerunWorkerId(agent.run?.worker_id)}
+            defaultPrompt={previousPrompt}
+            busy={agentBusy} starting={agent.starting} error={agent.error ?? null}
+            onStart={({ workerId, prompt, planMode }) => agent.start({ workerId, prompt, planMode, triggeredFrom: 'detail', domainId })}
+            onViewRun={() => setDelegateOpen(false)}
+            onStarted={() => setDelegateOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Scrollable body — Linear-style two-column layout */}
       <div className="flex-1 overflow-auto">
-        <div className={layout === 'reader' ? "mx-auto w-full max-w-4xl px-6 py-5 flex flex-col gap-5" : `${PAGE_FRAME} flex gap-8`}>
-          <div className={layout === 'reader' ? "flex-1 min-w-0 flex flex-col gap-5" : "flex-1 min-w-0 flex flex-col gap-8"}>
-
-          {/* Title & description. An Element's page opens on its title: no icon above it. */}
-          <div>
-            <div className="flex items-start gap-2 mb-3">
-              {/* Auto-grow textarea so long titles wrap to multiple
-                  lines instead of being clipped. Enter and Escape both
-                  save (via blur) — the title autosaves, so Escape ends the
-                  edit rather than discarding it (Cmd+Z undoes while
-                  typing); Shift+Enter inserts a newline. Escape is
-                  consumed here, so the page's own Escape (back to the
-                  list) is the next press.
-                  NOTE: the global base resets typed content (input /
-                  textarea / contenteditable) to font-weight 400, which
-                  beats a `font-semibold` utility — so the heading's
-                  semibold weight is forced inline. */}
-              <textarea
-                ref={titleRef}
-                value={title}
-                rows={1}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => { void handleTitleSave(); }}
-                onKeyDown={(e) => {
-                  if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                  }
-                }}
-                className={`bg-transparent border-none focus:outline-none flex-1 min-w-0 resize-none overflow-hidden ${PAGE_TITLE}`}
-                style={PAGE_TITLE_WEIGHT}
-                placeholder={t('Element title')}
-              />
-            </div>
-            <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
-            {layout === 'reader' && <div className="mb-4 flex flex-wrap items-center gap-1.5">
-              {/* High-density inline metadata bar: Status · Priority · Assignee · Due date · Object */}
-              <StatusPicker element={element} onChanged={handleStatusChange} trigger={
-                <button type="button" className={TITLE_CHIP}><ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={12} />{t(currentStatus.label)}</button>
-              } />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.85]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {priorityOptions.map(opt => <DropdownMenuItem key={opt.priority} onClick={() => handlePriorityChange(opt.priority)} className="gap-2"><PriorityMark priority={opt.priority} />{t(opt.label)}</DropdownMenuItem>)}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className={TITLE_CHIP}>
-                    {element.assignees?.length
-                      ? <><WorkerAvatarStack workers={element.assignees.map(a => a.worker)} size={14} /><span className="max-w-[120px] truncate">{element.assignees.map(a => a.worker?.name || '?').join(', ')}</span></>
-                      : <><User className="size-3 text-muted-foreground" /><span>{t('Assign')}</span></>}
-                  </button>
-                </DropdownMenuTrigger>
-                <AssigneeMenuContent
-                  align="start"
-                  className="w-48"
-                  assignees={element.assignees}
-                  workers={allWorkers}
-                  element={element}
-                  onAdd={handleAddAssignee}
-                  onRemove={handleRemoveAssignee}
-                />
-              </DropdownMenu>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button type="button" className={TITLE_CHIP}>
-                    <Calendar className="size-3 text-muted-foreground" />
-                    <span className="tabular-nums">
-                      {element.start_date || element.due_date
-                        ? `${formatElementDate(element.start_date) ?? '—'} → ${formatElementDate(element.due_date) ?? '—'}`
-                        : t('Date')}
-                    </span>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-auto p-0">
-                  <DateCalendar
-                    mode="range"
-                    numberOfMonths={1}
-                    captionLayout="dropdown"
-                    startMonth={new Date(2020, 0)}
-                    endMonth={new Date(2035, 11)}
-                    defaultMonth={parseDateOnly(element.start_date) ?? parseDateOnly(element.due_date)}
-                    selected={{
-                      from: parseDateOnly(element.start_date),
-                      to: parseDateOnly(element.due_date),
-                    }}
-                    onSelect={(range: DateRange | undefined) => {
-                      handleDateChange('start_date', range?.from ? toDateOnlyString(range.from) : '');
-                      handleDateChange('due_date', range?.to ? toDateOnlyString(range.to) : '');
-                    }}
-                    weekStartsOn={weekStartsOn}
-                  />
-                </PopoverContent>
-              </Popover>
-              {element.labels && element.labels.length > 0 && element.labels.slice(0, 3).map(l => (
-                <span key={l} className="inline-flex h-6 items-center gap-1.5 rounded-[6px] bg-[var(--surface-muted)] px-2 text-[11.5px] text-[var(--text-secondary)]">
-                  <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: labelColor(l) }} />
-                  <span className="max-w-[100px] truncate">{l}</span>
-                </span>
-              ))}
-            </div>}
-            {/* Read and edited in one place: the Markdown is shown formatted and
-                typed into as it is shown, so a click never swaps it for its
-                source. Saved as Markdown when the editor is left. */}
-            {offeredDraft && (
-              <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <span className="mr-auto text-[13px]">{t(offeredDraft.description !== undefined
-                  ? 'This Element has a description that was not saved.'
-                  : 'This Element has a title that was not saved.')}{offeredDraft.changedSince && ` ${t('It has been changed since. Saving yours replaces that change.')}`}</span>
-                {offeredDraft.changedSince && (
-                  <div className={`w-full max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background px-2 py-1.5 ${FONT.sm}`}>
-                    {offeredDraft.title !== undefined && <p className="font-medium">{offeredDraft.title}</p>}
-                    {offeredDraft.description !== undefined && <p>{offeredDraft.description}</p>}
-                  </div>
-                )}
-                <Button variant="primary" size="sm" onClick={restoreUnsaved}>{t('Restore and save')}</Button>
-                <Button variant="ghost" size="sm" onClick={() => forgetUnsaved()}>{t('Discard')}</Button>
-              </div>
-            )}
-            <DescriptionEditor key={element.id} value={restoredDescription ?? element.description ?? ''}
-              placeholder={t('Add description…')}
-              onChange={setDescription}
-              onSave={(next) => handleDescriptionSave(next)} />
-          </div>
-
-          {/* One row under the description, as Linear keeps a single line
-              under an issue: reactions, attaching a file, the "…" of other
-              attachments and (once on) the approval state, as quiet icons.
-              Dependencies and turning approval on are in the Element's "…"
-              menu. Below, each section takes the full width with its own
-              heading — attached files, Sub-elements (always), then
-              Dependencies — so the read order is the breakdown → what it
-              waits on. */}
-          <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-          <ButtonAppearanceProvider appearance="inline">
-          <div className="flex items-center gap-0.5">
-            {/* Reactions on this Element: the smile opens the palette; the chips end the row. */}
-            <ReactionPicker onToggle={(e) => void handleEmojiPick(e)} />
-
-            {/* Attach a file from this computer — it lists under the row and
-                opens through a short-lived link (attachments). */}
-            <AttachButton owner={{ kind: 'element', id: element.id }}
-              className="inline-flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors disabled:opacity-50" />
-
-            {/* More to attach, kept off the page until chosen: a Note
-                (Document), a new deck (Slide). */}
-            <div className="relative">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors data-[state=open]:bg-muted data-[state=open]:text-foreground"
-                    title={t('More')}
-                    aria-label={t('More')}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[200px]">
-                  {!element.note_id && (
-                    <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                      <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                    <NavSlidesIcon size={15} />{t('Slide')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <NotePicker
-                open={notePickerOpen}
-                onClose={() => setNotePickerOpen(false)}
-                onPick={handlePickNote}
-                anchorClassName="absolute top-full left-0 mt-1"
-              />
-            </div>
-
-            {/* Approval — turned on from the "…" menu; once on, its state
-                icon here opens the panel to record a decision (Approve /
-                Request changes / Reject). */}
-            <ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />
-
-            <ReactionChips reactions={reactions} userId={user?.id ?? null} onToggle={(e) => void handleEmojiPick(e)} />
-
-          </div>
-          </ButtonAppearanceProvider>
-          {/* Attached files, and the trash under them. */}
-          <AttachmentList owner={{ kind: 'element', id: element.id }}
-            actions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)} />
-
-          {/* Sub-elements — Elements under this one, each with its own page. */}
-          <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
-
-          </div>
-
-          <CodeChangesSection elementId={element.id} />
-
-          <AgentRunPanel
-            agent={agent}
-            onRunAgain={() => void agent.start({ workerId: rerunWorkerId(agent.run?.worker_id), triggeredFrom: 'detail', domainId })}
-          />
-          {checkInOpen && <CheckInDialog element={element} onClose={() => setCheckInOpen(false)}
-            onSaved={() => { setCheckInOpen(false); onRefresh?.(); }} />}
-
-          {/* Linked Note — embedded inline once chosen. */}
-          {element.note_id && (
-            <LinkedNoteEmbed
-              noteId={element.note_id}
-              onUnlink={handleUnlinkNote}
-            />
-          )}
-
-          {/* Linked Elements */}
-          {(edges.incoming.length > 0 || edges.outgoing.length > 0) && (
-            <PageSection title={t('Linked Elements')}>
-              <div>
-                {edges.outgoing.map(edge => (
-                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
-                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
-                    <span className="shrink-0 text-[12px] text-muted-foreground">{edge.edge_type.replace('_', ' ')}</span>
-                  </div>
-                ))}
-                {edges.incoming.map(edge => (
-                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
-                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
-                    <span className="shrink-0 text-[12px] text-muted-foreground">{t('{relation} this', { relation: edge.edge_type.replace('_', ' ') })}</span>
-                  </div>
-                ))}
-              </div>
-            </PageSection>
-          )}
-
-          {layout === 'reader' && <section className="space-y-3" aria-label={t('Activity')}>
-            <h2 className={`${FONT.lg} text-foreground`}>{t('Activity')}</h2>
-            <ActivityFeed entries={activityLog} compact />
-          </section>}
-
-          {/* The reader keeps changes next to their discussion. */}
-          <div>
-            {/* Comments and shared updates are one thread: a plain comment
-                sends with the button, an update from its ▾. */}
-            <div className="mb-4 flex items-center gap-2">
-              <h2 className={`${FONT.lg} text-foreground`}>{t('Updates')}</h2>
-            </div>
-            <ElementCommentsPanel
-              key={`comments-${element.id}`}
-              sendOptions={[{ label: t('Share an update'), onSelect: () => setCheckInOpen(true) }]}
-              refreshKey={agent.run ? `${agent.run.id}:${agent.run.status}:${agent.run.step_count}` : null}
-              elementId={element.id}
-              workers={allWorkers}
-              focusCommentId={focusCommentId}
-              waitingOnAnswer={element.status === 'blocked'}
-              onAskAgent={async ({ prompt, commentId, workerId }) => {
-                // Named, else the AI that last worked it, else the assigned one.
-                const id = workerId ?? rerunWorkerId(agent.run?.worker_id);
-                // An AI that works in Claude Code is not run here: the Element
-                // is handed to it, and it reads the comment when it picks it up.
-                const worker = aiWorkers.find((w) => w.id === id);
-                if (worker && runsInClaudeCode(worker.ai_config)) {
-                  try {
-                    await updateElement(element.id, { labels: handOverLabels(element.labels), status: element.status === 'in_progress' ? 'in_progress' : 'todo' });
-                    onRefresh?.();
-                    return 'handed';
-                  } catch {
-                    return 'failed';
-                  }
-                }
-                return agent.start({ mode: 'reply', prompt, replyTo: commentId, workerId: id, triggeredFrom: 'comment', domainId });
-              }}
-            />
-          </div>
-
-          {/* Bottom spacer */}
-          <div className="h-8" />
-          </div>
-
-          {/* Right rail — islands (RailCard): each group a raised card with a
-              quiet heading. Rows hover-highlight and open inline pickers. */}
-          <aside className={layout === 'reader' ? "w-full space-y-4" : "w-72 shrink-0 hidden lg:block space-y-4"}>
+        {/* Right rail — islands (RailCard): each group a raised card with a
+            quiet heading. Rows hover-highlight and open inline pickers. */}
+        <DetailPage reader={layout === 'reader'} rail={<>
             {/* What this Element is standing on — the decisions and
                 assumptions the Strategy bound to it. Above Properties for the
                 same reason Strategy intent sits above them on an Object: why
@@ -1088,9 +746,9 @@ function ElementDetailBody({
                 trigger={
                   <button className="w-full">
                     <RailRow
-                      icon={<ElementProgressMark status={element.status} progress={getElementProgress(element, customColumns)} size={14} />}
+                      icon={<ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={14} />}
                       name={t('Status')}
-                      label={t(currentStatus.label)}
+                      label={statusName(element)}
                       dense
                     />
                   </button>
@@ -1325,13 +983,178 @@ function ElementDetailBody({
             {/* Activity — moved off the main column. Lives in the rail
                 as its own island so the body stays focused on title /
                 description / sub-elements / comments. */}
-            {layout !== 'reader' && <RailCard title={activityLog.length ? t('Activity · {n}', { n: activityLog.length }) : t('Activity')} padded>
+            {layout !== 'reader' && <RailCard title={t('History')} padded>
               <ActivityFeed entries={activityLog} compact />
             </RailCard>}
             {/* The standalone "Objects" island was folded into the top of the
                 Properties island (membership reads as the first property). */}
-          </aside>
-        </div>
+        </>} head={
+          /* Title & description. An Element's page opens on its title: no icon above it. */
+          <div>
+            <div className="mb-3">
+              <PageTitleField value={title} onChange={setTitle} onCommit={() => { void handleTitleSave(); }}
+                label={t('Element title')} placeholder={t('Element title')} />
+            </div>
+            <ApprovalRequestBanner element={element} onRefresh={onRefresh} />
+            {layout === 'reader' && <div className="mb-5 flex flex-wrap items-center gap-2">
+              {/* Status and Priority as chips, in the Label chips' own form. */}
+              <StatusPicker element={element} onChanged={handleStatusChange} trigger={
+                <button type="button" className={TITLE_CHIP}><ElementStatusMark status={element.status} statusId={element.status_id} progress={getElementProgress(element, customColumns)} size={11} />{statusName(element)}</button>
+              } />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild><button type="button" className={TITLE_CHIP}><span className="flex shrink-0 scale-[0.8]"><PriorityMark priority={element.priority} /></span>{t(currentPriority.label)}</button></DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {priorityOptions.map(opt => <DropdownMenuItem key={opt.priority} onClick={() => handlePriorityChange(opt.priority)} className="gap-2"><PriorityMark priority={opt.priority} />{t(opt.label)}</DropdownMenuItem>)}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>}
+            {/* Read and edited in one place: the Markdown is shown formatted and
+                typed into as it is shown, so a click never swaps it for its
+                source. Saved as Markdown when the editor is left. */}
+            {offeredDraft && (
+              <div role="alert" className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                <span className="mr-auto text-[13px]">{t(offeredDraft.description !== undefined
+                  ? 'This Element has a description that was not saved.'
+                  : 'This Element has a title that was not saved.')}{offeredDraft.changedSince && ` ${t('It has been changed since. Saving yours replaces that change.')}`}</span>
+                {offeredDraft.changedSince && (
+                  <div className={`w-full max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background px-2 py-1.5 ${FONT.sm}`}>
+                    {offeredDraft.title !== undefined && <p className="font-medium">{offeredDraft.title}</p>}
+                    {offeredDraft.description !== undefined && <p>{offeredDraft.description}</p>}
+                  </div>
+                )}
+                <Button variant="primary" size="sm" onClick={restoreUnsaved}>{t('Restore and save')}</Button>
+                <Button variant="ghost" size="sm" onClick={() => forgetUnsaved()}>{t('Discard')}</Button>
+              </div>
+            )}
+            <DescriptionEditor key={element.id} value={restoredDescription ?? element.description ?? ''}
+              placeholder={t('Describe this Element…')}
+              onChange={setDescription}
+              onSave={(next) => handleDescriptionSave(next)} />
+          </div>
+        } actions={<>
+          {/* One row under the description, as Linear keeps a single line
+              under an issue: reactions, attaching a file, the "…" of other
+              attachments and (once on) the approval state, as quiet icons.
+              Dependencies and turning approval on are in the Element's "…"
+              menu. Below, each section takes the full width with its own
+              heading — attached files, Sub-elements (always), then
+              Dependencies — so the read order is the breakdown → what it
+              waits on. */}
+          <PageActionRow reactions={reactions} userId={user?.id ?? null} onReact={(e) => void handleEmojiPick(e)}
+            filesOf={{ kind: 'element', id: element.id }}
+            attachmentActions={(f) => (canImport(f.name) ? <FileImportActions file={f} /> : undefined)}
+            moreItems={<>
+              {!element.note_id && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => { requestNewDeck(element.title); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            </>}
+            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)} onPick={handlePickNote}
+              anchorClassName="absolute top-full left-0 mt-1" />}
+            // Approval — turned on from the "…" menu; once on, its state
+            // icon here opens the panel to record a decision.
+            trailing={<ElementApprovalMenu element={element} onRefresh={onRefresh} openSignal={approvalSignal} />}>
+            {/* Sub-elements — Elements under this one, each with its own page. */}
+            <SubElementsSection element={element} onOpen={(id) => onOpenElement?.(id)} onAdded={(title) => log('subelement', `Added sub-element “${title}”`)} />
+          </PageActionRow>
+        </>}>
+          <ArtifactsSection subject={{ kind: 'element', id: element.id }} canAdd />
+
+          <CodeChangesSection elementId={element.id} />
+
+          <ClaudeCodeStatus element={element} scope={claudeScope} />
+
+          <AgentRunPanel
+            agent={agent}
+            onRunAgain={() => void agent.start({ workerId: rerunWorkerId(agent.run?.worker_id), triggeredFrom: 'detail', domainId })}
+          />
+          {checkInOpen && <CheckInDialog element={element} onClose={() => setCheckInOpen(false)}
+            onSaved={() => { setCheckInOpen(false); onRefresh?.(); }} />}
+
+          {/* Linked Note — embedded inline once chosen. */}
+          {element.note_id && (
+            <LinkedNoteEmbed
+              noteId={element.note_id}
+              onUnlink={handleUnlinkNote}
+            />
+          )}
+
+          {/* Linked Elements */}
+          {(edges.incoming.length > 0 || edges.outgoing.length > 0) && (
+            <PageSection title={t('Linked Elements')}>
+              <div>
+                {edges.outgoing.map(edge => (
+                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
+                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">{edge.edge_type.replace('_', ' ')}</span>
+                  </div>
+                ))}
+                {edges.incoming.map(edge => (
+                  <div key={edge.id} className="flex h-8 items-center gap-2.5 px-2 text-[13px]">
+                    <Link2 size={13} className="shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium text-foreground">{edge.related_element?.title || t('Unknown')}</span>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">{t('{relation} this', { relation: edge.edge_type.replace('_', ' ') })}</span>
+                  </div>
+                ))}
+              </div>
+            </PageSection>
+          )}
+
+          {layout === 'reader' && <section className="space-y-3" aria-label={t('History')}>
+            <h2 className={`${FONT.lg} text-foreground`}>{t('History')}</h2>
+            <ActivityFeed entries={activityLog} compact />
+          </section>}
+
+          {/* The reader keeps changes next to their discussion. */}
+          <div>
+            {/* Comments and shared updates are one thread: a plain comment
+                sends with the button, an update from its ▾. */}
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className={`${FONT.lg} text-foreground`}>{t('Updates')}</h2>
+            </div>
+            <ElementCommentsPanel
+              key={`comments-${element.id}`}
+              sendOptions={[{ label: t('Share an update'), onSelect: () => setCheckInOpen(true) }]}
+              refreshKey={agent.run ? `${agent.run.id}:${agent.run.status}:${agent.run.step_count}` : null}
+              elementId={element.id}
+              workers={allWorkers}
+              focusCommentId={focusCommentId}
+              waitingOnAnswer={element.status === 'blocked'}
+              notHandedMessage={claudeCodeBlockMessage(claudeScope, t)}
+              onAskAgent={async ({ prompt, commentId, workerId }) => {
+                // Named, else the AI that last worked it, else the assigned one.
+                const id = workerId ?? rerunWorkerId(agent.run?.worker_id);
+                // An AI that works in Claude Code is not run here: the Element
+                // is handed to it, and it reads the comment when it picks it up.
+                const worker = aiWorkers.find((w) => w.id === id);
+                if (worker && runsInClaudeCode(worker.ai_config)) {
+                  // Only hand over what the dispatcher will take; otherwise say why.
+                  if (claudeScope.loading || claudeScope.block) return 'not-handed';
+                  try {
+                    // The dispatcher starts Elements a Claude Code Worker is assigned to.
+                    if (!(element.assignees ?? []).some((a) => a.worker?.id === worker.id)) {
+                      await addElementAssignee({ element_id: element.id, worker_id: worker.id, role: 'assignee', worker });
+                    }
+                    await updateElement(element.id, { labels: handOverLabels(element.labels), status: element.status === 'in_progress' ? 'in_progress' : 'todo' });
+                    onRefresh?.();
+                    return 'handed';
+                  } catch {
+                    return 'failed';
+                  }
+                }
+                return agent.start({ mode: 'reply', prompt, replyTo: commentId, workerId: id, triggeredFrom: 'comment', domainId });
+              }}
+            />
+          </div>
+
+          {/* Bottom spacer */}
+          <div className="h-8" />
+        </DetailPage>
       </div>
 
     </div>
@@ -1411,7 +1234,7 @@ function TypePicker({
             >
               <TypeMark type={opt} icons={typeIcons} size={14} />
               <span className="flex-1 truncate">{opt}</span>
-              {value === opt && <Check size={12} className="text-muted-foreground shrink-0" />}
+              {value === opt && <MenuCheck />}
             </button>
           ))}
           {canCreate && (
@@ -1631,7 +1454,7 @@ function LabelAddButton({
                 >
                   <Tag size={12} className="shrink-0" style={{ color: labelColor(l) }} />
                   <span className="truncate flex-1">{l}</span>
-                  {isAssigned(l) && <Check size={12} className="text-foreground/70 shrink-0" />}
+                  {isAssigned(l) && <MenuCheck />}
                 </button>
               ))}
               {q && !exactExists && (
@@ -1656,65 +1479,3 @@ function LabelAddButton({
   );
 }
 
-// ============================================
-// Activity feed — tiny vertical timeline.
-// ============================================
-const ACTIVITY_ICON: Record<ActivityKind | 'created', React.ComponentType<{ size?: number; className?: string }>> = {
-  created:    Plus,
-  renamed:    Pencil,
-  description: Pencil,
-  direction:  Compass,
-  status:     Circle,
-  priority:   Flag,
-  assigned:   User,
-  unassigned: User,
-  due:        Calendar,
-  estimate:   Timer,
-  subelement: CheckCircle2,
-  note:       FileText,
-  comment:    MessageIcon,
-  moved:      FolderInput,
-  deleted:    Trash2,
-  restored:   RotateCcw,
-};
-
-function ActivityFeed({
-  entries, compact = false,
-}: {
-  entries: { id: string; kind: ActivityKind | 'created'; detail: string; author: string; createdAt: Date }[];
-  compact?: boolean;
-}) {
-  const { t } = useI18n();
-  if (entries.length === 0) {
-    return (
-      <p className={`text-muted-foreground ${compact ? 'text-center text-[12px] py-3' : 'text-[13px]'}`}>
-        {t('No activity yet')}
-      </p>
-    );
-  }
-  return (
-    <div className="relative pl-4">
-      <div className="absolute left-[10px] top-2 bottom-2 w-px bg-border" />
-      <div className={compact ? 'space-y-2' : 'space-y-3'}>
-        {entries.map((entry) => {
-          const Icon = ACTIVITY_ICON[entry.kind] ?? History;
-          return (
-            <div key={entry.id} className="relative flex items-start gap-2">
-              <span className={`absolute -left-4 ${compact ? 'top-0' : 'top-0.5'} w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center`}>
-                <Icon size={10} className="text-muted-foreground" />
-              </span>
-              <div className="flex-1 min-w-0 pl-4">
-                <p className={compact ? 'text-[11.5px] leading-tight text-foreground/90' : 'text-[12.5px] text-foreground/90'}>
-                  <span className="text-foreground/80">{entry.detail}</span>
-                </p>
-                <span className={compact ? 'text-[10px] text-muted-foreground' : 'text-[10.5px] text-muted-foreground'}>
-                  {entry.author} · {formatAge(entry.createdAt, true)}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

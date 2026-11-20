@@ -36,10 +36,10 @@ import { IntentPanel } from './IntentPanel';
 // be opened from the toolbar), and split falls back to unified when the diff
 // is too narrow for two columns of code.
 
-const LAYOUT_KEY = 'alcon.codeReview.layout';
-const PANELS_KEY = 'alcon.codeReview.panels';
+const LAYOUT_KEY = 'clayware.codeReview.layout';
+const PANELS_KEY = 'clayware.codeReview.panels';
 /** Files a viewer marked reviewed, per change: path → the head commit it was marked on. */
-const reviewedKey = (changeId: string) => `alcon.codeReview.reviewed.${changeId}`;
+const reviewedKey = (changeId: string) => `clayware.codeReview.reviewed.${changeId}`;
 
 function readReviewed(changeId: string): Record<string, string> {
   try {
@@ -76,7 +76,7 @@ function useWidth<T extends HTMLElement>(): [(el: T | null) => void, number] {
   }, []);
   return [ref, width];
 }
-const MERGE_KEY = 'alcon.codeReview.mergeMethod';
+const MERGE_KEY = 'clayware.codeReview.mergeMethod';
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 type Mode = 'guided' | 'files';
@@ -532,7 +532,7 @@ function FileList({ paths, focused, cited, isReviewed, onOpen }: {
                 <FileCode2 size={12} className="shrink-0 text-muted-foreground" />
                 <span className="shrink-0 text-foreground">{name}</span>
                 <span className="min-w-0 truncate text-muted-foreground">{dir}</span>
-                {cited.has(path) && <span className="ml-auto size-1.5 shrink-0 rounded-full bg-[var(--accent-default)]" />}
+                {cited.has(path) && <span role="img" aria-label={t('Cited in the review')} title={t('Cited in the review')} className="ml-auto size-1.5 shrink-0 rounded-full bg-[var(--accent-default)]" />}
               </button>
             </li>
           );

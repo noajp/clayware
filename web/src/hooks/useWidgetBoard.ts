@@ -83,7 +83,7 @@ async function persistEdit(target: BoardTarget, defaults: BoardLayout, edit: Boa
       p_zone: edit.zone,
       p_position: positionBetween(items[index - 1]?.position, items[index]?.position),
       p_size: def.defaultSize ?? null,
-      p_params: def.normalizeParams?.(undefined) ?? {},
+      p_params: def.normalizeParams?.(edit.params) ?? {},
       p_singleton: !!def.singleton,
     }));
     return;

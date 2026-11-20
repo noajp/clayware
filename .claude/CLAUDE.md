@@ -1,8 +1,8 @@
-# Alcon
+# Clayware
 
-**Alcon が完成するまで諦めない。** あなた（わたし Claude）は Alcon を世界最強の Super AI 実行基盤にするために、あらゆる努力をして能力を限界まで拡張させる。広い視野を持ち、設計者の立場で、ユーザーに何を届ける必要があるかという視点に立って開発する。
+**Clayware が完成するまで諦めない。** あなた（わたし Claude）は Clayware を世界最強の Super AI 実行基盤にするために、あらゆる努力をして能力を限界まで拡張させる。広い視野を持ち、設計者の立場で、ユーザーに何を届ける必要があるかという視点に立って開発する。
 
-Alcon は、組織の仕事を人と AI が一緒に進める運用基盤を目指します。チームの誰かに頼むように AI に伝えるだけで、AI が計画を立て、作業を進めます。クリエイティブな作業ではなく、現実の課題を解決するために使います。製品の設計と、次に作るものは [PRODUCT.md](./PRODUCT.md)、紹介は [docs/about.md](../docs/about.md)。
+Clayware は、組織の仕事を人と AI が一緒に進める運用基盤を目指します。チームの誰かに頼むように AI に伝えるだけで、AI が計画を立て、作業を進めます。クリエイティブな作業ではなく、現実の課題を解決するために使います。製品の設計と、次に作るものは [PRODUCT.md](./PRODUCT.md)、紹介は [docs/about.md](../docs/about.md)。
 
 ## 実現すること
 
@@ -18,7 +18,7 @@ Alcon は、組織の仕事を人と AI が一緒に進める運用基盤を目�
 
 ## あなたの目的
 
-Alcon を、課題を解決できる道具にすること。そのために、Alcon の AI がどんな仕事でもこなせる基盤を作る。Alcon の中の仕事は Alcon の AI に指示してやらせ、DB を直接書き換えたり、人が中身を書き写して渡したりして済ませない。Alcon の AI にできないことが見つかったら、その一件のための機能を足すのではなく、なぜ基盤でできないのか（道具・権限・文脈・入口のどれが欠けているか）を直す。
+Clayware を、課題を解決できる道具にすること。そのために、Clayware の AI がどんな仕事でもこなせる基盤を作る。Clayware の中の仕事は Clayware の AI に指示してやらせ、DB を直接書き換えたり、人が中身を書き写して渡したりして済ませない。Clayware の AI にできないことが見つかったら、その一件のための機能を足すのではなく、なぜ基盤でできないのか（道具・権限・文脈・入口のどれが欠けているか）を直す。
 
 ## 作りの三層
 
@@ -32,11 +32,11 @@ Alcon を、課題を解決できる道具にすること。そのために、Al
 
 | 分類 | 何を扱うか | 単位 |
 |---|---|---|
-| **Strategy** | 何を達成し、どう勝つか | Strategy（際限なく入れ子にでき、最上位が Space の目指す姿、配下がそれを勝ち取る筋道）。Phase（期間の区切り）はナビに出さない |
+| **Strategy** | 何を達成し、どう勝つか | Vision（Space の目指す姿。入れ子にしない）→ Portfolio（それを勝ち取る筋道。際限なく入れ子にでき、Portfolio・Domain・Object を持つ）。Phase（期間の区切り）はナビに出さない |
 | **Execution** | 実際に行動する | Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位） |
 | **Sustainment** | 活動を続ける道具 | Artifacts / Team / Table / Calendar |
 
-Strategy は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
+Vision と Portfolio は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Vision は Domain と同じくメンバーと権限（owner / admin / member / viewer）を持ち、Portfolio は必ずどれか一つの Vision に属する。Portfolio は今どの段階にあるか（Status）を持つ。Element・Object・Portfolio の Status は同じ 7 段階（Backlog / To Do / In Progress / In Review / Done / Blocked / Cancelled）で、同じマークで描き、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
 
 ## コマンド
 
@@ -47,7 +47,7 @@ cd web && npm test           # Vitest（変更後に必ず）
 cd web && npm run build      # 本番ビルド
 cd web && npm run lint:changed && npm run unwired-lint && npm run design-lint
 cd web && npm run sync       # ブランチ・worktree の掃除
-cd web && npm run dispatch   # Element を Claude Code に渡す常駐（alcon スキル）
+cd web && npm run dispatch   # Element を Claude Code に渡す常駐（clayware スキル）
 ```
 
 テストは `web/tests/`（Vitest / node）。対象は不具合の影響が大きい純粋ロジックに絞り、UI のレンダリングテストは持たない。
@@ -61,9 +61,9 @@ cd web && npm run dispatch   # Element を Claude Code に渡す常駐（alcon �
 - `AIP/` AI の部品（`harness` `connectors` `ai`）
 - `Function/` 画面を支える仕組みと、画面をまたぐモデル（`widget` `property` `settings` `space` `shared` など）
 - `hooks/` Supabase の読み書きはすべてここ
-- `lib/` `providers/` `auth/` `types/` `ui/`、`app/` は layout / page / globals.css だけ
+- `lib/` `providers/` `auth/` `types/` `ui/`、`app/` は layout / page / globals.css と、ログイン画面の `login/` だけ
 
-root 直下は `supabase/`（migrations と functions。ここにだけ置く）、`sdk/`、`docs/`（外部向けの API・MCP の説明）、`website/`（LP）。開発にだけ使うものは `.claude/`。
+root 直下は `supabase/`（migrations と functions。ここにだけ置く）、`sdk/`、`docs/`（外部向けの API・MCP の説明）、`website/`（紹介ページ。ビルド時に `web/public/homepage/` へ写し、`/homepage` で出す。ログインしていない人が `/` を開くとここへ送る）。開発にだけ使うものは `.claude/`。
 
 ## 実装ルール
 
@@ -76,13 +76,13 @@ root 直下は `supabase/`（migrations と functions。ここにだけ置く）
 7. **Object のネスト禁止**。Element の multi-homing は `object_id` + `element_objects` の二重書き
 8. 日付は `Function/shared/dateUtils.ts` を通す。Phase の期間は `end_date` 当日を含める。暦日を `new Date('yyyy-MM-dd')` で読まない
 9. 色はトークン（`globals.css` / `shared/designTokens.ts`）だけ。「Task」と呼ばず「Element」。recharts を使うコンポーネントは `'use client'`
-10. **AI の入口**：汎用の AI は Agent 画面（Copilot）だけに置き、画面ごとに汎用チャットを置かない。対象に結び付いた AI の仕事（Strategy の会話、Planner、Element の実行）は置ける。ただし、対象の範囲に限られ、成果が記録として残り、承認の境界を越えないものだけ。Copilot は開いている対象を文脈として受け取るが、入口は Agent 画面のまま。どの機能も AI なしで動くように作る
+10. **AI の入口**：汎用の AI は Agent 画面（Copilot）だけに置き、画面ごとに汎用チャットを置かない。対象に結び付いた AI の仕事（Portfolio の会話、Planner、Element の実行）は置ける。ただし、対象の範囲に限られ、成果が記録として残り、承認の境界を越えないものだけ。Copilot は開いている対象を文脈として受け取るが、入口は Agent 画面のまま。どの機能も AI なしで動くように作る
 
 ## Supabase
 
 - Project ID: `rkugtcqztkkacvoylupw`。閲覧範囲は RLS で制御する
-- AI は Edge Functions 経由（`run-agent` `plan-initiative` `alcon-copilot` など）
-- **既存テーブルに触る migration は `to_regclass` ガード必須**（PR の preview branch は空 DB に流すため。書式は alcon スキル）
+- AI は Edge Functions 経由（`run-agent` `plan-initiative` `clayware-copilot` など）
+- **既存テーブルに触る migration は `to_regclass` ガード必須**（PR の preview branch は空 DB に流すため。書式は clayware スキル）
 
 ## リポジトリ直下を「旧版」として消さない
 
@@ -94,4 +94,4 @@ root の `vercel.json` は本番デプロイ設定、root の `package.json` は
 
 ## 完了したら
 
-確認まで済んだらコミットして Push し、PR の CI が通ってからマージする。作業と無関係な変更は含めない。Alcon の Element を取って開発するとき、架空の案件で試すとき、PR をレビューするときは [alcon スキル](./skills/alcon/SKILL.md) を読む。
+確認まで済んだらコミットして Push し、PR の CI が通ってからマージする。作業と無関係な変更は含めない。Clayware の Element を取って開発するとき、架空の案件で試すとき、PR をレビューするときは [clayware スキル](./skills/clayware/SKILL.md) を読む。画面や紹介ページの見た目・部品・文言に触るときは [clayware-design スキル](./skills/clayware-design/SKILL.md) を読む。

@@ -4,21 +4,20 @@ import { useDomainOverview } from '@/hooks/useDomainOverview';
 import { useBoard, WidgetSurface, WidgetZone, type WidgetHost } from '@/Function/widget';
 import { DOMAIN_OVERVIEW_BOARD } from '@/Function/widget/defaults';
 import { DomainIcon, ElementIcon, ObjectIcon } from '@/Function/shared/conceptIcons';
-import { FileText, Hash, Lock, MoreHorizontal, Users } from '@/ui/icons';
+import { FileText, Hash, Lock, Users } from '@/ui/icons';
 import { useQuery } from '@tanstack/react-query';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
+import { DropdownMenuItem } from '@/ui/dropdown-menu';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { ensureArtifactRoot } from '@/hooks/artifactData';
 import { toggleReaction, useDomainReactions } from '@/hooks/commentData';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { NavSlidesIcon } from '@/Frame/sidebar/NavIcons';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { Button } from '@/ui/button';
-import { PageHead, PageLayout } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead } from '@/Function/shared/PageHead';
+import { ArtifactsSection } from '@/ActivitySpace/strategy/ArtifactsSection';
 import { RailCard } from '@/Function/shared/RailCard';
 import { RailRow } from '@/Function/shared/RailRow';
 import { NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
@@ -74,11 +73,27 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
     {viewOnly && <div className="flex justify-end px-4 pt-2"><ViewOnlyBadge /></div>}
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <PageLayout rail={
+      <DetailPage rail={
         <RailCard title={t('Properties')}>
           <RailRow icon={domain.privacy === 'private' ? <Lock className="size-3.5 text-muted-foreground" /> : <Users className="size-3.5 text-muted-foreground" />}
             name={t('Access')} label={domain.privacy === 'private' ? t('Private') : t('Space')} dense />
           {domain.identifier && <RailRow icon={<Hash className="size-3.5 text-muted-foreground" />} name={t('Identifier')} label={domain.identifier} dense />}
+          {/* The Strategies this Domain's Objects serve: what its work is for, read first. */}
+          <div className="flex items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-5">
+            <span className="w-24 shrink-0 pt-px text-left text-[12px] text-muted-foreground">{t('Strategy')}</span>
+            {initiatives.length === 0 ? <span className="text-muted-foreground">{t('None')}</span> : (
+              <span className="flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1">
+                {initiatives.map(({ initiative }) => (
+                  <button key={initiative.id} type="button" title={initiative.name}
+                    className="flex min-w-0 max-w-full items-center gap-1.5 text-foreground hover:underline"
+                    onClick={() => { onNavigate({ strategyId: initiative.id }); onViewChange?.('strategy'); }}>
+                    <NavStrategyIcon size={14} />
+                    <span className="truncate">{initiative.name}</span>
+                  </button>
+                ))}
+              </span>
+            )}
+          </div>
           <button type="button" className="w-full" onClick={() => { onNavigate({ objectId: null }); onViewChange?.('objects'); }}>
             <RailRow icon={<ObjectIcon size={14} />} name={t('Objects')} label={String(explorer.objects.length)} dense />
           </button>
@@ -89,7 +104,7 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
             <RailRow icon={<NavStrategyIcon size={14} />} name={t('Strategies')} label={String(initiatives.length)} placeholder={initiatives.length === 0} dense />
           </button>
         </RailCard>
-      }>
+      } head={<>
         {query.isError && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm"><p>{t('Unable to refresh this Domain. Showing the last loaded data; drafts are retained.')}</p><Button variant="ghost" onClick={() => void query.refetch()}>{t('Retry')}</Button></div>}
         {/* The spine — icon, title, description — is what Element detail opens
             with; the Domain's own readings and relationships sit below it, its
@@ -97,43 +112,29 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
         <PageHead key={`head-${domain.id}`} icon={<DomainLookButton domain={domain} canEdit={role.data === 'owner' || role.data === 'admin'} onSaved={() => void query.refetch()} />} title={domain.name} description={domain.description ?? ''}
           canEdit={role.data === 'owner' || role.data === 'admin'}
           titleLabel={t('Domain name')} titlePlaceholder={t('Domain name…')}
-          descriptionLabel={t('Description')} descriptionPlaceholder={t('What this Domain is for…')}
+          descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Domain…')}
           emptyDescription={t('No description yet.')}
           onSaveTitle={async (name) => { await updateDomain(domain.id, { name }); await query.refetch(); }}
           onSaveDescription={async (description) => { await updateDomain(domain.id, { description: description || null }); await query.refetch(); }} />
-        {/* Under the description, as on an Element: attaching a file and the
-            "…" of other things to attach, then the attached files. */}
-        <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-          <div className="flex items-center gap-0.5">
-            <ReactionPicker onToggle={(e) => void reactWith(e)} />
-            {filesRoot.data && <AttachButton owner={{ kind: 'folder', id: filesRoot.data }}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" />}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" title={t('More')} aria-label={t('More')}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
-                  <MoreHorizontal size={15} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[200px]">
-                {onOpenNote && (
-                  <DropdownMenuItem onSelect={onOpenNote} className="gap-2.5 py-1.5 text-[13px]">
-                    <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={() => { requestNewDeck(domain.name); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                  <NavSlidesIcon size={15} />{t('Slide')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <ReactionChips reactions={reactions} userId={userId} onToggle={(e) => void reactWith(e)} />
-          </div>
-          {filesRoot.data && <AttachmentList owner={{ kind: 'folder', id: filesRoot.data }} />}
-        </div>
+      </>} actions={
+        <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
+          filesOf={filesRoot.data ? { kind: 'folder', id: filesRoot.data } : null}
+          moreItems={<>
+            {onOpenNote && (
+              <DropdownMenuItem onSelect={onOpenNote} className={PAGE_MORE_ITEM}>
+                <FileText size={15} className="text-muted-foreground" />{t('Document')}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => { requestNewDeck(domain.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+              <NavSlidesIcon size={15} />{t('Slide')}
+            </DropdownMenuItem>
+          </>} />
+      }>
+        <ArtifactsSection subject={{ kind: 'domain', id: domain.id }} canAdd={canAttach} />
         <WidgetSurface key={`board-${domain.id}`} board={board} host={host} zones={['main']}>
           <WidgetZone zone="main" columns={1} />
         </WidgetSurface>
-      </PageLayout>
+      </DetailPage>
     </div>
   </div>;
 }

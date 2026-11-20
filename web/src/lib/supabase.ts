@@ -19,6 +19,9 @@ const supabaseAnonKey =
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
+/** The project's base URL (where Edge Functions are served). */
+export const supabaseProjectUrl = supabaseUrl
+
 
 
 

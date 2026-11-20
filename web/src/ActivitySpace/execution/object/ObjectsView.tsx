@@ -6,12 +6,11 @@ import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 
 import React, { useEffect, useState } from 'react';
-import type { AlconObjectWithChildren, ElementWithDetails, ExplorerData, Worker } from '@/hooks/useSupabase';
+import type { ClaywareObjectWithChildren, ElementWithDetails, ExplorerData, Worker } from '@/hooks/useSupabase';
 import { updateObject, addDomainObjectType, fetchAllWorkers, useDomains } from '@/hooks/useSupabase';
 import { applyObjectFilter, orderObjects, DEFAULT_STATE, type ListControlsState } from '@/Function/shared/listControls';
 import { getActiveDomainId, CREATE_DOMAIN_EVENT } from '@/Function/space/domainsStore';
 import { hydrateLabelColors } from '@/Function/shared/labelColor';
-import { useElementSelection } from '@/ActivitySpace/execution/element/useElementSelection';
 import { EmptyState } from '@/Function/shared/EmptyState';
 import { ListTable } from '@/Function/shared/listTable/ListTable';
 import type { ListSection } from '@/Function/shared/listTable/shared';
@@ -19,7 +18,7 @@ import { ArchivedObjectsSection } from '@/ActivitySpace/execution/object/Archive
 
 // Objects are a flat list within the Domain.
 
-function findObjectById(objects: AlconObjectWithChildren[], objectId: string): AlconObjectWithChildren | null {
+function findObjectById(objects: ClaywareObjectWithChildren[], objectId: string): ClaywareObjectWithChildren | null {
   return objects.find(o => o.id === objectId) ?? null;
 }
 
@@ -28,7 +27,7 @@ function findObjectById(objects: AlconObjectWithChildren[], objectId: string): A
  *  Object it belongs to, so a plain flatMap counts it once per home — dedupe
  *  by id or the same row collides with itself (e.g. a duplicate React key
  *  in a status column that only groups by status, not by home). */
-export function collectAllElements(objects: AlconObjectWithChildren[]): ElementWithDetails[] {
+export function collectAllElements(objects: ClaywareObjectWithChildren[]): ElementWithDetails[] {
   const seen = new Set<string>();
   const out: ElementWithDetails[] = [];
   for (const el of objects.flatMap(o => o.elements ?? [])) {
@@ -39,7 +38,7 @@ export function collectAllElements(objects: AlconObjectWithChildren[]): ElementW
   return out;
 }
 
-export function findObjectInExplorerData(explorerData: ExplorerData, objectId: string): AlconObjectWithChildren | null {
+export function findObjectInExplorerData(explorerData: ExplorerData, objectId: string): ClaywareObjectWithChildren | null {
   return findObjectById(explorerData.objects, objectId);
 }
 
@@ -57,10 +56,6 @@ export function ObjListView({
   const explorerData = useExplorerData();
   const objects = explorerData.objects;
   const domainId = getActiveDomainId();
-  // Reuse the element-selection hook for Objects too — the logic is just
-  // id-based multi-select with Shift-range and Esc-to-clear, doesn't care
-  // whether the ids belong to Elements or Objects.
-  const { selectedRowIds: selectedObjectIds, handleRowSelect: handleObjectRowSelect } = useElementSelection();
   const { data: domains, guestDomains, loading: domainsLoading } = useDomains();
   // An Object needs a Domain to live in, so a Space without one asks for that first.
   const noDomains = !domainsLoading && domains.length === 0 && guestDomains.length === 0;
@@ -132,8 +127,6 @@ export function ObjListView({
             }
           }}
           objectWorkers={leadWorkers}
-          selectedObjectIds={selectedObjectIds}
-          onObjectRowSelect={handleObjectRowSelect}
         />
         <ArchivedObjectsSection domainId={domainId} onOpen={onSelect} />
       </div>

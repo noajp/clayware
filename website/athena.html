@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Athena AI | Clayware</title>
+<meta name="description" content="Athena gathers what’s going on, plans, researches, records and drafts. Decisions and approvals stay with people.">
+<meta property="og:title" content="Athena AI | Clayware">
+<meta property="og:description" content="Athena gathers what’s going on, plans, researches, records and drafts. Decisions and approvals stay with people.">
+<script>
+document.documentElement.classList.add('js');
+try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-mode',m)}catch(e){}
+</script>
+<link rel="preload" href="assets/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/Geist-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+<link rel="alternate" hreflang="ja" href="ja/athena.html">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="container nav__bar">
+    <a href="index.html" class="wordmark" aria-label="Clayware home">Clayware</a>
+    <nav class="menu" id="menu" aria-label="Main">
+      <div class="dd">
+        <a class="menu__link dd__link" href="product.html" aria-haspopup="true" aria-current="page">Product</a>
+        <div class="mega">
+          <div class="mega__panel">
+            <div class="mega__grid"><a class="mega__item" href="channels.html"><b>Multichannel integration</b><span>Mail, chat, apps and your own systems, joined by API in one place</span></a><a class="mega__item" href="strategy.html"><b>From goals to execution</b><span>Set the goal in Strategy, then follow each Element through to done</span></a><a class="mega__item" href="athena.html" aria-current="page"><b>Athena AI</b><span>Gathers what’s happening into Elements and checks it against Strategy</span></a><a class="mega__item" href="timeline.html"><b>Timeline</b><span>Deadlines and dependencies on one schedule, with collisions in red</span></a></div>
+          </div>
+        </div>
+      </div>
+      <a class="menu__link" href="change.html">Change management</a>
+      <a class="menu__link" href="education.html">Education</a>
+      <a class="menu__link" href="pricing.html">Pricing</a>
+      <a class="menu__link" href="#contact">Contact</a>
+    </nav>
+    <div class="nav__end">
+      <div class="prefs" role="group" aria-label="Display">
+        <a href="ja/athena.html" class="prefs__lang" hreflang="ja" aria-label="日本語に切り替える"><span class="on" aria-hidden="true">EN</span><span aria-hidden="true">JA</span></a>
+        <span class="prefs__sep" aria-hidden="true"></span>
+        <button type="button" class="prefs__mode" id="theme" aria-label="Switch between dark and light">
+          <svg class="mode-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="mode-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+      <a href="/login" class="btn btn--small btn--pill">Log in</a>
+      <button type="button" class="icon-btn burger" id="burger" aria-label="Open menu" aria-controls="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="phero" aria-labelledby="athena-title">
+  <div class="container">
+    <h1 id="athena-title">Athena is the AI built into Clayware. It takes requests and does the research, record-keeping and drafting.</h1>
+    <p class="lead">Write what you need the way you’d ask a teammate. Athena plans, searches the web, records in tables and drafts documents. Judgment and approval are done by people.</p>
+  </div>
+</section>
+
+<section class="section section--flush" aria-label="What Athena does">
+  <div class="container">
+    <figure class="run" role="img" aria-label="An example request to Athena and how it went">
+      <div class="run__ask"><span class="run__who">You</span><p>Look up next week’s trade show exhibitors, put the ones that compete with us in a table, and draft a hello to the ones worth meeting.</p></div>
+      <div class="run__body"><span class="run__who run__who--ai"><span class="core__dot"></span>Athena</span><ol><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>Gathered the exhibitor list</b><span>Source: the trade show’s official site</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>Put the competitors in a table</b><span>Each row has its source and when it was read</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>Drafted hello emails</b><span>Nothing has been sent</span></li><li class="run__step run__step--wait"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 4.5V8l2.2 1.4"/></svg><b>Waiting on whether to send</b><span>Sending mail waits for a person’s approval</span></li></ol></div>
+      <figcaption class="run__cap">An example of a request and how it is shown as it goes.</figcaption>
+    </figure><dl class="facts"><div><dt>Searches the web</dt><dd>Gathers what’s needed from the web. Each claim carries its source and when it was read; what couldn’t be confirmed is listed separately.</dd></div><div><dt>Records in tables</dt><dd>Customers, candidates and inquiries are recorded as rows in a table.</dd></div><div><dt>Writes documents</dt><dd>Drafts reports and replies to mail.</dd></div><div><dt>Operates a browser</dt><dd>On a registered computer, it also opens a browser and fills in forms.</dd></div><div><dt>Splits it into work</dt><dd>Creates Elements for the work to be done from what it gathered.</dd></div><div><dt>Checks against the goal</dt><dd>Checks whether the work in progress fits the Strategy’s success criteria.</dd></div></dl>
+  </div>
+</section>
+
+<section class="section" id="split" aria-labelledby="split-title">
+  <div class="container">
+    <div class="head"><h2 id="split-title">What AI does and what people decide</h2><p class="lead">Research, drafting, totals and analysis are done by Athena. Judgment, approval and commitments to people outside are done by people.</p></div><table class="index"><thead><tr><th scope="col">Work</th><th scope="col">What Athena does</th><th scope="col">What a person decides</th></tr></thead><tbody><tr><td>Inquiries</td><td>Classifies each inquiry, records it in a table and drafts a reply</td><td>Whether to send the reply</td></tr><tr><td>Morning summary</td><td>Totals the previous day and lists open and high-risk items first</td><td>Which to handle first</td></tr><tr><td>Complaint analysis</td><td>Classifies causes and proposes improvements</td><td>Which proposal to adopt</td></tr><tr><td>Sales follow-up</td><td>Drafts the message after a meeting</td><td>What to send</td></tr><tr><td>Development</td><td>Changes code in an isolated environment and opens a pull request after the tests pass</td><td>Whether to merge</td></tr></tbody></table>
+  </div>
+</section>
+
+<section class="section" id="harness" aria-labelledby="harness-title">
+  <div class="container">
+    <div class="head"><h2 id="harness-title">Defining how the work is done (harness)</h2><p class="lead">Athena follows a harness written for each kind of work.</p></div><table class="index"><thead><tr><th scope="col">What it holds</th><th scope="col">Contents</th></tr></thead><tbody><tr><td>When to use it</td><td>A name, a one-line description, when to use it and when not to</td></tr><tr><td>Inputs</td><td>The inputs needed and their form. It does not run until they are all there</td></tr><tr><td>Steps</td><td>The order of operations and the branches. Conditions checked by machine are written apart from the points left to AI’s judgment</td></tr><tr><td>Rules</td><td>Allowed operations, how reads and writes are treated, what needs approval, limits on counts, allowed recipients, how owners are chosen</td></tr><tr><td>Done and failure</td><td>What counts as done, what must not be done, and what to do on failure</td></tr></tbody><caption>A harness is checked when it is saved. Ready-made harnesses: inquiry intake and routing, the morning inquiry summary, complaint analysis and improvement proposals, sales follow-up.</caption></table>
+  </div>
+</section>
+
+<section class="section" id="runs" aria-labelledby="runs-title">
+  <div class="container">
+    <div class="head"><h2 id="runs-title">Work continues while the app is closed</h2></div><ol class="flow" aria-label="Work that continues with the app closed"><li><b>Starts on its own</b><span>At a set time, or on a notice from outside (webhook)</span></li><li><b>With the starter’s permissions</b><span>Reads and writes only what the person who started it can see</span></li><li><b>Resumes where it stopped</b><span>If it stops for an approval or a time limit, it continues from the last record</span></li><li class="you"><b>Asks a person when information is missing</b><span>Puts a question with choices in the Inbox and resumes when it is answered</span></li></ol>
+  </div>
+</section>
+
+<section class="section" id="safety" aria-labelledby="safety-title">
+  <div class="container">
+    <div class="head"><h2 id="safety-title">How AI is used safely</h2></div><dl class="facts"><div><dt>Only what was approved runs</dt><dd>Approval is bound to the exact input that runs. AI cannot approve its own work.</dd></div><div><dt>A second AI checks</dt><dd>A result is checked by AI in a separate context before it counts as done. What couldn’t be checked is marked unverified.</dd></div><div><dt>It stops on its own</dt><dd>Bursts of writes to the same target, rising errors, or a first send to a new recipient stop the run and pass it to a person.</dd></div><div><dt>Spending limits</dt><dd>It stops at the Space’s monthly budget and at the per-run limit.</dd></div><div><dt>Choose what is handed over</dt><dd>The organization chooses whether each operation is confirmed or handed over (always ask, automatic, don’t ask).</dd></div><div><dt>Choose the model</dt><dd>Switch models for speed or accuracy, to suit the work.</dd></div></dl>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer__close" id="contact">
+    <h2>Start with one workflow.</h2>
+    <div class="actions">
+      <a href="mailto:hello@clayware.app?subject=Talk%20to%20Clayware" class="btn">Talk to us</a>
+      <a href="mailto:hello@clayware.app?subject=Clayware%20overview" class="textlink">Get the overview</a>
+    </div>
+  </div>
+  <div class="container footer__grid">
+    <a href="index.html" class="wordmark" aria-label="Clayware home">Clayware</a>
+    <nav aria-label="Service"><h2>Service</h2><a href="product.html">Product</a><a href="timeline.html">Timeline</a><a href="change.html">Change management</a><a href="education.html">Education</a></nav>
+    <nav aria-label="Company"><h2>Company</h2><a href="pricing.html#case">Case</a><a href="pricing.html">Pricing</a></nav>
+    <nav aria-label="Contact"><h2>Contact</h2><a href="mailto:hello@clayware.app">hello@clayware.app</a><a href="/login">Log in</a></nav>
+  </div>
+  <div class="container footer__legal"><span>© 2026 Clayware</span><span>clayware.app</span></div>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  document.getElementById('theme').addEventListener('click',function(){
+    var m=root.getAttribute('data-mode')==='light'?'dark':'light';
+    root.setAttribute('data-mode',m);
+    try{localStorage.setItem('cw-theme',m)}catch(e){}
+  });
+  var menu=document.getElementById('menu'),burger=document.getElementById('burger');
+  burger.addEventListener('click',function(e){e.stopPropagation();var o=menu.classList.toggle('show');burger.setAttribute('aria-expanded',String(o))});
+  menu.querySelectorAll(':scope > a').forEach(function(a){a.addEventListener('click',function(){menu.classList.remove('show')})});
+  document.querySelectorAll('[data-switch]').forEach(function(sw){
+    var tabs=[].slice.call(sw.querySelectorAll('[role=tab]'));
+    function pick(t){tabs.forEach(function(x){var on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;document.getElementById(x.getAttribute('aria-controls')).hidden=!on})}
+    pick(tabs[0]);
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){pick(t)});
+      t.addEventListener('keydown',function(e){var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;e.preventDefault();var n=tabs[(i+d+tabs.length)%tabs.length];pick(n);n.focus()});
+    });
+  });
+})();
+</script>
+</body>
+</html>

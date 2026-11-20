@@ -4,18 +4,23 @@ import { useMemo, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { completionOf } from '@/Function/shared/completion';
-import { SegmentedProgress } from '@/Function/shared/SegmentedProgress';
+import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
 import { requestElementDetail } from '@/Function/shared/element/elementDetailRequest';
-import { GanttChart } from '@/ui/icons';
-import { updateObject, type AlconObjectWithChildren, type ElementWithDetails } from '@/hooks/useSupabase';
-import type { EmbedHost, EmbedSpec } from '@/Function/notebook/editor/embedBlocks';
+import { Flag, GanttChart, Lightbulb, Target } from '@/ui/icons';
+import { updateObject, type ClaywareObjectWithChildren, type ElementWithDetails } from '@/hooks/useSupabase';
+import type { EmbedHost } from '@/Function/notebook/editor/embedBlocks';
 import { objectToGanttBar } from '@/ActivitySpace/execution/domain/DomainView';
+import { FrameLine } from './StrategyFrameLine';
+import { FRAME_VIEW, draftFrameSpec } from './frameLineModel';
 
-// The blocks a Strategy's description can hold: how far its work has come,
-// its Elements, and its Objects on a Gantt. Each reads the Strategy's own
-// Objects and Elements, so a block written once stays current.
+// The blocks a Strategy's description can hold: the lines of its frame (a
+// hypothesis, a success condition, something decided), how far its work has
+// come, its Elements, and its Objects on a Gantt. Each reads the Strategy's
+// own rows, so a block written once stays current.
+
+import type { ZoomLevel } from '@/ActivitySpace/execution/element/gantt';
 
 const GanttView = dynamic(() => import('@/ActivitySpace/execution/element/gantt').then((m) => m.GanttView), { ssr: false });
 
@@ -25,7 +30,7 @@ function Progress({ elements }: { elements: ElementWithDetails[] }) {
   return (
     <div className="flex items-center gap-3 rounded-md border border-border/60 px-3 py-2.5">
       <ElementProgressMark size={16} status={c.total > 0 && c.done === c.total ? 'done' : c.done > 0 ? 'in_progress' : 'todo'} progress={c.pct} />
-      <SegmentedProgress value={c.pct} className="flex-1" />
+      <ProgressBelt value={c.pct} className="flex-1" />
       <span className="shrink-0 text-[13px] tabular-nums text-foreground">{c.done}/{c.total}</span>
       <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{t('{pct}% done', { pct: c.pct })}</span>
     </div>
@@ -50,24 +55,26 @@ function ElementList({ elements, onOpen }: { elements: ElementWithDetails[]; onO
   );
 }
 
-function ObjectsGantt({ objects, onChanged }: { objects: AlconObjectWithChildren[]; onChanged: () => void }) {
+function ObjectsGantt({ objects, onChanged, zoom }: { objects: ClaywareObjectWithChildren[]; onChanged: () => void; zoom: ZoomLevel }) {
   const { t } = useI18n();
   const bars = useMemo(() => objects.map(objectToGanttBar), [objects]);
   if (!objects.length) return <p className="rounded-md border border-border/60 px-3 py-2.5 text-[13px] text-muted-foreground">{t('No Objects yet.')}</p>;
   return (
     <div className="h-[320px] overflow-hidden rounded-md border border-border/60">
-      <GanttView defaultZoom="quarter" rowScale="object" elements={bars} leftHeaderLabel="Objects" onRefresh={onChanged}
+      <GanttView defaultZoom={zoom} rowScale="object" elements={bars} leftHeaderLabel="Objects" onRefresh={onChanged}
         onItemUpdate={(id, u) => updateObject(id, { start_date: u.start_date, due_date: u.due_date })} />
     </div>
   );
 }
 
 /** What "/" offers in a Strategy's description, and how each block draws. */
-export function useStrategyEmbeds({ elements, objects, onOpenObject, onChanged }: {
+export function useStrategyEmbeds({ elements, objects, onOpenObject, onChanged, timelineZoom = 'quarter' }: {
   elements: ElementWithDetails[];
-  objects: AlconObjectWithChildren[];
+  objects: ClaywareObjectWithChildren[];
   onOpenObject?: (objectId: string, domainId: string | null) => void;
   onChanged: () => void;
+  /** The scale its Timeline block opens at: a top Strategy's by quarter, one under another by month. */
+  timelineZoom?: ZoomLevel;
 }): EmbedHost {
   const { t } = useI18n();
   return useMemo<EmbedHost>(() => {
@@ -76,21 +83,27 @@ export function useStrategyEmbeds({ elements, objects, onOpenObject, onChanged }
       requestElementDetail(el.id);
       if (object) onOpenObject?.(object.id, object.domain_id ?? null);
     };
-    const render = (spec: EmbedSpec): ReactNode => {
+    const render: EmbedHost['render'] = (spec, block): ReactNode => {
       switch (spec.view) {
+        case FRAME_VIEW: return <FrameLine spec={spec} block={block} />;
         case 'progress': return <Progress elements={elements} />;
         case 'elements': return <ElementList elements={elements} onOpen={openElement} />;
-        case 'gantt': return <ObjectsGantt objects={objects} onChanged={onChanged} />;
+        case 'gantt': return <ObjectsGantt objects={objects} onChanged={onChanged} zoom={timelineZoom} />;
         default: return <p className="px-3 py-2 text-[12px] text-muted-foreground">{t('This block is not offered here.')}</p>;
       }
     };
     return {
       views: [
-        { id: 'progress', label: t('Progress'), hint: t('How far its Elements have come'), icon: <ElementProgressMark size={14} status="in_progress" progress={50} /> },
+        { id: 'frame-assumption', group: 'Frame', label: t('Hypothesis'), hint: t('Something to find out'), keywords: 'hypothesis assumption premise kasetsu', icon: <Lightbulb size={15} />, insert: draftFrameSpec('assumption') },
+        { id: 'frame-measure', group: 'Frame', label: t('Success condition'), hint: t('What must be reached'), keywords: 'success condition measure goal kpi', icon: <Target size={15} />, insert: draftFrameSpec('measure') },
+        { id: 'frame-decision', group: 'Frame', label: t('Decided'), hint: t('A choice made'), keywords: 'decision decided choice', icon: <Flag size={15} />, insert: draftFrameSpec('decision') },
+        { id: 'progress', label: t('Progress'), hint: t('How far its Elements have come'), icon: <ElementProgressMark size={14} status="in_progress" progress={50} muted /> },
         { id: 'elements', label: t('Elements'), hint: t('Every Element under its Objects'), icon: <ElementIcon size={14} /> },
         { id: 'gantt', label: t('Timeline'), hint: t('Its Objects on a timeline'), icon: <GanttChart size={14} /> },
       ],
       render,
+      // A frame line stands in the text as a sentence does.
+      line: (spec) => spec.view === FRAME_VIEW,
     };
-  }, [elements, objects, onOpenObject, onChanged, t]);
+  }, [elements, objects, onOpenObject, onChanged, timelineZoom, t]);
 }

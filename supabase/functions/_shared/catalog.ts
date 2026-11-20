@@ -4,12 +4,14 @@ import { STRATEGY_TOOLS, STRATEGY_WRITE_TOOLS, runStrategyTool, runStrategyWrite
 import { MEASURE_TOOLS, runMeasureTool } from "./measureTools.ts";
 import { WIDGET_TOOLS, runWidgetTool } from "./widgetTools.ts";
 import { BATCH_TOOLS, runBatchTool } from "./batchTools.ts";
+import { DEPENDENCY_TOOLS, DEPENDENCY_TOOL_NAMES, runDependencyTool } from "./dependencyTools.ts";
 import { FILE_TOOLS, runFileTool } from "./fileTools.ts";
-import { HARNESS_TOOLS, runHarnessTool } from "./harnessTools.ts";
+import { HARNESS_TOOLS, HARNESS_WRITE_TOOLS, runHarnessTool } from "./harnessTools.ts";
 import { MEMORY_TOOLS, runMemoryTool } from "./memoryTools.ts";
+import { CONTEXT_TOOLS, CONTEXT_TOOL_NAMES, runContextTool } from "./contextTools.ts";
 import type { RunToolDef } from "./toolLoading.ts";
 
-// Every operation Alcon's AI can perform inside Alcon, in one list, with one
+// Every operation Clayware's AI can perform inside Clayware, in one list, with one
 // executor. Each entry — the AI panel, a conversation on a Strategy, an
 // Element's run (automations start those) — takes its tools from here through
 // its policy (ENTRY_POLICIES): the entries differ in the context they give
@@ -28,11 +30,12 @@ export interface CatalogTool extends ToolDef {
   effect: ToolEffect;
 }
 
-const DELETES = new Set(["deleteElement", "deleteSubelement", "deleteObject", "bulkDeleteElements", "removeIntent", "deleteInitiative"]);
+const DELETES = new Set(["deleteElement", "deleteSubelement", "deleteObject", "bulkDeleteElements", "removeIntent", "deleteInitiative", "removeDependency"]);
 const READS = new Set([
-  "listMyDomains", "listObjects", "listElements", "getElement", "findByText", "getProgress", "getRecentActivity", "listWorkers",
+  "listMyDomains", "listObjects", "getObject", "listElements", "getElement", "findByText", "getProgress", "getRecentActivity", "listWorkers", "listDependencies",
   "listInitiatives", "getInitiative", "getInitiativeExecution", "listFiles", "searchFiles", "readFile", "listHarnesses", "readHarness",
   "recall_memory",
+  ...CONTEXT_TOOLS.map((t) => t.name),
 ]);
 
 function entries(defs: ToolDef[], area: ToolArea): CatalogTool[] {
@@ -44,9 +47,12 @@ export const CATALOG: CatalogTool[] = [
   ...entries(STRATEGY_WRITE_TOOLS, "strategy"),
   ...entries(MEASURE_TOOLS as ToolDef[], "strategy"),
   ...entries(BOARD_TOOLS, "execution"),
+  ...entries(CONTEXT_TOOLS, "execution"),
   ...entries(BATCH_TOOLS, "execution"),
+  ...entries(DEPENDENCY_TOOLS, "execution"),
   ...entries(FILE_TOOLS, "files"),
   ...entries(HARNESS_TOOLS, "harness"),
+  ...entries(HARNESS_WRITE_TOOLS, "harness"),
   // Memory: recall reads in every entry; remember writes durable at a
   // person's word, so it is offered where a conversation can carry
   // that word (the panel, a Strategy conversation) — never to an
@@ -81,7 +87,7 @@ export function effectOfCall(tool: CatalogTool, input: Record<string, unknown>):
 
 // ── Entries ─────────────────────────────────────────────────────────────────
 
-export type Entry = "panel" | "conversation" | "element";
+export type Entry = "panel" | "conversation" | "element" | "external";
 
 /** allow: runs now. approve: runs once the person who started the run approves
  *  exactly this call. deny: the entry may not run it. */
@@ -96,11 +102,13 @@ export interface EntryPolicy {
   approveAreas?: ToolArea[];
   /** Further tools allowed by name. */
   also?: string[];
+  /** Tools refused by name, whatever the effects allow. */
+  except?: string[];
   /** Loaded up front; the rest load when the model searches for them. */
   core: string[];
 }
 
-const READ_CORE = ["listInitiatives", "getInitiative", "listObjects", "listElements", "getElement", "findByText", "listFiles", "searchFiles", "readFile", "listHarnesses"];
+const READ_CORE = ["listInitiatives", "getInitiative", "listObjects", "getObject", "listElements", "getElement", "findByText", "listFiles", "searchFiles", "readFile", "listHarnesses"];
 
 export const ENTRY_POLICIES: Record<Entry, EntryPolicy> = {
   // The AI panel: the person at the keyboard asked, and confirms deletes in the chat.
@@ -120,20 +128,33 @@ export const ENTRY_POLICIES: Record<Entry, EntryPolicy> = {
   // An Element's run (started by a person or an automation, possibly on
   // input from outside): it reads anything and does the work on the board
   // and in files. A change to a Strategy — the purpose, the success
-  // conditions the verifier checks, the harness the run follows — waits for
-  // the person's approval. It never removes anything, and Tables and boards
-  // it changes only through its own save_records.
+  // conditions the verifier checks, the harness the run follows (its own
+  // or the Space's) — waits for the person's approval. It never removes
+  // anything, and Tables and boards it changes only through its own
+  // save_records.
   element: {
     effects: ["read"],
     writeAreas: ["execution", "files"],
-    approveAreas: ["strategy"],
+    approveAreas: ["strategy", "harness"],
     core: [...READ_CORE.filter((n) => n !== "listHarnesses"), "createElement", "updateElement", "addElementComment", "createSubelement", "toggleSubelementComplete"],
+  },
+  // An AI outside Clayware (clayware-mcp) working as the person who
+  // connected it: the panel's reach, with the outside model as the brain
+  // in place of Clayware's, so no Clayware model is called. The person
+  // is in that client's chat, and the client confirms deletes and
+  // overwrites there (clayware-mcp marks them destructive). Not offered:
+  // start_promotion, which hands the work to Clayware's own model.
+  external: {
+    effects: ["read", "write", "delete"],
+    except: ["start_promotion"],
+    core: [],
   },
 };
 
 /** Pure. What the entry does with one call. */
 export function decideCall(entry: Entry, tool: CatalogTool, input: Record<string, unknown>): Decision {
   const p = ENTRY_POLICIES[entry];
+  if (p.except?.includes(tool.name)) return "deny";
   if (p.also?.includes(tool.name)) return "allow";
   const effect = effectOfCall(tool, input);
   if (p.effects.includes(effect)) return "allow";
@@ -221,6 +242,8 @@ export async function runCatalogTool(
   try {
     if (name === "campaignMeasure") return await runMeasureTool(db, input);
     if (name === "createElements") return await runBatchTool(db, input, actor);
+    if (DEPENDENCY_TOOL_NAMES.has(name)) return await runDependencyTool(db, name, input);
+    if (CONTEXT_TOOL_NAMES.has(name)) return await runContextTool(db, name, input, actor);
     if (tool.area === "memory") return await runMemoryTool(db, name, input, actor, under.spaceId ?? null);
     if (name === "tableData" || name === "widgetBoard") return await runWidgetTool(db, name, input);
     switch (tool.area) {
@@ -229,7 +252,7 @@ export async function runCatalogTool(
       case "files":
         return await runFileTool(db, name, input, { spaceId: under.spaceId ?? null });
       case "harness":
-        return await runHarnessTool(db, name, input);
+        return await runHarnessTool(db, name, input, actor);
       default:
         return await runBoardTool(db, name, input, actor);
     }

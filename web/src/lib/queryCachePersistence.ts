@@ -8,7 +8,7 @@ import { queryCacheKey, queryCacheKeysToDrop } from './queryCacheKeys';
 // Bump when the on-disk cache shape changes — e.g. ExplorerData adds a
 // field, or a query key is renamed. Previously persisted entries are then
 // dropped instead of restored stale.
-const CACHE_BUSTER = 'alcon-v2';
+const CACHE_BUSTER = 'clayware-v2';
 
 // Drop persisted entries older than 7 days — beyond that the membership /
 // status / etc. has drifted too far to trust without a fresh fetch.
@@ -21,7 +21,7 @@ const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 // keystroke — persisting them grows the store without ever serving a paint.
 const PERSISTED_ROOTS = new Set([
   'explorer', 'domains', 'my-space-ids', 'spaces', 'my-elements',
-  'strategies', 'phases', 'workers', 'element-templates',
+  'strategies', 'phases', 'workers', 'element-templates', 'follows',
 ]);
 function shouldDehydrateQuery(query: Query): boolean {
   return defaultShouldDehydrateQuery(query) && PERSISTED_ROOTS.has(String(query.queryKey[0]));

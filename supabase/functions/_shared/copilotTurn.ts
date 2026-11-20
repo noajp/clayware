@@ -1,6 +1,6 @@
 // One Copilot turn's assembly, for Athena's chat driver in run-agent —
 // the one place a panel turn is driven. The system prompt, the context
-// block, the toolset — Alcon's own tools from the one catalog under the
+// block, the toolset — Clayware's own tools from the one catalog under the
 // panel's policy, plus the current Space's connected integrations from
 // _shared/integrationTools.ts — and the loop's kind / approval / execute
 // adapters are built here once, so a manifest and the approval policy
@@ -27,10 +27,11 @@ import { createdOf, type CreatedEntity } from "./createdEntities.ts";
 import { createCredentialRequestsForNames, notifyCredentialRequestOwners } from "./credentialRequests.ts";
 import { recordWriteCompensation } from "./compensation.ts";
 import type { VerifyCheck } from "./verifyReads.ts";
+import type { ToolImage } from "./toolResultImages.ts";
 
-export const COPILOT_SYSTEM_PROMPT = `あなたは Alcon（組織の仕事を人と AI が一緒に進める運用基盤）の AI です。ユーザーの依頼を受けて、道具で Alcon のデータを読み書きし、仕事を最後までやり遂げます。
+export const COPILOT_SYSTEM_PROMPT = `あなたは Clayware（組織の仕事を人と AI が一緒に進める運用基盤）の AI です。ユーザーの依頼を受けて、道具で Clayware のデータを読み書きし、仕事を最後までやり遂げます。
 
-# Alcon の概念（混同しない）
+# Clayware の概念（混同しない）
 - Strategy（意図）: 目的・前提・意思決定・成功条件を持ち、際限なく入れ子にできる。最上位の Strategy が Space の目指す姿を表す。道具では Initiative と呼ぶ（listInitiatives / getInitiative / createInitiative / updateInitiative / addIntent など）。
 - Execution（行動）: Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位）。
 - Strategy と Object は別物。Strategy には貢献する Object が紐づくだけで、Strategy を消しても Object・Element は消えない（逆も同じ）。
@@ -39,11 +40,11 @@ export const COPILOT_SYSTEM_PROMPT = `あなたは Alcon（組織の仕事を人
 # できること
 - Strategy: 一覧・詳細、作成（最上位は spaceId、Sub Strategy は parentId を渡して createInitiative）、目的の書き換え、成功条件・前提・意思決定の追加と修正、仕事の進め方（定義）の記入、削除。
 - Execution: Domain / Object / Element / Sub-element の読み書き、担当・ラベル・コメント、一括更新。2 件以上の Element は createElements を 1 回で。
-- ファイル: Element・Object・Strategy に添付されたファイルの一覧（listFiles）、検索（searchFiles。名前だけでなく、取り出した中身の言葉や、付いているものの名前でも探せる）、読み取り（readFile）、書き込み（writeFile。同じ名前は新しい版になる）。「どこにあるか」「何が書いてあるか」でファイルを探すときは searchFiles を使う。
+- ファイル: Element・Object・Strategy に添付されたファイルの一覧（listFiles）、検索（searchFiles。名前だけでなく、取り出した中身の言葉や、付いているものの名前でも探せる）、読み取り（readFile。画像ファイルは画像のまま見られる）、書き込み（writeFile。同じ名前は新しい版になる）。「どこにあるか」「何が書いてあるか」でファイルを探すときは searchFiles を使う。
 - ハーネス: Space の仕事のやり方（listHarnesses / readHarness）。依頼に合うものがあれば読んで従う。
 - ボードのウィジェット（widgetBoard）、成功条件の実績（campaignMeasure）。
 - 連携（外部サービス）: この Space に接続された連携の、宣言された操作が道具として使えることがある（下の「この Space の連携」に、使える連携と使えない理由が書かれている）。未接続、または接続テストが失敗した連携は、propose_connection で接続（再接続）を提案できる。
-- Web: 調べもの（今日の株価・ニュース・相場・制度・会社の情報など、Alcon の外にある事実）は web_search で検索し、web_fetch でページを開いて読む。会話に出た URL を読むときも web_fetch。Alcon の中にない最新の事実を聞かれたら、「わかりません」と答えずに検索する。答えには出典（ページ名と URL）を添え、見つからなかったことはそう書く。
+- Web: 調べもの（今日の株価・ニュース・相場・制度・会社の情報など、Clayware の外にある事実）は web_search で検索し、web_fetch でページを開いて読む。会話に出た URL を読むときも web_fetch。Clayware の中にない最新の事実を聞かれたら、「わかりません」と答えずに検索する。答えには出典（ページ名と URL）を添え、見つからなかったことはそう書く。
 - 最初から読み込まれていない道具は、末尾の一覧にある名前で道具の検索をすると使えるようになる。
 
 # 進め方
@@ -85,11 +86,11 @@ export interface CopilotContextLike {
 export interface CopilotTurnEvents {
   onToolResult?(r: {
     name: string; ok: boolean; rows?: number; error?: string;
-    /** What the call created in Alcon (catalog create-family calls
+    /** What the call created in Clayware (catalog create-family calls
      *  only), read from the result by createdEntities' one extractor:
      *  the driver keeps it on the turn's tool event and in the step's
      *  detail, so the panel draws cards for what the turn made.
-     *  Integration tools create things in other systems, not Alcon
+     *  Integration tools create things in other systems, not Clayware
      *  entities — they never carry this. */
     created?: CreatedEntity[];
     /** A connection proposal the call made (propose_connection): the driver
@@ -118,7 +119,7 @@ export interface CopilotTurn {
   needsApproval(call: ToolCall): boolean;
   /** The policy's answer for one integration call: the verdict the floors
    *  give (base) and the verdict under the turn's mode (final). Null for
-   *  Alcon's own tools, which the catalog's entry policy governs alone.
+   *  Clayware's own tools, which the catalog's entry policy governs alone.
    *  The driver reads this to record a policy approval where the mode
    *  lifted an ask — the recording is the driver's, the verdict is here,
    *  computed once and shared with the gate. `lift` names the
@@ -129,16 +130,17 @@ export interface CopilotTurn {
    *  "delegation" when full delegation let an ask-permission command's
    *  call run unasked. The driver reads this to disclose the lift as
    *  the call runs — a write that would have asked, but didn't, must
-   *  announce itself. Null for Alcon's own tools and for every call
+   *  announce itself. Null for Clayware's own tools and for every call
    *  nothing lifted. */
   liftOf(call: ToolCall): "delegation" | "track-record" | null;
   /** The standing autonomy grant for one call's command (B7), when
    *  one stands: its lane and the clean-completion count its basis
    *  carries, so the driver can say on the record why the call ran
-   *  unasked. Null for Alcon's own tools and ungranted commands. */
+   *  unasked. Null for Clayware's own tools and ungranted commands. */
   grantOf(call: ToolCall): { lane: 1 | 2; clean: number } | null;
-  /** An integration call's verify read-back (B2) rides on its result. */
-  execute(call: ToolCall): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck }>;
+  /** An integration call's verify read-back (B2) rides on its result;
+   *  a picture a catalog tool read (readFile on an image) rides as images. */
+  execute(call: ToolCall): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck; images?: ToolImage[] }>;
 }
 
 /**
@@ -266,11 +268,11 @@ export async function buildCopilotTurn(args: {
       return it ? grantFactFor(autonomyGrants, it.integration.id, it.command?.name) : null;
     },
     // An integration tool is an external write for the loop: the approval
-    // policy then decides per call, exactly as in a run. Alcon's own tools
+    // policy then decides per call, exactly as in a run. Clayware's own tools
     // stay "board" — the panel's catalog policy decides them, as before.
     kindOf: (name) => (toolset?.tools.has(name) ? "write" : "board"),
     needsApproval: (call) => verdictOf(call)?.final === "ask",
-    execute: async (call): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck }> => {
+    execute: async (call): Promise<{ content: string; is_error?: boolean; verify?: VerifyCheck; images?: ToolImage[] }> => {
       const it = toolset?.tools.get(call.name);
       if (it) {
         // A deny verdict is refused here, by the policy itself, before
@@ -382,7 +384,9 @@ export async function buildCopilotTurn(args: {
         name: call.name, ok: r.ok, rows: r.ok ? r.meta?.rows : undefined, error: r.ok ? undefined : r.error,
         ...(created ? { created } : {}),
       });
-      return r.ok ? { content: JSON.stringify(r.data).slice(0, 100_000) } : { content: JSON.stringify({ error: r.error }), is_error: true };
+      return r.ok
+        ? { content: JSON.stringify(r.data).slice(0, 100_000), ...(r.images?.length ? { images: r.images } : {}) }
+        : { content: JSON.stringify({ error: r.error }), is_error: true };
     },
   };
 }

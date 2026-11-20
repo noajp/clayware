@@ -1,5 +1,6 @@
 'use client';
 
+import { canvasStart } from './generated/canvasStarts';
 import { lazy } from 'react';
 import { normalizeDataViewParams } from './widgets/dataViewModel';
 import { DIMENSIONS, type Dimension } from '@/Function/shared/dimensions';
@@ -39,6 +40,11 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     type: 'generated-app', label: 'Canvas',
     description: 'A blank part AI draws into: a dashboard, a whiteboard, a calculator, a tracker',
     group: 'content', accepts: ['object'], zones: ['main'], defaultSize: 'full', holdsContents: true, renamable: true,
+    // Its own name, and how it was asked to start.
+    normalizeParams: (raw) => ({
+      ...(typeof raw?.title === 'string' && raw.title ? { title: raw.title } : {}),
+      ...(canvasStart(raw?.start) ? { start: String(raw?.start) } : {}),
+    }),
     load: async () => (await import('./widgets/GeneratedAppWidget')).GeneratedAppWidget,
   },
   'design': {
@@ -449,7 +455,7 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
   },
   'recent-activity': {
     type: 'recent-activity',
-    label: 'Recent activity',
+    label: 'History',
     description: 'Latest changes and updates',
     group: 'list',
     accepts: ['object', 'me', 'initiative'],

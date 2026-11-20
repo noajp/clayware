@@ -1,8 +1,7 @@
 /** @vitest-environment jsdom */
 //
-// The sidebar's fixed top block (shell/navigation PR3): AI stays first
-// (PR #779), Inbox is a real row second carrying its unread count as a
-// plain number in the row's meta slot, then Calendar and Strategy.
+// Home's rows in the sidebar: Inbox carrying its unread count as a plain
+// number in the row's meta slot, then the Agent, My Elements and Calendar.
 // The count is the StatusBar badge's own source — useNotifications over
 // the signed-in user — and at zero unread the row carries no meta at
 // all. Rows stay icon + name (+ count): no subtitle, no annotation.
@@ -59,7 +58,10 @@ vi.mock('@/hooks/useObjectArchive', () => ({
 
 // The surfaces below the fixed block are not what is being tested.
 vi.mock('@/Frame/sidebar/FollowSection', () => ({ FollowSection: () => null }));
-vi.mock('@/Frame/sidebar/MeFooter', () => ({ MeFooter: () => null }));
+vi.mock('@/Frame/sidebar/TeamList', () => ({ TeamList: () => null }));
+vi.mock('@/Frame/sidebar/VisionList', () => ({ VisionList: () => null }));
+vi.mock('@/hooks/visionData', () => ({ createVision: vi.fn() }));
+vi.mock('@/hooks/strategyData', () => ({ useStrategies: () => ({ data: [] }) }));
 vi.mock('@/Frame/sidebar/DomainNavigationRow', () => ({ DomainNavigationRow: () => null }));
 vi.mock('@/Function/space/SpaceSwitcher', () => ({ SpaceSwitcher: () => null }));
 vi.mock('@/Function/settings/SettingsSidebarPanel', () => ({ SettingsSidebarPanel: () => null }));
@@ -78,7 +80,7 @@ vi.mock('@/ActivitySpace/artifacts/slides/SlidesSidebar', () => ({
   createFolderHere: vi.fn(),
   pickDeckFile: vi.fn(),
 }));
-vi.mock('@/Frame/QuickAddElementLauncher', () => ({ CREATE_ELEMENT_EVENT: 'alcon:create-element' }));
+vi.mock('@/Frame/QuickAddElementLauncher', () => ({ CREATE_ELEMENT_EVENT: 'clayware:create-element' }));
 
 import { AppSidebar } from '@/Frame/AppSidebar';
 
@@ -111,9 +113,9 @@ afterEach(() => {
 });
 
 describe('AppSidebar fixed top block', () => {
-  it('renders Inbox → Agent → Strategy by default', () => {
+  it('renders Home as Inbox → Agent → My Elements → Calendar by default', () => {
     renderSidebar();
-    const order = ['Inbox', 'Agent', 'Strategy'].map(rowOf);
+    const order = ['Inbox', 'Agent', 'My Elements', 'Calendar'].map(rowOf);
     for (let i = 0; i < order.length - 1; i++) {
       expect(
         order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,

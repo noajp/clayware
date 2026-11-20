@@ -13,15 +13,13 @@ export type ThemeOption = {
 };
 
 export const OPTIONS: ThemeOption[] = [
-  { value: 'system',   label: 'System',   split: ['#ECECEE', '#1a1a1a'] },
-  { value: 'light',    label: 'Light',    swatch: { bg: '#ECECEE', island: '#ffffff' } },
-  { value: 'snow',     label: 'Snow',     swatch: { bg: '#ffffff', island: '#f3f3f4' } },
-  { value: 'ivory',    label: 'Ivory',    swatch: { bg: '#f1eee6', island: '#fffdf6' } },
-  { value: 'mist',     label: 'Mist',     swatch: { bg: '#e9edf3', island: '#fbfcfe' } },
-  { value: 'dark',     label: 'Dark',     swatch: { bg: '#1a1a1a', island: '#222222' } },
-  { value: 'midnight', label: 'Midnight', swatch: { bg: '#181a20', island: '#20232c' } },
-  { value: 'carbon',   label: 'Carbon',   swatch: { bg: '#0d0d0d', island: '#1c1c1c' } },
-  { value: 'graphite', label: 'Graphite', swatch: { bg: '#1a1917', island: '#232120' } },
+  { value: 'system', label: 'System', split: ['#ECECEE', '#0b0b0c'] },
+  { value: 'white',  label: 'White',  swatch: { bg: '#ffffff', island: '#ffffff' } },
+  { value: 'light',  label: 'Light',  swatch: { bg: '#ECECEE', island: '#ffffff' } },
+  { value: 'dark',   label: 'Dark',   swatch: { bg: '#0b0b0c', island: '#19191b' } },
+  { value: 'black',  label: 'Black',  swatch: { bg: '#080808', island: '#080808' } },
+  // Your own accent and backdrop; stored as custom-dark or custom-light.
+  { value: 'custom', label: 'Custom' },
 ];
 
 // ---- Font size (text-only UI scale) --------------------------------------
@@ -30,7 +28,7 @@ export const OPTIONS: ThemeOption[] = [
 // every font-size by it, so text grows/shrinks while layout (px/rem spacing)
 // stays put — unlike a `zoom`, which scales the whole UI. Keep the map in sync
 // with the boot script in app/layout.tsx (applies the level before first paint).
-export const FONT_SIZE_KEY = 'alcon.fontsize';
+export const FONT_SIZE_KEY = 'clayware.fontsize';
 export const DEFAULT_FONT_KEY = 'default';
 export const FONT_SIZES: { key: string; label: string; scale: number }[] = [
   { key: 'smaller', label: 'Smaller', scale: 0.925 },
@@ -43,9 +41,3 @@ export const FONT_SIZES: { key: string; label: string; scale: number }[] = [
 export function applyFontSize(scale: number) {
   document.documentElement.style.setProperty('--fs', String(scale));
 }
-
-// ---- Pointer cursors -------------------------------------------------------
-// A device-local display choice like the font size: persisted in
-// localStorage ('1' = on). Settings redesign D4 — the Preferences toggle
-// used to keep this in component state only, so it never survived a reload.
-export const POINTER_CURSOR_KEY = 'alcon.pointercursors';

@@ -12,7 +12,7 @@ import { TraceCompletion, TraceHeadline, TraceStepList } from '@/Function/shared
 import { ApprovalDecisionCard } from '@/Function/shared/ApprovalDecisionCard';
 import { CredentialRequestCard } from '@/AIP/connectors/CredentialRequestCard';
 import { CreatedEntityCard } from '@/AIP/ai/CreatedEntityCard';
-import type { CreatedEntity } from '@/AIP/ai/useAlconCopilot';
+import type { CreatedEntity } from '@/AIP/ai/useClaywareCopilot';
 import type { AgentOutput } from '@/types/database';
 import type { ProposedReading } from '@/Function/audit/auditModel';
 import { useMeasureLabels } from '@/AIP/ai/agentData';
@@ -25,7 +25,7 @@ import { useNow } from '@/Function/shared/useNow';
 // (Function/shared/workTraceView) — its headline, its steps as compact rows,
 // its completion — the approval card when it waits on a person, and the
 // deliverables it saved. Shapes follow the Task Rows / Tool Chips /
-// Approval Card patterns, drawn with Alcon's own tokens.
+// Approval Card patterns, drawn with Clayware's own tokens.
 
 type Agent = ReturnType<typeof useAgentRun>;
 
@@ -169,7 +169,13 @@ export function AgentRunPanel({ agent, onRunAgain }: { agent: Agent; onRunAgain:
 
   return (
     <section className="space-y-2">
-      {agent.error && <p className="px-1 text-[12px] text-[var(--status-danger)]">{agent.error}</p>}
+      {agent.error && (
+        <div role="alert" className="flex items-center gap-2 px-1 text-[12px] text-[var(--status-danger)]">
+          <span className="min-w-0 flex-1">{agent.error}</span>
+          {/* A run that never started has no controls of its own below. */}
+          {!run && <Button variant="ghost" size="xs" disabled={agent.starting} onClick={onRunAgain}>{t('Retry')}</Button>}
+        </div>
+      )}
       {run && (
         <div>
           <TraceHeadline trace={trace} controls={

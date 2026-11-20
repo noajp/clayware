@@ -60,8 +60,8 @@ export const HOME_BOARD: BoardLayout = {
  * Strategy detail — one page. The work the page draws already says how far
  * it is, so the band starts empty; under the work, the Tables its AI runs
  * keep (hidden until there is one).
- * Success conditions, premises, decisions and the rest are widgets someone
- * adds when they want them.
+ * What a Strategy holds — how success is measured, what it takes as true,
+ * what was decided — is written as lines of its description, not placed here.
  */
 export const INITIATIVE_BOARD: BoardLayout = {
   band: [],

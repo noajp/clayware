@@ -16,12 +16,12 @@ import {
 import type { Domain } from '@/types/database';
 import { SettingsIsland } from './SettingsControls';
 
-// Settings › Elements › Types and Settings › Objects: the types a Domain
-// offers, each with its icon. One section per Domain of the current Space —
-// the unit the names (element_types / object_types) and their icons live in.
-// The first row is the plain kind itself: what an Element or Object is when
-// it has no type. Deleting a type removes it from the list; rows that
-// already carry it keep their value.
+// Settings › Elements › Types and Settings › Objects › Types: the types a
+// Domain adds, each with its icon. One section per Domain of the current
+// Space — the unit the names (element_types / object_types) and their icons
+// live in. The plain Element and Object are always there and are not types,
+// so they are not listed. Deleting a type removes it from the list; rows
+// that already carry it keep their value.
 
 export function TypeSettings({ kind }: { kind: TypeKind }) {
   const { t } = useI18n();
@@ -33,8 +33,8 @@ export function TypeSettings({ kind }: { kind: TypeKind }) {
     <div className="space-y-6">
       <p className="-mt-2 text-[12px] text-muted-foreground">
         {kind === 'object'
-          ? t('Types say what kind of Object something is. Each Domain keeps its own list, and an icon for each.')
-          : t('Types say what kind of Element something is. Each Domain keeps its own list, and an icon for each.')}
+          ? t('A type is a name and an icon an Object can wear. An Object works the same without one. Each Domain keeps its own list.')
+          : t('A type is a name and an icon an Element can wear. An Element works the same without one. Each Domain keeps its own list.')}
       </p>
       {loading && mine.length === 0 ? (
         <div className="text-[13px] text-muted-foreground">{t('Loading…')}</div>

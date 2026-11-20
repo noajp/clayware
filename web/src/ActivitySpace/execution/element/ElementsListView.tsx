@@ -3,13 +3,14 @@
 
 import { PageHeader } from '@/Function/shared/PageHeader';
 import { Plus } from '@/ui/icons';
+import { useDomainRole } from '@/hooks/domainData';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
 import { useState, useEffect, useMemo } from 'react';
 import { DomainIcon } from '@/Function/shared/conceptIcons';
-import type { AlconObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
-import { updateElement, updateElements, restoreElementsField, createElement, deleteElement, addElementToObject, removeElementFromObject, addDomainElementType, removeDomainElementType, useDomains, useElementTemplates, usePhases, useObjectMilestones } from '@/hooks/useSupabase';
+import type { ClaywareObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
+import { updateElement, updateElements, restoreElementsField, createElement, deleteElement, deleteElements, noticeElementSaveFailed, addElementToObject, removeElementFromObject, addDomainElementType, removeDomainElementType, useDomains, useElementTemplates, usePhases, useObjectMilestones } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useElementSelection } from '@/ActivitySpace/execution/element/useElementSelection';
 import { BulkActionBar } from '@/ActivitySpace/execution/element/BulkActionBar';
@@ -143,6 +144,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
     return isViewMode(migrated) ? migrated : 'elements';
   });
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const { data: domainRole } = useDomainRole(activeDomainId ?? null);
   // Section-aware quick-add: null = Domain-direct, otherwise the target Object.
   const [quickAddTargetObjectId, setQuickAddTargetObjectId] = useState<string | null>(null);
   const [quickAddLabel, setQuickAddLabel] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
   );
 
 
-  const objectsWithElements = useMemo<AlconObjectWithChildren[]>(() => {
+  const objectsWithElements = useMemo<ClaywareObjectWithChildren[]>(() => {
     if (!explorerData) return [];
     return explorerData.objects.filter((o) => (o.elements?.length ?? 0) > 0);
   }, [explorerData]);
@@ -294,9 +296,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
   // Multi-select + bulk operations (shared with the other element lists).
   const { selectedRowIds, handleRowSelect, clearSelection, selectOnly } = useElementSelection();
   const bulkDelete = async () => {
-    for (const id of selectedRowIds) {
-      try { await deleteElement(id); } catch (e) { console.error('Delete failed', id, e); }
-    }
+    try { await deleteElements([...selectedRowIds]); } catch (e) { noticeElementSaveFailed(e); }
     clearSelection();
     await onRefresh?.();
   };
@@ -574,7 +574,8 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
           onViewChange?.('objects');
           onNavigate?.({ objectId: null });
         }}
-        onAdd={openQuickAddDomain}
+        // A Domain viewer reads; the add would only be refused.
+        onAdd={domainRole === 'viewer' ? undefined : openQuickAddDomain}
       />
       )}
 

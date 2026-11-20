@@ -1,4 +1,4 @@
-// run-agent — Athena, Alcon's one agent engine (ADR 0027).
+// run-agent — Athena, Clayware's one agent engine (ADR 0027).
 //
 // Executes an Element's task on behalf of the person who started it: plans,
 // works through the board and the Space's integrations, stops for that
@@ -55,13 +55,14 @@
 // pauses until the person opens it again.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { athenaAllowed, PLAN_REFUSAL, PLAN_REFUSAL_JA } from "../_shared/plan.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@0.110.0";
 import { resolveElementIdTraced, runBoardTool, updateElementById, errorMessage, type BoardActor, type ToolDef } from "../_shared/boardTools.ts";
 import { runStrategyTool } from "../_shared/strategyTools.ts";
 import { AGENT_MODELS, DEFAULT_AGENT_MODEL, costAt, costOf, type ModelUsage } from "../_shared/aiPricing.ts";
 import {
-  McpSession, HTTP_REQUEST_SCHEMA, isAuthFailure, isSafeEndpoint, pointsAtAlcon, resolveCredential, type IntegrationRow,
+  McpSession, HTTP_REQUEST_SCHEMA, isAuthFailure, isSafeEndpoint, pointsAtClayware, resolveCredential, type IntegrationRow,
 } from "../_shared/integrationClient.ts";
 import { isGoogleDriveRow } from "../_shared/googleOAuth.ts";
 import { fetchPull, githubTokens, pullUrlsIn, upsertCodeChange, withGithubToken, type GithubPull, type PullRef } from "../_shared/github.ts";
@@ -119,7 +120,7 @@ import { checkFinishClaims, finishDetailOf, normalizeClaims, normalizeUnconfirme
 import { emptyVerifyTally, tallyVerify, verifyDiffText, type VerifyCheck, type VerifyTally } from "../_shared/verifyReads.ts";
 import { parseProposedReadings, readingsDecision, readingsSummaryLine, validateProposals, type BoundMeasure, type ProposedReading } from "../_shared/readingsGate.ts";
 import { checkHarness, checkOutput, checksDue, definitionPrompt, freshnessTableOf, loopStop, parseDefinition, type ParsedDefinition } from "../_shared/definition.ts";
-import { isMachineTool, isRunnerTool, machineResultText, MACHINE_TOOLS, passwordFieldOf, pickRunner, RUNNER_TOOLS, runnerOperation, runnerResultText, runnerStep, signInResultText, type RunnerRow } from "./runnerTools.ts";
+import { isMachineTool, isRunnerTool, machineResultText, MACHINE_TOOLS, passwordFieldOf, pickRunner, RUNNER_ONLINE_MS, RUNNER_TOOLS, runnerOperation, runnerResultText, runnerStep, signInResultText, type RunnerRow } from "./runnerTools.ts";
 import {
   DEFAULT_WORKSPACE_CAPS, machineCallKind, provisionedRunIdOf, WORKSPACE_READY_WAIT_MS, type MachineBindingFacts,
 } from "../_shared/workspaces.ts";
@@ -167,6 +168,7 @@ import {
 } from "../_shared/failurePolicy.ts";
 import { isFailureClass, type FailureClass } from "../_shared/definition.ts";
 import { applyDecision, makeRememberApproval, restorePendingApproval, type SavedPending } from "./decision.ts";
+import { stripPendingImages, stripToolResultImages, toolResultText, type ToolImage } from "../_shared/toolResultImages.ts";
 import { buildCopilotTurn, foldCopilotContext, type CopilotContextLike, type CopilotTurn } from "../_shared/copilotTurn.ts";
 import { COPILOT_AGENT_NAME, persistCopilotApproval, updateCopilotSessionMessages } from "../_shared/copilotAnchor.ts";
 import {
@@ -322,6 +324,8 @@ type Transcript = {
 type Run = {
   id: string; element_id: string; strategy_id: string | null; ai_session_id: string | null; integration_draft_id: string | null; promotion_draft_id: string | null; domain_id: string | null; worker_id: string | null; status: string;
   mode: string; prompt: string | null; reply_to: string | null; triggered_by: string | null;
+  /** The one-line word the run last rested or ended on. */
+  summary: string | null;
   /** A run trying a definition with its writes blocked (the rehearsal substrate). */
   rehearsal: boolean;
   /** A plan run (B8): writes recorded as a plan instead of executed. */
@@ -340,7 +344,7 @@ type Run = {
 
 // IntegrationTool and ApprovalDisplay live in _shared/integrationTools.ts,
 // with the manifest→tool planning, the approval facts and the executor every
-// caller shares (run-agent and alcon-copilot alike).
+// caller shares (run-agent and clayware-copilot alike).
 
 /** An integration this run cannot use, told to the agent with the reason. */
 function downIntegration(name: string, reason: string): TaskContext["integrations"][number] {
@@ -595,6 +599,14 @@ Deno.serve(async (req: Request) => {
   const { data: claimed } = await claim.select("id").maybeSingle();
   if (!claimed) return json({ error: `この実行は今その操作を受け付けません（${run.status}）。` }, 409);
 
+  // Athena works only in a Space whose plan has it — every kind of run
+  // stops here, before any model is called. A run outside any Space goes by
+  // the Spaces its starter belongs to.
+  if (!(await athenaAllowed(run.activity_space_id ? admin : userDb, run.activity_space_id))) {
+    await failRun(admin, run, PLAN_REFUSAL_JA);
+    return json(PLAN_REFUSAL, 403);
+  }
+
   // The run's approval mode: the snapshot it started under wins — a mode
   // changed mid-run reaches the next run, not into this one, and never
   // retroactively approves what already waits. A run first driven now
@@ -632,7 +644,7 @@ async function failRun(admin: SupabaseClient, run: Run, message: string) {
   await closeRunWorkspace(admin, (k) => Deno.env.get(k), run.id, "run_failed", new Date()).catch(() => false);
   if (run.triggered_by) {
     await admin.from("notifications").insert({
-      recipient_id: run.triggered_by, actor_name: "Alcon Agent", kind: "status_change", element_id: run.element_id,
+      recipient_id: run.triggered_by, actor_name: "Clayware Agent", kind: "status_change", element_id: run.element_id,
       title: "エージェントの実行が失敗しました", body: message.slice(0, 200),
     }).then(() => {}, () => {});
   }
@@ -662,7 +674,7 @@ async function pauseOnError(admin: SupabaseClient, run: Run, message: string) {
     }
     if (!told) {
       await admin.from("notifications").insert({
-        recipient_id: run.triggered_by, actor_name: "Alcon Agent", kind: "status_change", element_id: run.element_id,
+        recipient_id: run.triggered_by, actor_name: "Clayware Agent", kind: "status_change", element_id: run.element_id,
         title: known ? why.title : "エージェントがエラーで一時停止しました", body: why.body.slice(0, 200),
       }).then(() => {}, () => {});
     }
@@ -995,7 +1007,7 @@ async function execute(a: ExecArgs): Promise<void> {
     // it, so the trail can say which run spent which credential.
     const auditUse = { spaceId: run.activity_space_id, runId: run.id };
     const { data: rows } = await userDb.from("integrations")
-      .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, secret_id, external_account, last_test")
+      .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, secret_id, external_account, last_test, oauth_config")
       .eq("activity_space_id", run.activity_space_id).eq("enabled", true).in("kind", ["mcp", "http"]).order("created_at");
     // The integrations' cached tool plans, read once for the whole Space:
     // this slice plans fresh only what the cache cannot vouch for, and a
@@ -1041,16 +1053,17 @@ async function execute(a: ExecArgs): Promise<void> {
         integrationSummary.push(downIntegration(row.name, "接続テストが済んでいない（Settings › Customize で接続テストが必要）"));
         continue;
       }
-      // Never Alcon itself: the board tools already act as the starter, and a
+      // Never Clayware itself: the board tools already act as the starter, and a
       // stored token would act outside this run.
-      if (pointsAtAlcon(row.endpoint, Deno.env.get("SUPABASE_URL"))) {
-        await addStep(admin, run.id, "error", `連携「${row.name}」は Alcon 自身を指しているため使いません`, "Alcon のデータの操作はエージェントの標準の道具で行います。");
+      if (pointsAtClayware(row.endpoint, Deno.env.get("SUPABASE_URL"))) {
+        await addStep(admin, run.id, "error", `連携「${row.name}」は Clayware 自身を指しているため使いません`, "Clayware のデータの操作はエージェントの標準の道具で行います。");
         continue;
       }
       // OAuth is a sign-in this engine can complete (oauthRowOpens, shared
-      // with the chat assembly): Google's — Drive's typed rows and any
-      // Google profile's manifest rows, Gmail's included — or GitHub's.
-      // Any other OAuth row has no way to authenticate and stays closed.
+      // with the chat assembly): a row a provider's profile claims in the
+      // registry — Google's (Drive's typed rows, Gmail's manifest rows),
+      // GitHub's, Microsoft's. Any other OAuth row has no way to
+      // authenticate and stays closed.
       if (!oauthRowOpens(row)) continue;
       const prefix = integrationPrefix(row.name, row.id);
       const fingerprint = await planFingerprint(row);
@@ -1488,7 +1501,7 @@ async function execute(a: ExecArgs): Promise<void> {
   const chainDeniedCalls = new Set<string>();
   let chainDeniedCount = 0;
   const factsForCall = (call: ToolCall, opts?: { noChain?: boolean }): ApprovalFacts => {
-    // Alcon's own operations: the Element entry's policy decides each call.
+    // Clayware's own operations: the Element entry's policy decides each call.
     if (isCatalogTool(call.name)) {
       const tool = catalogTool(call.name);
       return { catalogDecision: tool ? decideCall("element", tool, call.input) : "allow", isWrite: true, isRead: false };
@@ -1569,7 +1582,7 @@ async function execute(a: ExecArgs): Promise<void> {
   // the integrations (§5.5): the enabled installs joined to their
   // catalog items, in the catalog's order (sort, then install time),
   // each payload read through parseExceptionEntry — an unreadable
-  // payload is no entry at all (fail closed; the breakage is Alcon's
+  // payload is no entry at all (fail closed; the breakage is Clayware's
   // own content, so it is logged, never stepped onto the run). The
   // definition's exceptions section narrows the consulted set here,
   // once, so everything after — the call seam's retries, the
@@ -1624,7 +1637,7 @@ async function execute(a: ExecArgs): Promise<void> {
       }
     } catch { /* the counts are a judgement's material, never the run's life */ }
   }
-  let giveUpFired: { failureClass: FailureClass; count: number } | null = null;
+  let giveUpFired = null as { failureClass: FailureClass; count: number } | null;
   const currentGiveUp = (): { failureClass: string; detail: string } | null => {
     if (giveUpFired) {
       return {
@@ -2172,7 +2185,7 @@ async function execute(a: ExecArgs): Promise<void> {
     return { content: signInResultText(settled.result), ...(outcome.ok ? {} : { is_error: true }) };
   };
 
-  const executeCall = async (call: ToolCall, approved = false): Promise<{ content: string; is_error?: boolean; finish?: FinishPayload; verify?: VerifyCheck; question?: { ticketId: string } }> => {
+  const executeCall = async (call: ToolCall, approved = false): Promise<{ content: string; is_error?: boolean; finish?: FinishPayload; verify?: VerifyCheck; question?: { ticketId: string }; images?: ToolImage[] }> => {
     const input = call.input;
     switch (call.name) {
       case "record_plan": {
@@ -2305,7 +2318,7 @@ async function execute(a: ExecArgs): Promise<void> {
     if (isMachineTool(call.name)) return await callMachine(call);
     if (baseKindOf(call.name) === "board") {
       const r = await runCatalogTool(userDb, call.name, input, actor, { entry: "element", approved, spaceId: run.activity_space_id ?? null });
-      await addStep(admin, run.id, "action", `Alcon: ${catalogOperation(call.name, input)}`, r.ok ? null : r.error);
+      await addStep(admin, run.id, "action", `Clayware: ${catalogOperation(call.name, input)}`, r.ok ? null : r.error);
       // A failed Element resolution is recorded with its evidence — the
       // raw identifier, the stage it died at, the session's user (audit
       // only; the surface keeps the translated line). A write-back that
@@ -2320,7 +2333,9 @@ async function execute(a: ExecArgs): Promise<void> {
       }
       // A recall's bodies count as uses of those memories (PR3).
       if (call.name === "recall_memory" && r.ok) await noteMemoryUse(admin, run.id, usedIdsOf(r.data));
-      return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000) } : { content: r.error, is_error: true };
+      // A picture the tool read (readFile on an image) rides beside the
+      // text; the loop passes it on when the model takes pictures.
+      return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000), ...(r.images?.length ? { images: r.images } : {}) } : { content: r.error, is_error: true };
     }
     const it = integrationTools.get(call.name);
     if (it) {
@@ -2694,7 +2709,7 @@ async function execute(a: ExecArgs): Promise<void> {
     }
     if (isCatalogTool(call.name)) {
       const tool = catalogTool(call.name)!;
-      const label = `Alcon: ${catalogOperation(call.name, call.input)}`;
+      const label = `Clayware: ${catalogOperation(call.name, call.input)}`;
       if (effectOfCall(tool, call.input) === "read") return await live(label);
       const decision = decideCall("element", tool, call.input);
       return await plan(label, decision !== "deny", decision === "deny" ? catalogDenyRefusal(call.name, call.input) : null);
@@ -2769,7 +2784,15 @@ async function execute(a: ExecArgs): Promise<void> {
     if (call.name === SIGN_IN_TOOL) {
       const resolved = runner && run.activity_space_id ? await resolveSignInTarget(call).catch(() => null) : null;
       return await record("PC: サインイン", {
-        display: resolved ? { ...signInDisplayFor(call, resolved.target), rememberable: false } : undefined,
+        display: resolved?.target.stored
+          ? {
+            ...signInDisplayFor(call, {
+              origin: resolved.target.origin, username: resolved.target.stored.username,
+              runnerName: runner?.name ?? "PC のブラウザ",
+            }),
+            rememberable: false,
+          }
+          : undefined,
       });
     }
     if (isRunnerTool(call.name)) {
@@ -2816,7 +2839,7 @@ async function execute(a: ExecArgs): Promise<void> {
     }
     if (isCatalogTool(call.name)) {
       const tool = catalogTool(call.name)!;
-      const label = `Alcon: ${catalogOperation(call.name, call.input)}`;
+      const label = `Clayware: ${catalogOperation(call.name, call.input)}`;
       if (effectOfCall(tool, call.input) === "read") return await executeCall(call);
       const decision = decideCall("element", tool, call.input);
       return await record(label, {
@@ -2940,8 +2963,8 @@ async function execute(a: ExecArgs): Promise<void> {
 
   const saveTranscript = async (p?: SavedPending) => {
     const transcript: Transcript = {
-      messages: state.messages, turns: state.turns, nudges: state.nudges, revisions: state.revisions ?? 0, turnBudget, tools,
-      ...(p ? { pending: p } : {}),
+      messages: stripToolResultImages(state.messages), turns: state.turns, nudges: state.nudges, revisions: state.revisions ?? 0, turnBudget, tools,
+      ...(p ? { pending: stripPendingImages(p) } : {}),
       ...(question ? { question } : {}),
       ...(corrections.length ? { corrections } : {}),
       ...(failureRetriesTotal ? { failureRetries: failureRetriesTotal } : {}),
@@ -3167,7 +3190,7 @@ async function execute(a: ExecArgs): Promise<void> {
       const res = decided.results.find((r) => r.tool_use_id === e.callId);
       outcomes.set(e.rowId, {
         ok: !!res && !res.is_error,
-        ...(res?.is_error ? { reason: COMPENSATION_REASONS.executionError(res.content) } : {}),
+        ...(res?.is_error ? { reason: COMPENSATION_REASONS.executionError(toolResultText(res.content)) } : {}),
       });
     }
     for (const e of standingCompensation.entries) {
@@ -3192,6 +3215,30 @@ async function execute(a: ExecArgs): Promise<void> {
     });
     return;
   }
+
+  /** Records an amend that landed: the code_changes row is read
+   *  back from GitHub (its head moved to the amend's commit, its
+   *  counts are the PR's new truth) and the run's step names the
+   *  update. A read-back that fails does not unland the commit —
+   *  the step then stands on the push's own result, and says so. */
+  const noteAmendLanded = async (brief: { repo: string; number: number; branch: string }): Promise<void> => {
+    const ref: PullRef = { repo: brief.repo, number: brief.number };
+    let refreshed = false;
+    if (run.element_id) {
+      try {
+        const tokens = await githubTokens(admin, run.activity_space_id).catch(() => [null] as (string | null)[]);
+        const pull = await withGithubToken(tokens, (t) => fetchPull(ref, t));
+        await upsertCodeChange(admin, run.element_id, ref, pull, { linkedBy: user.id, via: "agent", runId: run.id });
+        refreshed = true;
+      } catch (e) {
+        console.error("run-agent: amend read-back failed", errorMessage(e));
+      }
+    }
+    await addStep(admin, run.id, "pull_request", `PR を更新しました: ${brief.repo}#${brief.number}`,
+      refreshed
+        ? `検証済みのパッチを、PR のブランチ ${brief.branch} への追加コミットとして公開しました。PR の記録を読み戻して更新しています。`
+        : `検証済みのパッチを、PR のブランチ ${brief.branch} への追加コミットとして公開しました（PR の記録の読み戻しはできませんでした）。`);
+  };
 
   // A decision on a publish batch finalizes the finish the publish
   // interrupted (coding PR3): the batch has already executed through
@@ -3227,7 +3274,7 @@ async function execute(a: ExecArgs): Promise<void> {
           }
         }
       } else if (prResult && !prResult.is_error) {
-        await notePublishLanded(prResult.content);
+        await notePublishLanded(toolResultText(prResult.content));
       } else {
         await addStep(admin, run.id, "error", "公開が完了しませんでした",
           `承認された公開のうち ${failed} 件の呼び出しが失敗し、PR は開かれていません。パッチは成果物として残っています。`);
@@ -3298,7 +3345,7 @@ async function execute(a: ExecArgs): Promise<void> {
       const { data: el } = await userDb.from("elements").select("title").eq("id", run.element_id).maybeSingle();
       elementTitleCache = el?.title ?? "Element";
     } catch { elementTitleCache = "Element"; }
-    return elementTitleCache;
+    return elementTitleCache ?? "Element";
   };
 
   // The return the agent receives is the correction envelope (B3):
@@ -3849,30 +3896,6 @@ async function execute(a: ExecArgs): Promise<void> {
     return { kind: "landed" };
   };
 
-  /** Records an amend that landed: the code_changes row is read
-   *  back from GitHub (its head moved to the amend's commit, its
-   *  counts are the PR's new truth) and the run's step names the
-   *  update. A read-back that fails does not unland the commit —
-   *  the step then stands on the push's own result, and says so. */
-  const noteAmendLanded = async (brief: { repo: string; number: number; branch: string }): Promise<void> => {
-    const ref: PullRef = { repo: brief.repo, number: brief.number };
-    let refreshed = false;
-    if (run.element_id) {
-      try {
-        const tokens = await githubTokens(admin, run.activity_space_id).catch(() => [null] as (string | null)[]);
-        const pull = await withGithubToken(tokens, (t) => fetchPull(ref, t));
-        await upsertCodeChange(admin, run.element_id, ref, pull, { linkedBy: user.id, via: "agent", runId: run.id });
-        refreshed = true;
-      } catch (e) {
-        console.error("run-agent: amend read-back failed", errorMessage(e));
-      }
-    }
-    await addStep(admin, run.id, "pull_request", `PR を更新しました: ${brief.repo}#${brief.number}`,
-      refreshed
-        ? `検証済みのパッチを、PR のブランチ ${brief.branch} への追加コミットとして公開しました。PR の記録を読み戻して更新しています。`
-        : `検証済みのパッチを、PR のブランチ ${brief.branch} への追加コミットとして公開しました（PR の記録の読み戻しはできませんでした）。`);
-  };
-
   /**
    * Publishes one follow-up finish's patch as an added commit on
    * its PR's existing branch (coding PR4). The same publish path as
@@ -4275,7 +4298,7 @@ async function execute(a: ExecArgs): Promise<void> {
         }
         if (isCatalogTool(call.name)) {
           const refusal = catalogDenyRefusal(call.name, call.input);
-          await addStep(admin, run.id, "action", `Alcon: ${catalogOperation(call.name, call.input)}`, refusal);
+          await addStep(admin, run.id, "action", `Clayware: ${catalogOperation(call.name, call.input)}`, refusal);
           return { content: refusal, is_error: true };
         }
         const deniedTool = integrationTools.get(call.name);
@@ -4339,6 +4362,8 @@ async function execute(a: ExecArgs): Promise<void> {
     mechanicalCheck: run.mode === "reply" || external || planRun ? undefined : mechanicalCheck,
     revisionMessage: run.mode === "reply" || external || planRun ? undefined : revisionMessage,
     afterTurn: async () => { await flushLifted(); await saveTranscript(); },
+    // A Worker's own model endpoint may not take image blocks.
+    acceptsImages: !external,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= runCap,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
@@ -4742,7 +4767,7 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
   if (said) await addStep(admin, run.id, "message", said.split("\n")[0].slice(0, 200), said);
 
   const saveTranscript = async () => {
-    const transcript: Transcript = { messages: state.messages, turns: state.turns, nudges: 0, revisions: 0, turnBudget, tools };
+    const transcript: Transcript = { messages: stripToolResultImages(state.messages), turns: state.turns, nudges: 0, revisions: 0, turnBudget, tools };
     const clean = JSON.parse(JSON.stringify(transcript).replace(/\\u0000/g, ""));
     const { error } = await admin.from("agent_runs").update({ transcript: clean }).eq("id", run.id);
     if (error) throw new Error(`経過を保存できませんでした: ${error.message}`);
@@ -4752,7 +4777,7 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
   // This turn's substantive tool work — the landing capture's
   // threshold (memoryCapture.landingWorthDistilling) counts it.
   let toolCallsThisTurn = 0;
-  const executeCall = async (call: ToolCall): Promise<{ content: string; is_error?: boolean }> => {
+  const executeCall = async (call: ToolCall): Promise<{ content: string; is_error?: boolean; images?: ToolImage[] }> => {
     if (call.name === PLANNER_TOOL.name) {
       const guidance = String(call.input.guidance ?? "").trim().slice(0, 4000);
       await addStep(admin, run.id, "plan_request", "計画を Planner に渡す準備をしました", guidance || null);
@@ -4840,12 +4865,12 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
     const r = await runCatalogTool(userDb, call.name, call.input, actor, { entry: "conversation", spaceId: run.activity_space_id ?? null });
     const writes = (catalogTool(call.name)?.effect ?? "read") !== "read";
     // The page draws the conversation from these steps: what was done, about what, and whether it failed.
-    await addStep(admin, run.id, !r.ok ? "error" : writes ? "write" : "action", `Alcon: ${call.name}`, r.ok ? conversationStepDetail(call.input) : r.error);
+    await addStep(admin, run.id, !r.ok ? "error" : writes ? "write" : "action", `Clayware: ${call.name}`, r.ok ? conversationStepDetail(call.input) : r.error);
     // A recall's bodies count as uses of those memories (PR3).
     if (call.name === "recall_memory" && r.ok) await noteMemoryUse(admin, run.id, usedIdsOf(r.data));
     // A promotion the person just asked for starts drafting now (PR5).
     if (call.name === "start_promotion" && r.ok) startPromotionRunFromTool(a, r.data);
-    return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000) } : { content: r.error, is_error: true };
+    return r.ok ? { content: JSON.stringify(r.data).slice(0, 20_000), ...(r.images?.length ? { images: r.images } : {}) } : { content: r.error, is_error: true };
   };
 
   const recordUsage = async (u: ModelUsage) => {
@@ -4894,6 +4919,8 @@ async function converse(a: ExecArgs, said: string): Promise<void> {
     execute: (call) => executeCall(call),
     onUsage: recordUsage,
     afterTurn: () => saveTranscript(),
+    // The conversation calls Anthropic, which takes pictures.
+    acceptsImages: true,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= MAX_RUN_COST_USD,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
@@ -5045,7 +5072,7 @@ async function reconcileForDraft(a: ExecArgs, d: DraftRow): Promise<ReconcileRes
     case "preset":
       return { close: { status: "rerouted", summary: `「${d.name}」には組み込みの接続（プリセット）があります。設定の接続ダイアログから接続してください。起草はしません。` }, note: "" };
     case "registry":
-      return { close: { status: "rerouted", summary: `「${d.name}」は MCP Registry にサーバがあります（${outcome.entry.title}: ${outcome.entry.endpoint}）。Registry 経由の接続を使ってください。起草はしません。` }, note: "" };
+      return { close: { status: "rerouted", summary: `「${d.name}」は MCP Registry にサーバがあります（${outcome.title}: ${outcome.endpoint}）。Registry 経由の接続を使ってください。起草はしません。` }, note: "" };
     case "join":
       return { close: { status: "superseded", summary: "同じサービスの起草がすでに進んでいます。そちらのドラフトに合流しました。" }, note: "" };
     case "update": {
@@ -5057,16 +5084,24 @@ async function reconcileForDraft(a: ExecArgs, d: DraftRow): Promise<ReconcileRes
       return { note: `既存の接続「${target?.name ?? d.name}」への定義の更新として起草します。テストは複製行で行い、有効化のときに原本へ反映されます。既存の接続は止めません。` };
     }
     case "create":
+      // A new connection updates nothing: a target left on the draft (from
+      // an earlier reconcile, or written by anyone but this driver) is cleared.
+      if (d.target_integration_id) {
+        await admin.from("integration_drafts").update({ target_integration_id: null, updated_at: new Date().toISOString() }).eq("id", d.id);
+        d.target_integration_id = null;
+      }
       return { note: "既存の経路（接続・プリセット・Registry・進行中の起草）はありません。新規の接続として起草します。" };
   }
 }
 
-/** The host a candidate's endpoint must agree with: the person's own
- *  documentation URL when they gave one, else the first cited source's. */
-function officialHostFor(d: DraftRow, candidate: DraftCandidate): string | null {
+/** The host a candidate's endpoint (and its OAuth hosts) must agree
+ *  with: the person's own documentation URL when they gave one. Never a
+ *  source the drafter cited — the drafter would be choosing its own
+ *  yardstick; without the person's URL, OAuth hosts are held to the
+ *  endpoint instead (validateDraftCandidate). */
+function officialHostFor(d: DraftRow): string | null {
   const context = (d.request_context ?? {}) as { docsUrl?: string | null };
-  const from = context.docsUrl ?? candidate.sources[0] ?? null;
-  try { return from ? new URL(from).hostname : null; } catch { return null; }
+  try { return context.docsUrl ? new URL(context.docsUrl).hostname : null; } catch { return null; }
 }
 
 async function draft(a: ExecArgs, said: string): Promise<void> {
@@ -5074,8 +5109,9 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
   stepNext.delete(a.run.id);
   const { run, admin, user } = a;
   const draftId = run.integration_draft_id!;
-  let d = await loadDraft(admin, draftId);
-  if (!d) { await failRun(admin, run, "起草の対象が見つかりません。"); return; }
+  const loadedDraft = await loadDraft(admin, draftId);
+  if (!loadedDraft) { await failRun(admin, run, "起草の対象が見つかりません。"); return; }
+  let d: DraftRow = loadedDraft;
   // The draft names its run (the review screen links to it; the run's
   // steps are the drafting's audit record). The creator cannot always
   // write the draft row, so the driver stamps it.
@@ -5113,7 +5149,7 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
 
   const tools: RunToolDef[] = run.transcript?.tools?.length ? run.transcript.tools : draftTools();
   let state: LoopState;
-  let finished: { kind: "ready" | "rerouted" | "failed" | "testing_wait"; reason: string } | null = null;
+  let finished = null as { kind: "ready" | "rerouted" | "failed" | "testing_wait"; reason: string } | null;
 
   if (run.transcript?.messages?.length) {
     state = { messages: run.transcript.messages, turns: run.transcript.turns ?? 0, nudges: 0, revisions: 0 };
@@ -5188,8 +5224,9 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
         testInputs: (input.testInputs && typeof input.testInputs === "object" && !Array.isArray(input.testInputs)
           ? input.testInputs : {}) as Record<string, Record<string, unknown>>,
         sources: Array.isArray(input.sources) ? input.sources.filter((s): s is string => typeof s === "string") : [],
+        oauth: input.oauth ?? null,
       };
-      const { errors, manifest } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d, candidate) });
+      const { errors, manifest, oauth } = validateDraftCandidate(candidate, { officialHost: officialHostFor(d) });
       if (errors.length || !manifest) {
         await addStep(admin, run.id, "error", "候補が検証に通りませんでした", errors.join("\n"));
         return { content: `検証で落ちました。直して出し直してください:\n- ${errors.join("\n- ")}`, is_error: true };
@@ -5209,7 +5246,7 @@ async function draft(a: ExecArgs, said: string): Promise<void> {
           is_error: true,
         };
       }
-      const stored: DraftCandidate = { ...candidate, manifest: JSON.parse(JSON.stringify(manifest)) as unknown };
+      const stored: DraftCandidate = { ...candidate, manifest: JSON.parse(JSON.stringify(manifest)) as unknown, oauth };
       if (!await applyCandidate(admin, d, stored, drops)) {
         return { content: "候補を保存できませんでした（ドラフトの状態が変わっています）。", is_error: true };
       }
@@ -5494,8 +5531,9 @@ async function promote(a: ExecArgs, said: string): Promise<void> {
   stepNext.delete(a.run.id);
   const { run, admin, user } = a;
   const draftId = run.promotion_draft_id!;
-  let d = await loadPromotionDraft(admin, draftId);
-  if (!d) { await failRun(admin, run, "起草の対象が見つかりません。"); return; }
+  const loadedDraft = await loadPromotionDraft(admin, draftId);
+  if (!loadedDraft) { await failRun(admin, run, "起草の対象が見つかりません。"); return; }
+  let d: PromotionDraftRow = loadedDraft;
   if (d.draft_run_id !== run.id) {
     await admin.from("promotion_drafts").update({ draft_run_id: run.id, updated_at: new Date().toISOString() }).eq("id", d.id);
     d.draft_run_id = run.id;
@@ -5568,7 +5606,7 @@ async function promote(a: ExecArgs, said: string): Promise<void> {
 
   const tools: RunToolDef[] = run.transcript?.tools?.length ? run.transcript.tools : promotionTools();
   let state: LoopState;
-  let finished: { kind: "rehearsal_started" | "failed"; reason: string } | null = null;
+  let finished = null as { kind: "rehearsal_started" | "failed"; reason: string } | null;
 
   if (run.transcript?.messages?.length) {
     state = { messages: run.transcript.messages, turns: run.transcript.turns ?? 0, nudges: 0, revisions: 0 };
@@ -5612,7 +5650,7 @@ async function promote(a: ExecArgs, said: string): Promise<void> {
     // creation, or found through the draft this source already
     // activated — pins the base hash the activation will compare.
     let reconcileNote = "この元の仕事から生まれた定義はまだありません。新規の定義として起草します。";
-    let targetBody: { name: string; body: string } | null = null;
+    let targetBody = null as { name: string; body: string } | null;
     const resolveTarget = async (definitionId: string) => {
       const { data: defRow } = await admin.from("definitions").select("id, name, body").eq("id", definitionId).maybeSingle();
       if (!defRow) return;
@@ -5967,7 +6005,7 @@ function heartbeatSystemPrompt(agentName: string): string {
 }
 
 /** The Space's AI Worker a heartbeat speaks as: the run's own Worker
- *  when the tick named one, else the Space's in-Alcon worker (the
+ *  when the tick named one, else the Space's in-Clayware worker (the
  *  automations selection: an active AI worker not handed to Claude
  *  Code, "Claude" preferred). Null runs as the default agent. */
 async function loadHeartbeatWorker(admin: SupabaseClient, run: Run): Promise<WorkerConfigRow | null> {
@@ -5978,9 +6016,9 @@ async function loadHeartbeatWorker(admin: SupabaseClient, run: Run): Promise<Wor
   if (!run.activity_space_id) return null;
   const { data } = await admin.from("workers").select("name, ai_config, ai_model")
     .eq("activity_space_id", run.activity_space_id).eq("type", "ai_agent").eq("status", "active");
-  const inAlcon = ((data ?? []) as WorkerConfigRow[])
+  const inClayware = ((data ?? []) as WorkerConfigRow[])
     .filter((w) => (w.ai_config as Record<string, unknown> | null)?.runner !== "claude-code");
-  return inAlcon.find((w) => w.name === "Claude") ?? inAlcon[0] ?? null;
+  return inClayware.find((w) => w.name === "Claude") ?? inClayware[0] ?? null;
 }
 
 /**
@@ -6087,7 +6125,7 @@ async function readHeartbeatSignals(userDb: SupabaseClient, spaceId: string): Pr
     userDb.from("elements").select("id, title, updated_at, objects!inner(domains!inner(activity_space_id))")
       .eq("status", "review").eq("objects.domains.activity_space_id", spaceId)
       .order("updated_at", { ascending: true }).limit(20),
-    [] as { id: string; title: string; updated_at: string }[],
+    [],
   );
   for (const e of reviewing) {
     signals.push({ kind: "element_review", id: e.id, since: e.updated_at, version: e.updated_at, label: e.title, place: "Element で確認できます" });
@@ -6667,9 +6705,9 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
 
   const saveTranscript = async (p: SavedPending | undefined = pending) => {
     const transcript: Transcript = {
-      messages: state.messages, turns: state.turns, nudges: state.nudges, revisions: 0,
+      messages: stripToolResultImages(state.messages), turns: state.turns, nudges: state.nudges, revisions: 0,
       context,
-      ...(p ? { pending: p } : {}),
+      ...(p ? { pending: stripPendingImages(p) } : {}),
     };
     const clean = JSON.parse(JSON.stringify(transcript).replace(/\\u0000/g, ""));
     const { error } = await admin.from("agent_runs").update({ transcript: clean }).eq("id", run.id);
@@ -6755,7 +6793,7 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
   if (decided && pendingActionId) {
     const results = decided.results.map((r) => {
       const call = decidedCalls.find((c) => c.id === r.tool_use_id);
-      return { name: call?.name ?? "tool", ok: !r.is_error, content: r.content.slice(0, 300) };
+      return { name: call?.name ?? "tool", ok: !r.is_error, content: toolResultText(r.content).slice(0, 300) };
     });
     const status = !decided.approved ? "denied"
       : decided.results.length > 0 && decided.results.every((r) => r.is_error) ? "failed" : "executed";
@@ -6953,6 +6991,8 @@ async function chat(a: ExecArgs, said: string): Promise<void> {
     execute: loopExecute,
     onUsage: recordUsage,
     afterTurn: async () => { await flushLifted(); await saveTranscript(); },
+    // The panel calls Anthropic, which takes pictures.
+    acceptsImages: true,
     budgetExceeded: () => spentBefore + usage.cost >= budget || usage.cost >= MAX_RUN_COST_USD,
     cancelled: async () => {
       const { data } = await admin.from("agent_runs").select("status").eq("id", run.id).maybeSingle();
@@ -7085,7 +7125,7 @@ async function loadConversationContext(userDb: SupabaseClient, run: Run, strateg
   ]);
   // The harness the Strategy is worked by: its own, else the Space's
   // default. A disabled one is inert — the chain falls through to the next
-  // slot, and to no harness (Alcon's built-in conversation) at the end.
+  // slot, and to no harness (Clayware's built-in conversation) at the end.
   const strategyDefId = (row as { definition_id?: string | null } | null)?.definition_id ?? null;
   let defaultDefId: string | null = null;
   if (run.activity_space_id) {
@@ -7475,7 +7515,7 @@ async function decidePlan(a: ExecArgs): Promise<void> {
     }).eq("id", action.id);
     await addStep(admin, run.id, "approval", "計画が却下されました", note);
     await admin.from("element_comments").insert({
-      element_id: run.element_id, author_id: user.id, author_kind: "ai_agent", author_name: "Alcon Agent",
+      element_id: run.element_id, author_id: user.id, author_kind: "ai_agent", author_name: "Clayware Agent",
       content: `**計画が却下されました** — ${summary}${note ? `\n\n${note}` : ""}`,
     });
     // The plan run ends failed: the work was not done and the Element does
@@ -7486,7 +7526,7 @@ async function decidePlan(a: ExecArgs): Promise<void> {
     }).eq("id", run.id).eq("status", "running");
     if (run.triggered_by) {
       await admin.from("notifications").insert({
-        recipient_id: run.triggered_by, actor_name: "Alcon Agent", kind: "status_change", element_id: run.element_id,
+        recipient_id: run.triggered_by, actor_name: "Clayware Agent", kind: "status_change", element_id: run.element_id,
         title: "計画が却下されました", body: summary,
       }).then(() => {}, () => {});
     }
@@ -7541,7 +7581,7 @@ async function decidePlan(a: ExecArgs): Promise<void> {
     finished_at: new Date().toISOString(), continuation_token: null,
   }).eq("id", run.id).eq("status", "running");
   await admin.from("element_comments").insert({
-    element_id: run.element_id, author_id: user.id, author_kind: "ai_agent", author_name: "Alcon Agent",
+    element_id: run.element_id, author_id: user.id, author_kind: "ai_agent", author_name: "Clayware Agent",
     content: `**計画が承認されました** — ${summary}。適用 run が計画どおりに実行します。`,
   });
   // Drive the apply run as the approver (advanceFrom's pattern) —
@@ -7761,12 +7801,12 @@ async function advanceFrom(
       `開始しなかった作業: ${titles.join("、")}`);
     for (const c of capped) {
       await admin.from("element_comments").insert({
-        element_id: c.elementId, author_id: user.id, author_kind: "ai_agent", author_name: "Alcon Agent",
+        element_id: c.elementId, author_id: user.id, author_kind: "ai_agent", author_name: "Clayware Agent",
         content: `**連鎖の上限** — 連鎖の深さ上限（${maxDepth}）に達したため、この作業は自動では開始しませんでした。起点の実行: ${parent.scope?.rootRunId ?? parent.id}。開始ボタンで新しく始められます（新しい連鎖として始まります）。`,
       }).then(() => {}, () => {});
     }
     await admin.from("notifications").insert({
-      recipient_id: parent.triggeredBy ?? user.id, actor_name: "Alcon Agent", kind: "status_change", element_id: doneId,
+      recipient_id: parent.triggeredBy ?? user.id, actor_name: "Clayware Agent", kind: "status_change", element_id: doneId,
       title: "連鎖の上限に達しました", body: titles.join("、"),
     }).then(() => {}, () => {});
   }

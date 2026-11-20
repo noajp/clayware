@@ -14,9 +14,9 @@ import { I18nProvider } from "@/Function/i18n/I18nProvider";
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
-  // Inter has no Japanese: "Alcon JP" (globals.css) takes those glyphs, at
+  // Inter has no Japanese: "Clayware JP" (globals.css) takes those glyphs, at
   // weights matched to Inter's, before the system's own Japanese font.
-  fallback: ["Alcon JP", "system-ui", "sans-serif"],
+  fallback: ["Clayware JP", "system-ui", "sans-serif"],
 });
 
 // Monospace for code/data
@@ -27,7 +27,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alcon",
+  title: "Clayware",
   description: "Organizational activity support for people and AI.",
 };
 
@@ -55,12 +55,30 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Preferences this browser saved under the earlier key names move to
+            the current ones, once, before anything reads them. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var L=localStorage;if(!L.getItem('clayware:storage-renamed')){for(var i=L.length-1;i>=0;i--){var k=L.key(i);if(k&&k.indexOf('alcon')===0){var n='clayware'+k.slice(5);if(L.getItem(n)===null)L.setItem(n,L.getItem(k));L.removeItem(k)}}L.setItem('clayware:storage-renamed','1')}}catch(e){}",
+          }}
+        />
+        {/* A theme that is no longer offered moves to its nearest, before
+            next-themes reads it: the blue and warm darks to Dark, the
+            near-black to Black, the pure white to White, the tinted lights
+            to Light. A Custom theme's colours go on before paint too. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var m={midnight:'dark',graphite:'dark',carbon:'black',snow:'white',ivory:'light',mist:'light'};var t=localStorage.getItem('theme');if(t&&m[t])localStorage.setItem('theme',m[t]);var c=JSON.parse(localStorage.getItem('clayware.customTheme')||'null');if(c){var r=document.documentElement.style;if(c.accent)r.setProperty('--custom-accent',c.accent);if(c.background)r.setProperty('--custom-bg',c.background);if(c.contrast!=null)r.setProperty('--custom-contrast',String(c.contrast))}}catch(e){}",
+          }}
+        />
         {/* Set the document language before paint. The provider uses the same
             resolution order and translates visible copy after hydration. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var s=['en','ja','ko','fr','es'];var n=function(x){var l=(x||'').trim().toLowerCase().split(/[-_]/)[0];return s.includes(l)?l:null};var v=null;try{v=localStorage.getItem('alcon:locale')}catch(e){}var l=n(v);if(!l){var a=navigator.languages||[navigator.language];for(var i=0;i<a.length&&!l;i++)l=n(a[i])}document.documentElement.lang=l||'en'}catch(e){}",
+              "try{var s=['en','ja','ko','fr','es'];var n=function(x){var l=(x||'').trim().toLowerCase().split(/[-_]/)[0];return s.includes(l)?l:null};var v=null;try{v=localStorage.getItem('clayware:locale')}catch(e){}var l=n(v);if(!l){var a=navigator.languages||[navigator.language];for(var i=0;i<a.length&&!l;i++)l=n(a[i])}document.documentElement.lang=l||'en'}catch(e){}",
           }}
         />
         {/* Apply the Font size (text scale --fs) before first paint. Default is
@@ -69,7 +87,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var k=localStorage.getItem('alcon.fontsize');var m={smaller:'0.925',small:'1',default:'1.075',large:'1.15',larger:'1.25'};document.documentElement.style.setProperty('--fs',m[k]||'1.075');}catch(e){}",
+              "try{var k=localStorage.getItem('clayware.fontsize');var m={smaller:'0.925',small:'1',default:'1.075',large:'1.15',larger:'1.25'};document.documentElement.style.setProperty('--fs',m[k]||'1.075');}catch(e){}",
           }}
         />
       </head>

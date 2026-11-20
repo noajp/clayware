@@ -3,6 +3,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.135.0';
 import { betaZodOutputFormat } from 'npm:@anthropic-ai/sdk@0.135.0/helpers/beta/zod';
 import { z } from 'npm:zod@4.6.7';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.86.2';
+import { athenaAllowed, PLAN_REFUSAL } from '../_shared/plan.ts';
 
 // The Slides editor's AI path (ADR 0042): Claude returns the deck's JSON
 // only — pages, their logic and content — and the editor's own parts draw it.
@@ -65,7 +66,7 @@ const ResultSchema = z.object({
   current: z.number().int(),
 });
 
-const SYSTEM = `あなたは Alcon の資料エディタ（Slides）の中で働く、戦略コンサルの資料づくりの名手です。利用者の依頼に応じて、スライドデッキの JSON を返します。描画は別の部品が行うので、あなたは中身と構造だけを決めます。
+const SYSTEM = `あなたは Clayware の資料エディタ（Slides）の中で働く、戦略コンサルの資料づくりの名手です。利用者の依頼に応じて、スライドデッキの JSON を返します。描画は別の部品が行うので、あなたは中身と構造だけを決めます。
 
 ## デッキの規則
 - 1枚に言いたいことは1つ。title はそのページの結論を一文で、言い切りの形で書く（「です・ます」で終わらせない、名詞で止めない、60字以内）。title だけを通して読むと1本の話になること。
@@ -108,6 +109,7 @@ Deno.serve(async (req) => {
   try { body = JSON.parse(text) as Body; } catch { return reply({ error: 'Invalid input' }, 400); }
   const say = (ja: string, en: string) => (body?.lang === 'en' ? en : ja);
   if (!body || !body.deck || !Array.isArray(body.deck.slides) || typeof body.text !== 'string') return reply({ error: say('入力が正しくありません', 'Invalid input') }, 400);
+  if (!(await athenaAllowed(client, (body as { spaceId?: unknown }).spaceId))) return reply(PLAN_REFUSAL, 403);
   const { current } = body;
   const deck = { ...body.deck, sourceDoc: undefined };
   // What reaches the model: a deck and a request, not a whole document.

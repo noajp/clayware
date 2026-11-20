@@ -11,11 +11,13 @@ import {
   notifyAboutElement,
   addElementAssignee,
   removeElementAssignee,
+  updateElement,
   type ElementApproval,
   type ApprovalState,
   type ElementWithDetails,
 } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { statusAfterDecision } from './approvalDecision';
 import { Popover, PopoverAnchor, PopoverTrigger, PopoverContent } from '@/ui/popover';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { formatAge } from '@/Function/shared/dateUtils';
@@ -25,6 +27,8 @@ import { fetchApprovalRights } from '@/hooks/elementData';
  *  approval menu and the banner a decider sees at the top of the Element. */
 export async function recordApprovalDecision(input: {
   elementId: string; approverId: string | null; approverName: string; state: ApprovalState; note: string | null;
+  /** The Element's status now; a decision moves an Element that is In Review on. */
+  status?: string | null;
 }): Promise<void> {
   await decideApproval({
     element_id: input.elementId,
@@ -33,9 +37,16 @@ export async function recordApprovalDecision(input: {
     state: input.state,
     note: input.note,
   });
+  // The decision is the end of the review: approved is Done, changes
+  // requested goes back to work, rejected is closed. The status change is
+  // what the board and the History line show (review → done comes back
+  // into the line; anything else is the request sent back or closed).
+  const next = statusAfterDecision(input.status, input.state);
+  if (next) await updateElement(input.elementId, { status: next });
   // The RPC tells the assignees, using the decision row written above.
   await notifyAboutElement(input.elementId, 'approval_decided');
 }
+
 
 /** Whether the signed-in person is among the Element's assignees or
  *  collaborators — the people the approval rule never lets decide. */
@@ -76,6 +87,8 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
   }
   const [approvals, setApprovals] = useState<ElementApproval[]>([]);
   const [note, setNote] = useState('');
+  // A decided approval hides its buttons until asked to change the decision.
+  const [reconsider, setReconsider] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -134,9 +147,10 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
     setBusy(true);
     try {
       const approverName = profile?.display_name || user?.email?.split('@')[0] || 'You';
-      await recordApprovalDecision({ elementId: element.id, approverId: user?.id ?? null, approverName, state, note: note.trim() || null });
+      await recordApprovalDecision({ elementId: element.id, approverId: user?.id ?? null, approverName, state, note: note.trim() || null, status: element.status });
 
       setNote('');
+      setReconsider(false);
       const fresh = await fetchElementApprovals(element.id);
       setApprovals(fresh);
       onRefresh?.();
@@ -149,6 +163,7 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
   const enabled = !!element.is_approval;
   const current = element.approval_state || 'pending';
   const StateIcon = stateMeta[current].icon;
+  const decided = enabled && current !== 'pending';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -166,7 +181,10 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
           </button>
         </PopoverTrigger>
       ) : <PopoverAnchor asChild><span aria-hidden className="inline-block h-7 w-0" /></PopoverAnchor>}
-      <PopoverContent align="end" className="w-64 p-2">
+      {/* Opened from the "…" menu: as that menu closes it hands focus back to
+          its trigger, which would count as leaving the panel and close it at
+          once. Only a click outside or Escape closes it. */}
+      <PopoverContent align="end" className="w-64 p-2" onFocusOutside={(e) => e.preventDefault()}>
         {!enabled ? (
           <button
             onClick={toggleApproval}
@@ -223,26 +241,40 @@ export function ElementApprovalMenu({ element, onRefresh, openSignal = 0 }: Prop
               </div>
             </div>
 
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={t('Optional note…')}
-              className="w-full text-[12px] bg-muted/30 rounded-md px-2 py-1.5 resize-none min-h-[36px] border-none"
-            />
+            {/* Once decided, the decision is the answer: the buttons step
+                aside behind "Change decision" so a decided approval does not
+                read as one still waiting. */}
+            {decided && !reconsider ? (
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-[12px] text-muted-foreground">
+                  {approvals[0]
+                    ? t('{name} decided {when}', { name: approvals[0].approver_name || t('Unknown'), when: formatAge(approvals[0].decided_at) })
+                    : t(stateMeta[current].label)}
+                </span>
+                {canDecide && <Button variant="ghost" size="sm" onClick={() => setReconsider(true)}>{t('Change decision')}</Button>}
+              </div>
+            ) : (<>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t('Optional note…')}
+                className="w-full text-[12px] bg-muted/30 rounded-md px-2 py-1.5 resize-none min-h-[36px] border-none"
+              />
 
-            {/* Decisions — approving is the decisive one, so it is the accent-blue
-                primary button; asking for changes and rejecting sit beside it. */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Button variant="primary" size="sm" className="gap-1.5" onClick={() => decide('approved')} disabled={busy || !canDecide}>
-                <Check size={13} /> {t('Approve')}
-              </Button>
-              <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => decide('changes_requested')} disabled={busy || !canDecide}>
-                <AlertCircle size={13} /> {t('Request changes')}
-              </Button>
-              <Button variant="ghost" size="sm" className="gap-1.5 text-[var(--status-danger)]" onClick={() => decide('rejected')} disabled={busy || !canDecide}>
-                <X size={13} /> {t('Reject')}
-              </Button>
-            </div>
+              {/* Decisions — approving is the decisive one, so it is the accent-blue
+                  primary button; asking for changes and rejecting sit beside it. */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button variant="primary" size="sm" className="gap-1.5" onClick={() => decide('approved')} disabled={busy || !canDecide}>
+                  <Check size={13} /> {t('Approve')}
+                </Button>
+                <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => decide('changes_requested')} disabled={busy || !canDecide}>
+                  <AlertCircle size={13} /> {t('Request changes')}
+                </Button>
+                <Button variant="ghost" size="sm" className="gap-1.5 text-[var(--status-danger)]" onClick={() => decide('rejected')} disabled={busy || !canDecide}>
+                  <X size={13} /> {t('Reject')}
+                </Button>
+              </div>
+            </>)}
 
             {currentRights && !canDecide && <p className="px-1 text-[11px] text-muted-foreground">
               {t(isWorkingOn(element, user?.id) ? 'You are working on this, so someone else decides it. Add a reviewer, or step off it.' : 'You cannot decide this approval.')}

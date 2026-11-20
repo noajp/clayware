@@ -8,128 +8,97 @@ import { ProfileSettings } from './ProfileSettings';
 import { AccountSettings } from './AccountSettings';
 import { CHART_PALETTES } from '@/Function/shared/chartPalette';
 import { TypeSettings } from './TypeSettings';
+import { StatusSettings } from './StatusSettings';
 import { getCachedChartPalette, setCachedChartPalette, usePreference } from './preferencesStore';
-import { OPTIONS as THEME_OPTIONS, FONT_SIZES, FONT_SIZE_KEY, DEFAULT_FONT_KEY, applyFontSize, POINTER_CURSOR_KEY } from './appearanceOptions';
+import { applyCustomTheme, readCustomTheme } from './customTheme';
+import { CustomThemeRows } from './CustomThemeRows';
+import { OPTIONS as THEME_OPTIONS, FONT_SIZES, FONT_SIZE_KEY, DEFAULT_FONT_KEY, applyFontSize } from './appearanceOptions';
 import { TeamSettings } from './TeamSettings';
 import { ActivitySpaceSettings } from './ActivitySpaceSettings';
 import { MemberSettings } from './MemberSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { LabelSettings } from './LabelSettings';
 import { ElementTemplateSettings } from './ElementTemplateSettings';
-import { IntegrationsSettings } from '@/AIP/connectors/IntegrationsSettings';
+import { ConnectorsSettings } from '@/AIP/connectors/IntegrationsSettings';
+import { ClaywareConnectPanel } from '@/AIP/connectors/ClaywareConnectPanel';
+import { AssetRelayPanel } from '@/AIP/connectors/AssetRelayPanel';
+import { HarnessesPanel } from '@/AIP/harness/HarnessesPanel';
 import {
   SETTINGS_NAV, SETTINGS_ITEMS,
-  useActiveSettingsSection, useActiveSettingsTab, useSettingsRevealNonce,
-  setActiveSettingsSection,
+  useActiveSettingsSection, useSettingsRevealNonce,
   type SettingsNavItem,
 } from './settingsNav';
 import { useUserPreferences, type UserPreferences } from './useUserPreferences';
 import { LanguageSelect } from '@/Function/i18n/LanguageSelect';
-import { SettingsIsland, SettingRow, SelectRow, SegmentedRow, SegmentedControl, ToggleRow, SettingsComingSoon } from './SettingsControls';
+import { SettingsIsland, SettingRow, SelectRow, SegmentedRow, SegmentedControl, ToggleRow } from './SettingsControls';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { InitiativeJudgementSettings, PhaseDefaultsSettings } from './StrategySettingsPanels';
+import { StrategySettings } from './StrategySettings';
+import { PlanSettings } from './PlanSettings';
 
 // =============================================================
 // SettingsView — content pane only. The settings NAV lives in
 // the AppSidebar (SettingsSidebarPanel); both share the settingsNav
 // store.
 //
-// One area per page: the area the nav names is the page, headed by its
-// name and one-line description, on the page ground (bg-background) so
-// the property islands float. A reveal (nav click / deep link / restore)
-// switches the page and lands it at the top. Areas that subdivide (AI,
-// API & access, Elements) swap their body behind an in-area segmented
-// control; their per-area tab state lives here, seeded by reveals.
-//
-// Alcon's vocabulary replaces Linear's: Issues → Elements,
-// Projects → Objects, Team(s) → Domain(s).
+// One nav row is one page: the page is headed by its name and a one-line
+// description, on the island's own ground (bg-card, the sidebar's too) with
+// the property islands a step off it, and everything it holds is stacked on it — nothing switches
+// inside a page. A reveal (nav click / deep link / restore) opens the
+// page at its top.
 // =============================================================
 
-/** One-line descriptions for the areas whose panels don't carry one of
- *  their own yet (redesign §7); the rest gain theirs as their panels
- *  convert in PR3/PR4a. */
+/** One-line descriptions for the pages whose panels don't open with one
+ *  of their own. */
 const AREA_DESCRIPTIONS: Record<string, string> = {
-  integrations: 'The harnesses Athena works by, and the services connected to this Space.',
-  access: 'Tokens, endpoints and connected machines — the ways other tools work with Alcon.',
+  preferences: 'Language, appearance, and defaults for how Clayware works for you.',
+  harnesses: 'How AI carries out a kind of work: the goal, the steps, where it stops and asks, the shape of the result and the connectors it uses.',
+  connectors: 'The outside services AI can use when it works in this Space.',
   automation: 'The work that runs by itself — open one to see and change its flow.',
-  elements: 'Labels and templates for Elements, set per Domain.',
-  preferences: 'Language, appearance, and defaults for how Alcon works for you.',
+  api: 'Let other AI tools and scripts read and update this Space as you, within your permissions.',
+  assets: 'A local app or AI adds one line to its backend and announces itself here. It is recognized when an owner accepts it; from then on what it does is recorded in this Space.',
 };
 
 export function SettingsView() {
-  const { t } = useI18n();
   const section = useActiveSettingsSection();
-  const revealTab = useActiveSettingsTab();
   const nonce = useSettingsRevealNonce();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const handledNonce = useRef(-1);
-  // Per-area in-area tab state, seeded by reveals. Segmented clicks
-  // write here only.
-  const [areaTabs, setAreaTabs] = useState<Record<string, string>>({});
 
-  const tabFor = (item: SettingsNavItem): string | null => {
-    if (!item.tabs) return null;
-    const chosen = areaTabs[item.id];
-    return chosen && item.tabs.some((x) => x.id === chosen) ? chosen : item.tabs[0].id;
-  };
-
-  // A reveal: seed the area's tab, and start the page at its top.
+  // A reveal starts the page at its top.
   useEffect(() => {
-    if (handledNonce.current === nonce) return;
-    handledNonce.current = nonce;
-    const item = SETTINGS_ITEMS[section];
-    if (item?.tabs && revealTab) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync reveal tab from settingsNav store
-      setAreaTabs((prev) => (prev[section] === revealTab ? prev : { ...prev, [section]: revealTab }));
-    }
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [nonce, section, revealTab]);
+  }, [nonce]);
 
   const renderArea = (item: SettingsNavItem) => {
     switch (item.id) {
-      case 'workspace': return <ActivitySpaceSettings />;
-      case 'members': return <MemberSettings />;
-      case 'integrations':
-      case 'access': {
-        const tab = tabFor(item);
-        return (
-          <>
-            <AreaTabs item={item} value={tab} onChange={(next) => setAreaTabs((prev) => ({ ...prev, [item.id]: next }))} />
-            <IntegrationsSettings tab={tab} />
-          </>
-        );
-      }
-      case 'automation': return <AutomationSettings />;
-      case 'initiative': return <InitiativeJudgementSettings />;
-      case 'phase': return <PhaseDefaultsSettings />;
-      case 'domain': return <TeamSettings />;
-      case 'objects': return <TypeSettings kind="object" />;
-      case 'elements': {
-        const tab = tabFor(item);
-        return (
-          <>
-            <AreaTabs item={item} value={tab} onChange={(next) => setAreaTabs((prev) => ({ ...prev, [item.id]: next }))} />
-            {tab === 'templates' ? <ElementTemplateSettings /> : tab === 'labels' ? <LabelSettings /> : <TypeSettings kind="element" />}
-            <SlaPointerRow />
-          </>
-        );
-      }
       case 'preferences': return <PreferencesPanel />;
       case 'profile': return <ProfileSettings />;
       case 'notifications': return <NotificationSettings />;
       case 'security': return <AccountSettings />;
-      // Objects and the Sustainment/Connected stubs: one compact
-      // placeholder island each (redesign §2.1).
-      default: return <PlaceholderIsland title={t(item.label)} />;
+      case 'strategy': return <StrategySettings />;
+      case 'element-types': return <TypeSettings kind="element" />;
+      case 'element-labels': return <LabelSettings />;
+      case 'element-templates': return <ElementTemplateSettings />;
+      case 'objects': return <TypeSettings kind="object" />;
+      case 'work-statuses': return <StatusSettings scope="work" />;
+      case 'element-statuses': return <StatusSettings scope="element" />;
+      case 'harnesses': return <HarnessesPanel />;
+      case 'connectors': return <ConnectorsSettings />;
+      case 'automation': return <AutomationSettings />;
+      case 'workspace': return <ActivitySpaceSettings />;
+      case 'members': return <MemberSettings />;
+      case 'domain': return <TeamSettings />;
+      case 'api': return <ClaywareConnectPanel />;
+      case 'assets': return <AssetRelayPanel />;
+      case 'plans': return <PlanSettings />;
+      default: return null;
     }
   };
 
   const item = SETTINGS_ITEMS[section] ?? SETTINGS_NAV[0].items[0];
-  const group = SETTINGS_NAV.find((g) => g.items.some((i) => i.id === item.id));
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto bg-background">
-      <div className={`mx-auto px-8 py-8 ${item.id === 'automation' ? 'max-w-6xl' : 'max-w-3xl'}`}>
-        <AreaShell key={item.id} item={item} group={group ? t(group.title) : undefined} description={AREA_DESCRIPTIONS[item.id]}>
+    <div ref={scrollRef} className="h-full overflow-y-auto bg-card">
+      <div className={`mx-auto px-10 py-10 ${item.id === 'automation' ? 'max-w-6xl' : 'max-w-3xl'}`}>
+        <AreaShell key={item.id} item={item} description={AREA_DESCRIPTIONS[item.id]}>
           {renderArea(item)}
         </AreaShell>
       </div>
@@ -138,26 +107,26 @@ export function SettingsView() {
 }
 
 // =============================================================
-// Area shell — the page's heading: the nav group it sits in, the
-// area's icon + name and one-line description above its body.
+// Area shell — the page's heading: its icon, name and one-line description
+// above its body (the heading sits outside the islands).
 // =============================================================
 function AreaShell({
-  item, group, description, children,
+  item, description, children,
 }: {
-  item: SettingsNavItem; group?: string; description?: string;
+  item: SettingsNavItem; description?: string;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
   const Icon = item.icon;
+  const title = t(item.title ?? item.label);
   return (
-    <section data-settings-area={item.id} aria-label={t(item.label)}>
+    <section data-settings-area={item.id} aria-label={title}>
       <div className="mb-6">
-        {group && <div className="text-[11.5px] font-medium text-muted-foreground/80">{group}</div>}
-        <div className="mt-1.5 flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/80 text-foreground/85">
             <Icon size={16} />
           </span>
-          <h1 className="text-[20px] font-semibold leading-tight tracking-[-0.015em] text-foreground">{t(item.label)}</h1>
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">{title}</h1>
         </div>
         {description && (
           <p className="mt-2 text-[13px] text-muted-foreground">{t(description)}</p>
@@ -168,72 +137,16 @@ function AreaShell({
   );
 }
 
-/** The in-area subdivision as a segmented control (redesign §2.3): it
- *  swaps only this area's body; the page and every other area stay put. */
-function AreaTabs({
-  item, value, onChange,
-}: { item: SettingsNavItem; value: string | null; onChange: (tab: string) => void }) {
-  const { t } = useI18n();
-  const tabs = item.tabs!;
-  const current = tabs.find((x) => x.id === value) ?? tabs[0];
-  return (
-    <div className="mb-5">
-      <SegmentedControl
-        label={t(item.label)}
-        value={current.label}
-        options={tabs.map((x) => x.label)}
-        onChange={(label) => {
-          const next = tabs.find((x) => x.label === label);
-          if (next) onChange(next.id);
-        }}
-      />
-    </div>
-  );
-}
-
-/** A settings surface that has nothing to set yet, as one compact
- *  island: the coming-soon line is the island's only row. */
-function PlaceholderIsland({ title }: { title: string }) {
-  return (
-    <SettingsIsland>
-      <div className="px-5">
-        <SettingsComingSoon title={title} />
-      </div>
-    </SettingsIsland>
-  );
-}
-
-/** The risk thresholds (SLAs) have ONE home, under Strategy; this
- *  quiet row points there from Elements, in the shape the approval
- *  mode's pointer row set (redesign §2.4). */
-function SlaPointerRow() {
-  const { t } = useI18n();
-  return (
-    <div className="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
-      <span className="font-medium text-foreground">{t('Risk thresholds')}</span>
-      <span>{t('Set under Strategy')}</span>
-      <button type="button" onClick={() => setActiveSettingsSection('initiative')}
-        className="underline underline-offset-2 transition-colors hover:text-foreground">
-        {t('Go to Strategy settings')}
-      </button>
-    </div>
-  );
-}
-
 // =============================================================
-// Preferences — the rich General + Interface/theme panel, and the pilot
-// for the settings redesign's primitives: groups render as property
-// islands, short enums as segmented controls, booleans on the shared
-// Switch. The General group persists to `user_preferences`
-// (owner_user-scoped) via useUserPreferences; Theme, Font size and
-// pointer cursors are device-local (next-themes / localStorage); the
-// App sidebar row is still a placeholder action. Its heading is the
-// area shell's — the panel itself starts at its islands.
+// Preferences — General persists to `user_preferences` (owner-scoped)
+// via useUserPreferences; Theme, Font size and Chart colors are
+// device-local (next-themes / localStorage). Every row here is read
+// somewhere in the app. Its heading is the area shell's — the panel
+// itself starts at its islands.
 // =============================================================
 function PreferencesPanel() {
   const { t } = useI18n();
   const { preferences, error, savePreference } = useUserPreferences();
-  const [pointerCursors, setPointerCursors] = useState(false);
 
   // Real Theme + Font size, wired to next-themes and the UI-zoom store.
   const { theme, setTheme } = useTheme();
@@ -245,19 +158,15 @@ function PreferencesPanel() {
     try {
       const saved = window.localStorage.getItem(FONT_SIZE_KEY);
       if (saved && FONT_SIZES.some((f) => f.key === saved)) setFontKey(saved);
-      const pointer = window.localStorage.getItem(POINTER_CURSOR_KEY) === '1';
-      setPointerCursors(pointer);
-      document.documentElement.dataset.pointerCursors = pointer ? '1' : '';
     } catch { /* ignore */ }
   }, []);
 
-  const setPointerCursorsPersisted = (v: boolean) => {
-    setPointerCursors(v);
-    document.documentElement.dataset.pointerCursors = v ? '1' : '';
-    try { window.localStorage.setItem(POINTER_CURSOR_KEY, v ? '1' : '0'); } catch { /* ignore */ }
+  const isCustom = theme === 'custom-dark' || theme === 'custom-light';
+  const activeThemeValue = !mounted ? 'system' : isCustom ? 'custom' : (theme ?? 'system');
+  const selectThemeValue = (value: string) => {
+    if (value === 'custom') setTheme(applyCustomTheme(readCustomTheme()));
+    else setTheme(value);
   };
-
-  const activeThemeValue = mounted ? (theme ?? 'system') : 'system';
   const chartPalette = usePreference(getCachedChartPalette);
   const activeChartPalette = CHART_PALETTES.find((p) => p.key === chartPalette) ?? CHART_PALETTES[0];
   const fontLabel = FONT_SIZES.find((f) => f.key === fontKey)?.label ?? 'Default';
@@ -278,12 +187,12 @@ function PreferencesPanel() {
       )}
 
       <SettingsIsland title={t('General')}>
-        <SettingRow label={t('Language')} desc={t('Choose the language used across Alcon')}>
-          <LanguageSelect />
+        <SettingRow label={t('Language')} desc={t('Choose the language used across Clayware')}>
+          <LanguageSelect field />
         </SettingRow>
         <SegmentedRow
           label={t('Default home view')}
-          desc={t('Select which view to open when launching Alcon')}
+          desc={t('Select which view to open when launching Clayware')}
           value={preferences.home_view}
           options={['My Elements', 'Inbox', 'Calendar']}
           onChange={(v) => savePreference('home_view', v as UserPreferences['home_view'])}
@@ -294,13 +203,6 @@ function PreferencesPanel() {
           value={preferences.display_names}
           options={['Full name', 'Short name', 'Username']}
           onChange={(v) => savePreference('display_names', v as UserPreferences['display_names'])}
-        />
-        <SegmentedRow
-          label={t('First day of the week')}
-          desc={t('Used for date pickers')}
-          value={preferences.first_day_of_week}
-          options={['Monday', 'Sunday', 'Saturday']}
-          onChange={(v) => savePreference('first_day_of_week', v as UserPreferences['first_day_of_week'])}
         />
         <ToggleRow
           label={t('Convert text emoticons into emojis')}
@@ -333,7 +235,7 @@ function PreferencesPanel() {
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  onClick={() => setTheme(opt.value)}
+                  onClick={() => selectThemeValue(opt.value)}
                   className={`group flex flex-col items-start gap-1.5 rounded-[7px] border p-1.5 text-left transition-colors ${
                     selected
                       ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]/50'
@@ -369,6 +271,7 @@ function PreferencesPanel() {
             })}
           </div>
         </div>
+        {mounted && isCustom && <CustomThemeRows onTheme={setTheme} />}
         <SelectRow
           label={t('Font size')}
           desc={t('Adjust the size of text across the app')}
@@ -391,11 +294,6 @@ function PreferencesPanel() {
             />
           </div>
         </SettingRow>
-        <ToggleRow
-          label={t('Use pointer cursors')}
-          desc={t('Change the cursor to a pointer over interactive elements')}
-          value={pointerCursors}
-          onChange={setPointerCursorsPersisted}
         />
       </SettingsIsland>
     </div>

@@ -2,7 +2,7 @@
 
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { memo } from 'react';
-import type { AlconObjectWithChildren, Worker } from '@/hooks/useSupabase';
+import type { ClaywareObjectWithChildren, Worker } from '@/hooks/useSupabase';
 import { useSortable } from '@dnd-kit/sortable';
 import type { Json } from '@/types/database';
 import { ObjectIcon } from '@/Frame/icons';
@@ -15,7 +15,7 @@ import { ObjectCell } from './cells';
 // frozen first three columns all behave the same so Object lists and
 // Element lists feel like one surface.
 interface ObjectRowProps {
-  obj: AlconObjectWithChildren;
+  obj: ClaywareObjectWithChildren;
   isSelected: boolean;
   hasSelectionRef: { readonly current: boolean };
   visibleColumns: DataColumn[];
@@ -32,12 +32,14 @@ interface ObjectRowProps {
   onObjectUpdate?: (objectId: string, updates: { type?: string | null; due_date?: string | null; lead_id?: string | null }) => void | Promise<void>;
   objectWorkers: Worker[];
   onObjectCustomColumnValueChange?: (columnId: string, objectId: string, value: Json) => void | Promise<void>;
+  /** The row's place among all the list's rows, when only some are drawn. */
+  ariaRowIndex?: number;
 }
 
 export const ObjectRow = memo(function ObjectRow({
   obj, isSelected, hasSelectionRef, visibleColumns, hasTrailingCol,
   elementTypes, canRowSelect, onAddType, onRemoveType, dropEdge, selPrev, selNext, onSelectObject, onRowSelect,
-  onObjectUpdate, objectWorkers, onObjectCustomColumnValueChange,
+  onObjectUpdate, objectWorkers, onObjectCustomColumnValueChange, ariaRowIndex,
 }: ObjectRowProps) {
   const dragId = OBJECT_DRAG_PREFIX + obj.id;
   // No sortable transform — rows stay static; the DragOverlay card and blue
@@ -59,12 +61,24 @@ export const ObjectRow = memo(function ObjectRow({
   return (
     <tr
       ref={setNodeRef}
+      data-row
+      data-row-id={obj.id}
+      aria-rowindex={ariaRowIndex}
       style={dragStyle}
       {...attributes}
+      // A table row stays a row to assistive tech: dnd-kit gives it
+      // role="button", which hides its cells and the controls in them.
+      role={undefined}
       {...dragListeners}
+      // Enter on the focused row opens it, as a click does; Space stays the
+      // drag key (dnd-kit's keyboard sensor).
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); e.currentTarget.click(); return; }
+        (dragListeners as { onKeyDown?: (event: React.KeyboardEvent) => void } | undefined)?.onKeyDown?.(e);
+      }}
       // The Object list never scrolls horizontally (overflow-x-hidden on the
       // wrap), so nothing can slide under the sticky Name cells — the selected
-      // tint safely spans the full rounded band. Without a trailing "+"
+      // tint safely spans the full rounded band. Without a trailing fields button
       // column the band (rounding + tint) runs to the LAST cell (Elements);
       // with one it stops a cell short, mirroring the Element rows.
       className={`group cursor-pointer select-none leading-[1.4] [&>td]:transition-colors ${hasTrailingCol ? ROW_ROUND_BASE : ROW_ROUND_TO_LAST} ${isSelected ? (hasTrailingCol ? selectionSquareClass(selPrev, selNext) : selectionSquareClassToLast(selPrev, selNext)) : ''} ${DROP_LINE_CLASS} ${dropEdge ? DROP_LINE_SQUARE : ''} ${

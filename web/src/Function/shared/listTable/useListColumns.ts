@@ -3,6 +3,10 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldValueText } from '@/Function/property/fieldModel';
+import { clampWidth, NAME_SPEC, widthSpec, type WidthSpec } from './columnWidths';
+import { fetchListLayouts, saveListLayout } from '@/hooks/listLayouts';
+import { fromSavedLayout, isSort, toSavedLayout, type ListLayout as Snapshot } from './savedLayout';
+import type { Json } from '@/types/database';
 import type { CustomColumnWithValues } from '@/hooks/useSupabase';
 import { ELEMENT_DEFAULT_VISIBLE, OBJECT_DEFAULT_VISIBLE } from '@/Function/shared/listConfig';
 import { priorityWeight } from '@/Function/shared/listControls/types';
@@ -34,54 +38,35 @@ export interface DataColumn {
   kind: ColumnKind;
   /** Built-in `type` is non-toggleable (always on); others can be hidden. */
   toggleable: boolean;
-  defaultWidth: number;
-  /** Floor for resizing, when the column's content is narrower than the shared one. */
-  minWidth?: number;
-  /** 'end' sets the header and the cells flush right (the due date). */
-  align?: 'end';
   /** For kind === 'custom': the backing Property (custom_columns) definition. */
   custom?: CustomColumnWithValues;
+  /** 'end' when the column holds figures: header and values flush right. */
+  align?: 'end';
 }
 
-// One shared default width across every data column — built-in or custom —
-// so the column rhythm stays even out of the box. Tuned to Asana's typical
-// custom-field column (~120px): tag chips and date ranges land with a
-// little slack instead of truncating, while the table still reads dense.
-// Users can per-column resize from there.
-const DEFAULT_COLUMN_WIDTH = 128;
-// A due date is one short date ("Nov 13", "11月13日"), so its column hugs
-// it and sits flush right: the assignee or lead after it is the same 20px
-// away as the label before it, not across an empty half column. The width
-// is what the header's word needs in each language.
-function dateColumnWidth(locale: string): number {
-  return locale === 'es' ? 88 : locale === 'ja' || locale === 'ko' ? 84 : locale === 'fr' ? 76 : 72;
-}
+// How wide a column is comes from the kind of value it holds (columnWidths).
 
 // Special width key for the Name column (not a real DataColumn — it isn't
 // toggleable or reorderable). Stored alongside data-column widths so resize
 // + persistence reuse the same code path.
 export const NAME_COL_KEY = '__name__';
-// Name can shrink on compact layouts while retaining a readable title.
-const NAME_DEFAULT_WIDTH = 400;
-export const NAME_MIN_WIDTH = 240;
-const NAME_MAX_WIDTH = 1200;
 
 // Built-in (code-defined) columns per entity. 'type' is always-on (leftmost,
 // non-toggleable) on both. Elements carry an Assignee; Objects carry a Lead
 // (objects.lead_id), a computed Progress bar, and an Elements count instead.
 const ELEMENT_BUILTIN_COLUMNS: DataColumn[] = [
-  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true, defaultWidth: 160 },
-  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: true, defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'assignee', label: 'Assignee', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'activity', label: 'Updates', kind: 'builtin', toggleable: true,  defaultWidth: 120 },
+  { id: 'objects', label: 'Objects', kind: 'builtin', toggleable: true },
+  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: true },
+  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true },
+  { id: 'assignee', label: 'Assignee', kind: 'builtin', toggleable: true },
+  { id: 'activity', label: 'Updates', kind: 'builtin', toggleable: true },
 ];
 const OBJECT_BUILTIN_COLUMNS: DataColumn[] = [
-  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: false, defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'lead',     label: 'Lead',     kind: 'builtin', toggleable: true,  defaultWidth: DEFAULT_COLUMN_WIDTH },
-  { id: 'progress', label: 'Progress', kind: 'builtin', toggleable: true,  defaultWidth: 120 },
-  { id: 'elements', label: 'Elements', kind: 'builtin', toggleable: true,  defaultWidth: 112 },
+  { id: 'type',     label: 'Type',     kind: 'builtin', toggleable: false },
+  { id: 'due_date', label: 'Due date', kind: 'builtin', toggleable: true },
+  { id: 'lead',     label: 'Lead',     kind: 'builtin', toggleable: true },
+  { id: 'progress', label: 'Progress', kind: 'builtin', toggleable: true },
+  { id: 'elements', label: 'Elements', kind: 'builtin', toggleable: true },
 ];
 
 function builtinsFor(entity: ColumnEntity): DataColumn[] {
@@ -94,11 +79,6 @@ function defaultVisibleFor(entity: ColumnEntity): ColumnId[] {
 // Element default — the SSR/empty snapshot fallback (the hook reconciles to the
 // per-entity set once it knows the entity).
 const DEFAULT_VISIBLE: ColumnId[] = ELEMENT_DEFAULT_VISIBLE;
-// Floor matches the default width so columns never resize below their
-// natural readable size — labels stay fully visible and tags/chips don't
-// truncate from a drag-down.
-const COLUMN_MIN_WIDTH = 110;
-const COLUMN_MAX_WIDTH = 600;
 
 /** Active sort applied to every section's elements. `null` means natural
  *  order (whatever the data layer returned — usually elements.order_index). */
@@ -112,11 +92,6 @@ function customId(c: CustomColumnWithValues): ColumnId {
   return `cc:${c.id}`;
 }
 
-function isSort(v: unknown): v is ColumnSort {
-  if (!v || typeof v !== 'object') return false;
-  const s = v as { id?: unknown; direction?: unknown };
-  return typeof s.id === 'string' && (s.direction === 'asc' || s.direction === 'desc');
-}
 
 function readJSON<T>(key: string | null): T | null {
   if (typeof window === 'undefined' || !key) return null;
@@ -136,13 +111,6 @@ function writeJSON(key: string | null, value: unknown) {
 // useSyncExternalStore subscribers re-render. Reading on the server returns
 // a stable EMPTY_SNAPSHOT so SSR doesn't hydrate-mismatch.
 
-interface Snapshot {
-  order: ColumnId[];
-  visibleIds: ColumnId[];
-  hiddenIds: ColumnId[];
-  widths: Record<ColumnId, number>;
-  sort: ColumnSort | null;
-}
 
 interface StoreEntry {
   snapshot: Snapshot;
@@ -163,7 +131,9 @@ function keysFor(storageKey: string) {
   return {
     order:   `obj-list-cols:${storageKey}:order`,
     visible: `obj-list-cols:${storageKey}:visible`,
-    widths:  `obj-list-cols:${storageKey}:widths`,
+    // v3: widths are bounded by what each column holds; ones saved under
+    // the old even grid start again from those.
+    widths:  `obj-list-cols:${storageKey}:widths:v3`,
     sort:    `obj-list-cols:${storageKey}:sort`,
     hidden: `obj-list-cols:${storageKey}:hidden`,
     legacy:  `obj-list-cols:${storageKey}`,
@@ -191,11 +161,64 @@ function loadSnapshot(storageKey: string): Snapshot {
   };
 }
 
+// ─── The person's saved layouts ───────────────────────────────────────────
+// localStorage answers at once, on this browser; the person's preferences
+// (hooks/listLayouts) carry the same layouts to wherever else they sign in.
+// They are read once per page load: a saved layout replaces what the browser
+// remembered, unless the list was already changed in this session. A list
+// this browser has a layout for and the account does not is sent up, so the
+// first machine seeds the others. Every later change is saved a little
+// after it is made.
+
+/** null until the saved layouts have been read (or could not be). */
+let savedLayouts: Record<string, Json> | null = null;
+let syncStarted = false;
+/** Lists changed in this session: what they hold now is newer than what was saved. */
+const changedHere = new Set<string>();
+
+function isCustomised(s: Snapshot): boolean {
+  return s.order.length > 0 || s.hiddenIds.length > 0 || Object.keys(s.widths).length > 0 || s.sort !== null || s.visibleIds !== DEFAULT_VISIBLE;
+}
+
+function persistLocally(storageKey: string, next: Snapshot) {
+  const k = keysFor(storageKey);
+  writeJSON(k.order,   next.order);
+  writeJSON(k.visible, next.visibleIds);
+  writeJSON(k.hidden, next.hiddenIds);
+  writeJSON(k.widths,  next.widths);
+  writeJSON(k.sort,    next.sort);
+}
+
+/** Brings one list in line with the saved layouts, once they are known. */
+function reconcileWithSaved(storageKey: string, entry: StoreEntry) {
+  if (!savedLayouts || changedHere.has(storageKey)) return;
+  const saved = fromSavedLayout(savedLayouts[storageKey]);
+  if (saved) {
+    entry.snapshot = saved;
+    persistLocally(storageKey, saved);
+    entry.listeners.forEach((fn) => fn());
+  } else if (isCustomised(entry.snapshot)) {
+    savedLayouts[storageKey] = toSavedLayout(entry.snapshot);
+    saveListLayout(storageKey, savedLayouts[storageKey]);
+  }
+}
+
+function startLayoutSync() {
+  if (syncStarted || typeof window === 'undefined') return;
+  syncStarted = true;
+  void fetchListLayouts().then((layouts) => {
+    if (!layouts) { syncStarted = false; return; }
+    savedLayouts = layouts;
+    STORES.forEach((entry, key) => reconcileWithSaved(key, entry));
+  });
+}
+
 function getEntry(storageKey: string): StoreEntry {
   let entry = STORES.get(storageKey);
   if (!entry) {
     entry = { snapshot: loadSnapshot(storageKey), listeners: new Set() };
     STORES.set(storageKey, entry);
+    reconcileWithSaved(storageKey, entry);
   }
   return entry;
 }
@@ -205,12 +228,11 @@ function setSnapshot(storageKey: string, updater: (prev: Snapshot) => Snapshot) 
   const next = updater(entry.snapshot);
   if (next === entry.snapshot) return;
   entry.snapshot = next;
-  const k = keysFor(storageKey);
-  writeJSON(k.order,   next.order);
-  writeJSON(k.visible, next.visibleIds);
-  writeJSON(k.hidden, next.hiddenIds);
-  writeJSON(k.widths,  next.widths);
-  writeJSON(k.sort,    next.sort);
+  persistLocally(storageKey, next);
+  changedHere.add(storageKey);
+  const saved = toSavedLayout(next);
+  if (savedLayouts) savedLayouts[storageKey] = saved;
+  saveListLayout(storageKey, saved);
   entry.listeners.forEach((fn) => fn());
 }
 
@@ -220,8 +242,10 @@ export interface ListColumnsState {
   visibleColumns: DataColumn[];
   /** Every column the toggle menu should expose, in display order. */
   allColumns: DataColumn[];
-  /** Resolved width for any column id (falls back to defaultWidth). */
+  /** Resolved width for any column id, within its kind's bounds. */
   widthFor: (id: ColumnId) => number;
+  /** The bounds a column's width moves within. */
+  specFor: (id: ColumnId) => WidthSpec;
   /** True once the person has sized this column themselves. */
   isSized: (id: ColumnId) => boolean;
   /** True when `id` is in the visible set. */
@@ -234,6 +258,8 @@ export interface ListColumnsState {
   /** Set the live width of `id` (persisted on every change so a reload
    *  recovers the last sized state). */
   setWidth: (id: ColumnId, width: number) => void;
+  /** Forget a width set by hand: the column goes back to its own. */
+  resetWidth: (id: ColumnId) => void;
   /** Currently active sort (or null = natural order). */
   sort: ColumnSort | null;
   /** Direct setter for the sort state — used by toolbar menus that pick
@@ -249,6 +275,8 @@ export interface UseListColumnsOptions {
   /** Which column ids are visible by default for this view, overriding the
    *  per-entity default. Used to default-show an injected column. */
   defaultVisible?: ColumnId[];
+  /** How tight the rows are set: compact ones need less width per column. */
+  density?: 'comfortable' | 'compact';
   /** Which entity's built-in column set + default visibility to use.
    *  'element' (default) → Type / Due date / Assignee.
    *  'object' → Type / Due date / Lead / Progress / Elements. */
@@ -297,6 +325,7 @@ export function useListColumns(
   // callers don't need to branch.
   const subscribe = useCallback((listener: () => void) => {
     if (!storageKey) return () => {};
+    startLayoutSync();
     const entry = getEntry(storageKey);
     entry.listeners.add(listener);
     return () => { entry.listeners.delete(listener); };
@@ -309,7 +338,6 @@ export function useListColumns(
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const { order, visibleIds, hiddenIds, widths, sort } = snapshot;
 
-  const { locale } = useI18n();
   // The full catalogue of columns this view knows about right now.
   const catalogue = useMemo<DataColumn[]>(() => {
     const customDefs: DataColumn[] = customColumns.map((c) => ({
@@ -317,13 +345,13 @@ export function useListColumns(
       label: c.name,
       kind: 'custom',
       toggleable: true,
-      defaultWidth: DEFAULT_COLUMN_WIDTH,
       custom: c,
     }));
-    const dateWidth = dateColumnWidth(locale);
-    return [...new Map([...builtinsFor(entity), ...(extraColumns ?? []), ...customDefs].map((c) => [c.id,
-      c.id === 'due_date' ? { ...c, defaultWidth: dateWidth, minWidth: dateWidth, align: 'end' as const } : c])).values()];
-  }, [customColumns, extraColumns, entity, locale]);
+    return [...new Map([...builtinsFor(entity), ...(extraColumns ?? []), ...customDefs].map((c) => {
+      const align = widthSpec(c).align;
+      return [c.id, align ? { ...c, align } : c];
+    })).values()];
+  }, [customColumns, extraColumns, entity]);
 
   // ─── Reconcile with catalogue ─────────────────────────────────────────────
   // 1) Order: keep stored entries that still exist; append catalogue
@@ -370,17 +398,30 @@ export function useListColumns(
   );
 
   // ─── Mutators ─────────────────────────────────────────────────────────────
+  const { locale } = useI18n();
+  const compact = options.density === 'compact';
+  const specFor = useCallback((id: ColumnId): WidthSpec => {
+    if (id === NAME_COL_KEY) return NAME_SPEC;
+    return widthSpec(catalogueById.get(id) ?? { id }, { locale, compact });
+  }, [catalogueById, locale, compact]);
+
   const widthFor = useCallback((id: ColumnId): number => {
-    // Clamp on READ (not just on resize) so a width persisted under the old
-    // bounds — e.g. a Name saved at 300 before the floor moved to 550 — is
-    // floored to the current minimum instead of leaking through narrower.
-    const lo = id === NAME_COL_KEY ? NAME_MIN_WIDTH : catalogueById.get(id)?.minWidth ?? COLUMN_MIN_WIDTH;
-    const hi = id === NAME_COL_KEY ? NAME_MAX_WIDTH : COLUMN_MAX_WIDTH;
+    // Held to its bounds on read too, so a width saved under other bounds
+    // never draws outside the current ones.
+    const spec = specFor(id);
     const stored = widths[id];
-    if (typeof stored === 'number' && stored > 0) return Math.max(lo, Math.min(hi, stored));
-    if (id === NAME_COL_KEY) return NAME_DEFAULT_WIDTH;
-    return catalogueById.get(id)?.defaultWidth ?? DEFAULT_COLUMN_WIDTH;
-  }, [widths, catalogueById]);
+    return typeof stored === 'number' && stored > 0 ? clampWidth(stored, spec) : spec.base;
+  }, [widths, specFor]);
+
+  const resetWidth = useCallback((id: ColumnId) => {
+    if (!storageKey) return;
+    setSnapshot(storageKey, (prev) => {
+      if (!(id in prev.widths)) return prev;
+      const widths = { ...prev.widths };
+      delete widths[id];
+      return { ...prev, widths };
+    });
+  }, [storageKey]);
 
   const isSized = useCallback((id: ColumnId) => typeof widths[id] === 'number' && widths[id] > 0, [widths]);
 
@@ -428,15 +469,12 @@ export function useListColumns(
 
   const setWidth = useCallback((id: ColumnId, width: number) => {
     if (!storageKey) return;
-    // Name uses its own floor/ceiling; data columns use the shared bounds.
-    const lo = id === NAME_COL_KEY ? NAME_MIN_WIDTH : catalogueById.get(id)?.minWidth ?? COLUMN_MIN_WIDTH;
-    const hi = id === NAME_COL_KEY ? NAME_MAX_WIDTH : COLUMN_MAX_WIDTH;
-    const clamped = Math.max(lo, Math.min(hi, Math.round(width)));
+    const clamped = clampWidth(width, specFor(id));
     setSnapshot(storageKey, (prev) => {
       if (prev.widths[id] === clamped) return prev;
       return { ...prev, widths: { ...prev.widths, [id]: clamped } };
     });
-  }, [storageKey, catalogueById]);
+  }, [storageKey, specFor]);
 
 
   const setSortDirect = useCallback((nextSort: ColumnSort | null) => {
@@ -448,6 +486,8 @@ export function useListColumns(
     visibleColumns,
     allColumns,
     widthFor,
+    specFor,
+    resetWidth,
     isSized,
     isVisible,
     toggleVisible,

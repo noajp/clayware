@@ -7,12 +7,12 @@ import {
   ChevronRight,
   ChevronDown,
   Plus,
-
   X,
   Search, CircleDashed, Flag, Tag, UserRound, Box, CalendarDays, Shapes, SlidersHorizontal, ArrowDownWideNarrow, ArrowUpNarrowWide, RotateCcw, Play,
 } from '@/ui/icons';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuItem,
+  MenuCheck,
 } from '@/ui/dropdown-menu';
 
 // 3-bar filter glyph — top longest, middle shorter, bottom shortest.
@@ -455,7 +455,7 @@ function FilterPanel({
         title={t('Hide Elements still waiting on an unfinished dependency')}
       >
         <Play size={15} className="text-muted-foreground" /><span className="flex-1">{t('Ready to start')}</span>
-        {filter.readyOnly && <Check size={12} className="text-foreground" />}
+        {filter.readyOnly && <MenuCheck />}
       </button>
 
       {showOwnerFilter && (
@@ -466,7 +466,7 @@ function FilterPanel({
           className={`${MENU_ROW} justify-between`}
         >
           <UserRound size={15} className="text-muted-foreground" /><span className="flex-1">{t('Owned by me only')}</span>
-          {filter.ownerOnly && <Check size={12} className="text-foreground" />}
+          {filter.ownerOnly && <MenuCheck />}
         </button>
       )}
 
@@ -643,7 +643,7 @@ function LabeledSelect<T extends string>({
             {options.map((o) => (
               <DropdownMenuItem key={o.id} onSelect={() => onSelect(o.id)}>
                 <span className="flex-1 truncate">{o.label}</span>
-                {o.id === value && <Check size={13} className="text-foreground" />}
+                {o.id === value && <MenuCheck />}
               </DropdownMenuItem>
             ))}
           </MenuShell>
@@ -756,7 +756,7 @@ function MenuCheckRow({ label, checked, onClick, icon }: {
   return <button type="button" onClick={onClick} aria-pressed={checked} className={MENU_ROW}>
     {icon && <span className="flex size-4 shrink-0 items-center justify-center">{icon}</span>}
     <span className="flex-1 truncate">{label}</span>
-    {checked && <Check size={12} className="text-foreground" />}
+    {checked && <MenuCheck />}
   </button>;
 }
 

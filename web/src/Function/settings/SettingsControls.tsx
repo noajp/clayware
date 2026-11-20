@@ -2,12 +2,13 @@
 
 import type React from 'react';
 import { useRef } from 'react';
-import { Check, ChevronDown } from '@/ui/icons';
+import { ChevronDown } from '@/ui/icons';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+  MenuCheck,
 } from '@/ui/dropdown-menu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { SETTINGS_ISLAND } from '@/shared/designTokens';
+import { CONTROL_WELL, CONTROL_WELL_HOVER, FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
 
 // The row primitives of a settings panel — the single home every settings
 // surface builds from (settings redesign §4.1): a property island with its
@@ -16,15 +17,18 @@ import { SETTINGS_ISLAND } from '@/shared/designTokens';
 // shared Switch, and the segmented control for short enums. Panels keep
 // their own backing stores; only the presentation lives here.
 
-/** A group of setting rows floating as one island, heading above the card. */
+/** A group of setting rows floating as one island, heading above the card.
+ *  `level` is the heading's rank: 2 under the page's name, 3 where the page
+ *  is divided into named parts and the island sits inside one. */
 export function SettingsIsland({
-  title, description, children,
-}: { title?: string; description?: string; children: React.ReactNode }) {
+  title, description, children, level = 2,
+}: { title?: string; description?: string; children: React.ReactNode; level?: 2 | 3 }) {
+  const Heading = level === 3 ? 'h3' : 'h2';
   return (
     <section aria-label={title || undefined}>
       {(title || description) && (
         <div className="mb-2.5">
-          {title && <h2 className="text-[13.5px] font-semibold tracking-[-0.01em] text-foreground">{title}</h2>}
+          {title && <Heading className={`${FONT.lg} text-foreground`}>{title}</Heading>}
           {description && (
             <p className="mt-0.5 text-[12px] text-muted-foreground">{description}</p>
           )}
@@ -82,10 +86,12 @@ export function SettingField({
 }
 
 /** The one switch. Every boolean setting renders this — there is no
- *  second implementation to drift from it. */
+ *  second implementation to drift from it. It is drawn small; `roomy`
+ *  lets it take a press in the 44px around it (the ::before), for a row
+ *  that keeps that much room clear of other controls. */
 export function Switch({
-  value, onChange, disabled = false, label,
-}: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
+  value, onChange, disabled = false, label, roomy = false,
+}: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string; roomy?: boolean }) {
   return (
     <button
       type="button"
@@ -95,6 +101,8 @@ export function Switch({
       disabled={disabled}
       onClick={() => onChange(!value)}
       className={`relative inline-flex h-[18px] w-8 items-center rounded-full border transition-colors disabled:opacity-50 disabled:pointer-events-none ${
+        roomy ? "before:absolute before:-inset-x-1.5 before:-inset-y-[13px] before:content-['']" : ''
+      } ${
         value
           ? 'border-transparent bg-primary'
           : 'border-[var(--border-default)] bg-[var(--surface-strong)]'
@@ -111,7 +119,9 @@ export function Switch({
 
 /** A segmented control for an enum with 2–4 short options, where seeing
  *  every choice at once is the clarity win (the dropdown stays for longer
- *  lists). Radio-group semantics: arrow keys move the selection. */
+ *  lists). The options sit in one well and the chosen one is a pill raised
+ *  off it, so the group reads as a single control, not a row of words.
+ *  Radio-group semantics: arrow keys move the selection. */
 export function SegmentedControl({
   label, value, options, onChange, disabled = false,
 }: {
@@ -129,7 +139,7 @@ export function SegmentedControl({
     <div
       role="radiogroup"
       aria-label={label}
-      className={`inline-flex items-center gap-0.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5 ${disabled ? 'opacity-50' : ''}`}
+      className={`inline-flex items-center gap-0.5 rounded-[6px] border border-[var(--border-subtle)] ${CONTROL_WELL} p-0.5 ${disabled ? 'opacity-50' : ''}`}
     >
       {options.map((opt, i) => {
         const selected = opt === value;
@@ -152,8 +162,8 @@ export function SegmentedControl({
             }}
             className={`h-6 px-2.5 rounded-[4px] text-[12px] font-medium transition-colors ${
               selected
-                ? 'bg-card dark:bg-[var(--surface-rail)] shadow-[var(--shadow-card)] text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-card dark:bg-foreground/[0.12] shadow-[var(--shadow-card)] text-foreground'
+                : 'text-foreground/70 hover:text-foreground'
             }`}
           >
             {t(opt)}
@@ -201,7 +211,7 @@ export function SelectControl({
         <button
           type="button"
           disabled={disabled}
-          className="inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-2.5 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)]/60 disabled:pointer-events-none disabled:opacity-50"
+          className={`inline-flex h-7 items-center gap-1.5 rounded-[6px] border border-[var(--border-subtle)] px-2.5 text-[12px] font-medium ${CONTROL_WELL} ${CONTROL_WELL_HOVER} text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50`}
         >
           {t(value)}
           <ChevronDown size={12} className="opacity-60" />
@@ -211,7 +221,7 @@ export function SelectControl({
         {options.map((opt) => (
           <DropdownMenuItem key={opt} onSelect={() => onChange(opt)} className="gap-2 text-[12.5px]">
             <span className="flex-1">{t(opt)}</span>
-            {value === opt && <Check size={12} />}
+            {value === opt && <MenuCheck />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -227,17 +237,7 @@ export function ToggleRow({
 }) {
   return (
     <SettingRow label={label} desc={desc} caption={caption} icon={icon} flush={flush}>
-      <Switch label={label} value={value} onChange={onChange} disabled={disabled} />
+      <Switch label={label} value={value} onChange={onChange} disabled={disabled} roomy />
     </SettingRow>
-  );
-}
-
-/** The placeholder for a settings surface that has nothing to set yet. */
-export function SettingsComingSoon({ title }: { title: string }) {
-  const { t } = useI18n();
-  return (
-    <p className="py-3 text-[13px] text-muted-foreground">
-      {t('{title} settings are coming soon.', { title })}
-    </p>
   );
 }

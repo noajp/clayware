@@ -1,8 +1,8 @@
 /**
- * Alcon Design Tokens
+ * Clayware Design Tokens
  *
- * Accent: Matte blue (#426fac) — muted, single accent
- * Danger: Matte red (#d05249) — muted, warm red
+ * Accent: Blue (#3d5fae) — single accent
+ * Danger: Red (#c43939) — what is stopped or lost
  * Surfaces: neutral light / dark ramp
  * Typography: Inter Variable, 13px base
  *
@@ -21,13 +21,10 @@ import { translate } from '@/Function/i18n/I18nProvider';
 // inline style or a recharts `fill` read SEMANTIC_COLORS below. Nothing builds
 // its own status palette.
 // ============================================
-// `textColor` is what a small standalone text label (no adjacent dot/ring —
-// e.g. the Overdue/Milestones/Upcoming widget rows' 11px status word) should
-// read. It equals `color` for every status except `blocked`, whose base hue
-// (#eab308) reads ~1.9:1 against white at that size — well under AA — even
-// though the same hue is fine for the larger ring mark / dot it also colors.
-// `--element-status-blocked-text` is a darkened variant of the same base var
-// (globals.css), not a second palette: only the one hue that needed it.
+// `textColor` is what a small standalone text label (no adjacent dot/ring)
+// should read. A status colour used as text takes the per-theme -text value
+// in globals.css (the yellow In Review, darkened on light themes); Blocked
+// keeps its own darkened variant.
 export const STATUS = {
   backlog:     { label: 'Backlog',     color: 'text-[var(--element-status-backlog)]',     textColor: 'text-[var(--element-status-backlog)]',     bg: 'bg-[var(--element-status-backlog-subtle)]',     dot: 'bg-[var(--element-status-backlog)]',     icon: 'Circle' },
   todo:        { label: 'To Do',       color: 'text-[var(--element-status-todo)]',        textColor: 'text-[var(--element-status-todo)]',        bg: 'bg-[var(--element-status-todo-subtle)]',        dot: 'bg-[var(--element-status-todo)]',        icon: 'Circle' },
@@ -49,7 +46,7 @@ export const PRIORITY = {
 } as const;
 
 // Element status and priority display order; priorities run highest to lowest.
-export const STATUS_ORDER = ['backlog', 'todo', 'in_progress', 'review', 'done', 'cancelled', 'blocked'] as const satisfies readonly (keyof typeof STATUS)[];
+export const STATUS_ORDER = ['backlog', 'todo', 'in_progress', 'review', 'done', 'blocked', 'cancelled'] as const satisfies readonly (keyof typeof STATUS)[];
 export const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'] as const satisfies readonly (keyof typeof PRIORITY)[];
 // Picker rows in display order; labels are untranslated (callers pass them through t()).
 export const STATUS_OPTIONS: { value: (typeof STATUS_ORDER)[number]; label: string }[] = STATUS_ORDER.map((value) => ({ value, label: STATUS[value].label }));
@@ -105,7 +102,7 @@ export const CONTROL = {
 } as const;
 
 export const FIELD = {
-  base: 'bg-[var(--surface-muted)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] rounded-[var(--control-field-radius)] text-[13px] placeholder:text-muted-foreground/70 disabled:cursor-not-allowed disabled:opacity-50 focus:bg-[var(--accent-subtle)]',
+  base: 'bg-[var(--surface-muted)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] rounded-[var(--control-field-radius)] text-[13px] placeholder:text-muted-foreground/70 disabled:cursor-not-allowed disabled:opacity-50 focus:bg-[var(--surface-strong)]',
 } as const;
 
 export type ControlSize = keyof typeof CONTROL.height;
@@ -181,22 +178,31 @@ export function statusLabel(status?: string | null): string {
 
 // ============================================
 // Card styles
-// A card is a gloss island: lit rim, sheen, soft shadow (globals.css).
+// A card is a gloss island: lit rim, sheen, soft shadow (globals.css), filled
+// with --surface-card: the island's own surface in White, Light and Black
+// (set apart by rim and shadow), a step lighter in Dark.
 // Hover: border brightens, background stays.
 // ============================================
 export const CARD =
-  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-rail)]';
+  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-card)]';
 
 export const CARD_HOVER =
   'hover:border-[var(--border-strong)] transition-colors duration-[120ms]';
 
 /** A card without the island shadow — the install surfaces (harness and
  *  connector catalog cards, registry cards) sit flat inside Settings. */
-export const CARD_FLAT = 'rounded-lg bg-[var(--surface-rail)] border border-border/60';
+export const CARD_FLAT = 'rounded-lg bg-[var(--surface-card)] border border-border/60';
 /** A settings property island: the #803 Chain-card float, for a group of
- *  setting rows floating on the page ground (--surface-bg). */
+ *  setting rows on the main island's ground, filled as a card is. */
 export const SETTINGS_ISLAND =
-  'gloss-island gloss-sheen rounded-lg bg-card dark:bg-[var(--surface-rail)]';
+  'gloss-island gloss-sheen rounded-lg bg-[var(--surface-card)]';
+/** The ground of a choice control (a segmented track, a select) on an island:
+ *  a tint of the text colour, so it stands one step off whatever surface it
+ *  sits on in every theme — darker on a light island, lighter on a dark one.
+ *  A background difference only; fields take no border or ring. */
+export const CONTROL_WELL = 'bg-foreground/[0.06]';
+/** The same ground under the pointer. */
+export const CONTROL_WELL_HOVER = 'hover:bg-foreground/[0.1]';
 /** Shared geometry for Object and Element quick creation. */
 export const QUICK_CREATE = {
   panel: 'pointer-events-auto w-full max-w-[740px] max-h-[calc(100dvh-48px)] overflow-y-auto rounded-[10px] gloss-overlay p-4',

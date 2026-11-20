@@ -1,7 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Diamond, MoreHorizontal, Plus } from '@/ui/icons';
+import { MoreHorizontal, Plus } from '@/ui/icons';
+import { ProgressDiamond } from '@/Function/shared/MilestoneDiamond';
+import { milestoneProgress } from '@/Function/shared/milestoneProgress';
+import type { ElementWithDetails } from '@/hooks/useSupabase';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
@@ -62,16 +65,18 @@ export function MilestonesWidget({ host }: WidgetProps) {
           </Button>
         </WidgetHeaderAction>
       )}
-      <MilestoneList ids={ids} names={names} objectId={objectId} editable={editable} adding={adding} onAddingChange={setAdding} />
+      <MilestoneList ids={ids} names={names} objectId={objectId} editable={editable} adding={adding} onAddingChange={setAdding} elements={host.elements} />
     </>
   );
 }
+
+const NO_ELEMENTS: readonly ElementWithDetails[] = [];
 
 /** The milestones of some Objects, by month — the widget's body, and the
  *  fixed Milestones section of an Object's page. With an Object it can add,
  *  rename, re-date and delete them; `adding` opens the composer (the host
  *  owns the "+"). */
-export function MilestoneList({ ids, names, objectId, editable, adding, onAddingChange }: {
+export function MilestoneList({ ids, names, objectId, editable, adding, onAddingChange, elements = NO_ELEMENTS }: {
   ids: string[];
   /** Object names, shown when the list spans several. */
   names: Map<string, string>;
@@ -79,6 +84,8 @@ export function MilestoneList({ ids, names, objectId, editable, adding, onAdding
   editable: boolean;
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
+  /** The Elements in scope, which fill each diamond as they are done. */
+  elements?: readonly ElementWithDetails[];
 }) {
   const { t, locale } = useI18n();
   const { data: milestones, loading, error: loadError } = useObjectMilestones(ids);
@@ -126,7 +133,7 @@ export function MilestoneList({ ids, names, objectId, editable, adding, onAdding
             return (
               <div key={m.id} className="group py-1.5">
                 <div className="flex items-center gap-2">
-                  <Diamond size={12} className="shrink-0 text-[var(--status-danger)]" />
+                  <ProgressDiamond progress={milestoneProgress(m, elements)} />
                   {renaming === m.id ? (
                     <Input
                       autoFocus
@@ -169,7 +176,7 @@ export function MilestoneList({ ids, names, objectId, editable, adding, onAdding
                     </DropdownMenu>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-0.5 pl-5 text-[12px] text-muted-foreground">
+                <div className="flex items-center gap-2 mt-0.5 pl-7 text-[12px] text-muted-foreground">
                   {editable ? (
                     <DateField
                       size="xs"
@@ -213,7 +220,7 @@ function MilestoneComposer({ onSubmit, onCancel }: { onSubmit: (label: string | 
         if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
       }}
     >
-      <Diamond size={12} className="shrink-0 text-[var(--status-danger)]" />
+      <ProgressDiamond />
       <Input
         autoFocus
         value={label}

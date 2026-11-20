@@ -3,6 +3,7 @@
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { AiGraph } from '@/ui/icons';
 import { MarkdownLite } from '@/Function/shared/MarkdownLite';
+import { readableBody } from './inboxRow';
 import { WakeSteps } from '@/Function/settings/HeartbeatSettings';
 
 /** A heartbeat digest in the reader: what the wake said, with the
@@ -25,7 +26,7 @@ export function HeartbeatInboxCard({ runId, title, body }: {
         <h1 className="text-[20px] font-semibold tracking-[-0.015em] text-foreground">{title}</h1>
         {body && (
           <div className="mt-4 text-[13.5px] leading-relaxed text-foreground/95">
-            <MarkdownLite text={body} />
+            <MarkdownLite text={readableBody(body, t)} />
           </div>
         )}
         <p className="mt-4 border-t border-[var(--border-subtle)] pt-3 text-[12px] text-muted-foreground">

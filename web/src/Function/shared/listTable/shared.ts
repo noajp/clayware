@@ -1,8 +1,9 @@
 'use client';
 
 import { parseDateOnly } from '@/Function/shared/dateUtils';
-import type { AlconObjectWithChildren, CustomColumnWithValues, ElementWithDetails, Worker } from '@/hooks/useSupabase';
+import type { ClaywareObjectWithChildren, CustomColumnWithValues, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import type { SectionGroup } from '@/Function/shared/listControls/sectionGroup';
+import { TITLE_MIN } from './columnWidths';
 
 // Stable empty defaults — destructuring `= []` inline would allocate a NEW
 // array every render, which breaks ElementRow's React.memo (the prop ref
@@ -25,19 +26,11 @@ export function rowLabels(labels: readonly string[] | null | undefined, shown = 
   return { shown: all.slice(0, shown), more: Math.max(0, all.length - shown) };
 }
 
-/** Pure. How wide Name is actually drawn. Its title track soaks up
- *  whatever the other columns leave of the view, so a Name set to 400px
- *  is often drawn far wider; when the view is narrower than the table
- *  (it scrolls), Name is its set width. */
-export function nameTrackWidth(nameWidth: number, viewWidth: number, otherColumnsWidth: number): number {
-  return viewWidth > 0 ? Math.max(nameWidth, viewWidth - otherColumnsWidth) : nameWidth;
-}
-
 /** Pure. The width the rows' signals (comments, waits, labels) may take
  *  of Name as it is drawn: all they need, as long as the title keeps at
- *  least half of it and never less than 160px. */
+ *  least half of it and never less than its own least (TITLE_MIN). */
 export function signalsTrackWidth(measured: number, drawnName: number): number {
-  const titleFloor = Math.max(160, Math.round(drawnName / 2));
+  const titleFloor = Math.max(TITLE_MIN, Math.round(drawnName / 2));
   return Math.max(0, Math.min(measured, drawnName - titleFloor));
 }
 
@@ -61,7 +54,7 @@ export interface ListSection {
   /** Optional small label rendered after the count, faded out (e.g.
    *  "no parent Object" on the Domain-direct elements band). */
   subtitle?: string;
-  objects: AlconObjectWithChildren[];
+  objects: ClaywareObjectWithChildren[];
   elements?: ElementWithDetails[];
   /** Set when the band is a group bucket rather than an Object — which field
    *  the list is grouped by and which of its values this band holds. The add
@@ -119,7 +112,7 @@ export const LEAD_CELL = "before:pointer-events-none before:absolute before:inse
 export const LEAD_CELL_HOVER = 'group-hover:before:bg-foreground/[0.06]';
 export const LEAD_CELL_SELECTED = 'before:bg-[var(--accent-default)]/15 dark:before:bg-[var(--accent-default)]/20 group-hover:before:bg-[var(--accent-default)]/20 dark:group-hover:before:bg-[var(--accent-default)]/25';
 
-// Object rows on the Objects list carry no trailing "+" column, so the pill
+// Object rows on the Objects list carry no trailing fields column, so the pill
 // runs all the way to the LAST cell (Elements) instead of stopping one short.
 export const ROW_ROUND_TO_LAST = '[&>td:last-child]:rounded-r-lg';
 

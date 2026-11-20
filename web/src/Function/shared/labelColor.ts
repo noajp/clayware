@@ -9,7 +9,7 @@ export const LABEL_PALETTE: { key: string; label: string; hex: string }[] = [
   { key: 'purple',   label: 'Purple',    hex: '#8b5cf6' },
   { key: 'teal',     label: 'Teal',      hex: '#14b8a6' },
   { key: 'green',    label: 'Green',     hex: '#10b981' },
-  { key: 'yellow',   label: 'Yellow',    hex: '#eab308' },
+  { key: 'yellow',   label: 'Yellow',    hex: '#ffd700' },
   { key: 'orange',   label: 'Orange',    hex: '#f97316' },
   { key: 'pink',     label: 'Pink',      hex: '#ec4899' },
   { key: 'red',      label: 'Red',       hex: '#ef4444' },
@@ -44,6 +44,15 @@ export function hydrateLabelColors(domainId: string, map: Record<string, string>
   if (prev && JSON.stringify(prev) === JSON.stringify(next)) return;
   catalog.set(domainId, next);
   emit();
+}
+
+/** Seed the catalogue of every listed Domain that has none yet, so chips draw
+ *  picked colours whichever screen reads them first. A Domain already seeded
+ *  is left alone: the views that edit colours (Settings, an Element's inline
+ *  pick) keep their own copy current, and a Domain list refetched between two
+ *  queued picks would paint the older one back over the newer. */
+export function hydrateDomainLabelColors(domains: readonly { id: string; label_colors?: Record<string, string> | null }[]) {
+  for (const d of domains) if (!catalog.has(d.id)) hydrateLabelColors(d.id, d.label_colors);
 }
 
 /** Optimistically set one label's colour locally (pair with the DB write). */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { INTEGRATION_PRESETS } from '@/AIP/connectors/catalog';
 
 // The server twin of the web's installFlow missingConnectors
 // (supabase/functions/_shared/connectorNeeds.ts): the conversation's
@@ -13,6 +14,7 @@ const needs = await import(new URL('../../supabase/functions/_shared/connectorNe
   lastTestNeedsReauth: (lastTest: unknown) => boolean;
 };
 const { missingConnectorNames, connectorNeeds, lastTestNeedsReauth } = needs;
+const { CONNECTOR_PRESET_NAMES } = needs as unknown as { CONNECTOR_PRESET_NAMES: Record<string, string> };
 
 const row = (over: Partial<{ name: string; preset: string | null; enabled: boolean; last_test: unknown }> = {}) =>
   ({ name: 'GitHub', preset: 'github', enabled: true, ...over });
@@ -81,5 +83,17 @@ describe('lastTestNeedsReauth', () => {
     expect(lastTestNeedsReauth(null)).toBe(false);
     expect(lastTestNeedsReauth('auth_failed')).toBe(false);
     expect(lastTestNeedsReauth({})).toBe(false);
+  });
+});
+
+describe('CONNECTOR_PRESET_NAMES', () => {
+  // The engine drafts a connection only when no preset answers the name,
+  // so a preset the web's catalog offers but this table lacks is drafted
+  // again instead of being pointed at.
+  it('names every preset of the web catalog, as the catalog names it', () => {
+    const fromCatalog = Object.fromEntries(INTEGRATION_PRESETS.map((p) => [p.id, p.name]));
+    const { 'ai-drafted': drafted, ...server } = CONNECTOR_PRESET_NAMES;
+    expect(drafted).toBe('AI drafted');
+    expect(server).toEqual(fromCatalog);
   });
 });

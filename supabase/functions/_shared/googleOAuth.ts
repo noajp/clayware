@@ -1,10 +1,16 @@
 // Google OAuth for integrations (ADR 0035) — the pure parts: the authorize
 // URL, PKCE, the stored secret's shape, when to refresh, the nonce cookie and
 // the return URL. No network, no Deno globals, so web/tests imports it.
+// The flow pieces here (PKCE, the nonce cookie, the return URL, the
+// expiring token set) serve every provider in the registry
+// (oauthProviders.ts); what is Google's own is its URLs and profiles.
 //
-// The stored Vault value of an OAuth integration is JSON:
-//   { v: 1, provider: "google", access_token, refresh_token, expires_at, scope }
+// The stored Vault value of an OAuth integration whose access token expires
+// (Google, Microsoft) is JSON:
+//   { v: 1, provider, access_token, refresh_token, expires_at, scope }
 // expires_at is epoch milliseconds.
+
+import type { OAuthProfile } from "./oauthProviders.ts";
 
 export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -24,9 +30,11 @@ export const TICKET_TTL_MS = 2 * 60_000;
 export const STATE_TTL_MS = 10 * 60_000;
 export const REFRESH_SKEW_MS = 120_000;
 
-export interface OAuthSecret {
+/** A stored token set whose access token expires and is renewed with the
+ *  refresh token, under the provider it was signed in with. */
+export interface ExpiringOAuthSecret<P extends string = string> {
   v: 1;
-  provider: "google";
+  provider: P;
   access_token: string;
   refresh_token: string;
   /** Epoch milliseconds. */
@@ -34,11 +42,13 @@ export interface OAuthSecret {
   scope: string;
 }
 
+export type OAuthSecret = ExpiringOAuthSecret<"google">;
+
 type IntegrationRowLike = { preset?: string | null; kind?: string | null; auth_type?: string | null; endpoint?: string | null } | null | undefined;
 
 /** An account email read from a provider's answer, or null: not a string,
  *  or longer than an email can be. */
-function accountEmail(value: unknown): string | null {
+export function accountEmail(value: unknown): string | null {
   return typeof value === "string" && value.length <= 320 ? value : null;
 }
 
@@ -50,13 +60,8 @@ function accountEmail(value: unknown): string | null {
  * profile (this module); a new Google service is a new row here, not new
  * flow code.
  */
-export interface GoogleProviderProfile {
-  /** The integrations preset this profile serves. */
-  preset: string;
-  /** The endpoint a row of this preset carries. */
-  endpoint: string;
-  /** The scopes a sign-in requests, and the stored grant must cover. */
-  scopes: readonly string[];
+export interface GoogleProviderProfile extends OAuthProfile {
+  kind: "http";
   /**
    * Ask with include_granted_scopes, so consenting to a wider set later
    * keeps what was granted before. Gmail's scopes arrive in stages (read
@@ -64,27 +69,23 @@ export interface GoogleProviderProfile {
    * one scope, and leaves the parameter off as it always has.
    */
   includeGrantedScopes: boolean;
-  /** The request that answers who signed in. */
-  accountCheck: {
-    url: string;
-    /** The account's email in that answer's JSON, or null when absent. */
-    emailOf(body: unknown): string | null;
-  };
 }
 
 export const GOOGLE_DRIVE_PROFILE: GoogleProviderProfile = {
   preset: "google-drive",
+  kind: "http",
   endpoint: GOOGLE_DRIVE_ENDPOINT,
   scopes: [DRIVE_FILE_SCOPE],
   includeGrantedScopes: false,
   accountCheck: {
     url: GOOGLE_ABOUT_URL,
-    emailOf: (body) => accountEmail((body as { user?: { emailAddress?: unknown } } | null)?.user?.emailAddress),
+    accountOf: (body) => accountEmail((body as { user?: { emailAddress?: unknown } } | null)?.user?.emailAddress),
   },
 };
 
 export const GOOGLE_GMAIL_PROFILE: GoogleProviderProfile = {
   preset: "gmail",
+  kind: "http",
   endpoint: GOOGLE_GMAIL_ENDPOINT,
   // The staged consent (design D1): stage one asked for read-only;
   // stage two (P2) adds gmail.send beside it. includeGrantedScopes
@@ -98,7 +99,7 @@ export const GOOGLE_GMAIL_PROFILE: GoogleProviderProfile = {
   includeGrantedScopes: true,
   accountCheck: {
     url: `${GOOGLE_GMAIL_ENDPOINT}/profile`,
-    emailOf: (body) => accountEmail((body as { emailAddress?: unknown } | null)?.emailAddress),
+    accountOf: (body) => accountEmail((body as { emailAddress?: unknown } | null)?.emailAddress),
   },
 };
 
@@ -178,20 +179,26 @@ export function grantsRequiredScopes(granted: unknown, profile: GoogleProviderPr
   return profile.scopes.every((scope) => hasScope(granted, scope));
 }
 
-/** The stored secret, or null when it is not a well-formed Google OAuth secret. */
-export function parseOAuthSecret(raw: unknown): OAuthSecret | null {
+/** The stored secret, or null when it is not a well-formed expiring token
+ *  set signed in with `provider`. */
+export function parseExpiringSecret<P extends string>(raw: unknown, provider: P): ExpiringOAuthSecret<P> | null {
   let obj: unknown = raw;
   if (typeof raw === "string") {
     try { obj = JSON.parse(raw); } catch { return null; }
   }
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
   const o = obj as Record<string, unknown>;
-  if (o.v !== 1 || o.provider !== "google") return null;
+  if (o.v !== 1 || o.provider !== provider) return null;
   if (typeof o.access_token !== "string" || !o.access_token) return null;
   if (typeof o.refresh_token !== "string" || !o.refresh_token) return null;
   if (typeof o.expires_at !== "number" || !Number.isFinite(o.expires_at)) return null;
   if (typeof o.scope !== "string") return null;
-  return { v: 1, provider: "google", access_token: o.access_token, refresh_token: o.refresh_token, expires_at: o.expires_at, scope: o.scope };
+  return { v: 1, provider, access_token: o.access_token, refresh_token: o.refresh_token, expires_at: o.expires_at, scope: o.scope };
+}
+
+/** The stored secret, or null when it is not a well-formed Google OAuth secret. */
+export function parseOAuthSecret(raw: unknown): OAuthSecret | null {
+  return parseExpiringSecret(raw, "google");
 }
 
 /** True when the access token expires within `skewMs` of now (or already has). */
@@ -200,11 +207,16 @@ export function needsRefresh(secret: Pick<OAuthSecret, "expires_at">, nowMs: num
 }
 
 /**
- * The secret to store after a token response. A refresh response carries no
- * refresh_token (Google keeps the old one) and may omit scope; both fall back
- * to `previous`. Null when the response has no usable token.
+ * The token set to store after a token response, signed in with `provider`.
+ * A refresh response that carries a refresh_token replaces the stored one —
+ * Microsoft rotates it on every refresh, and the old one stops working — and
+ * one that carries none (Google keeps the old one) keeps `previous`'s. A
+ * response may omit scope; it falls back to `previous` too. Null when the
+ * response has no usable token.
  */
-export function secretFromTokenResponse(res: unknown, nowMs: number, previous?: OAuthSecret | null): OAuthSecret | null {
+export function expiringSecretFromTokenResponse<P extends string>(
+  res: unknown, nowMs: number, provider: P, previous?: { refresh_token?: string; scope?: string } | null,
+): ExpiringOAuthSecret<P> | null {
   if (!res || typeof res !== "object") return null;
   const r = res as Record<string, unknown>;
   const access = typeof r.access_token === "string" ? r.access_token : "";
@@ -212,7 +224,12 @@ export function secretFromTokenResponse(res: unknown, nowMs: number, previous?: 
   const expiresIn = typeof r.expires_in === "number" && r.expires_in > 0 ? r.expires_in : 3600;
   const scope = typeof r.scope === "string" ? r.scope : previous?.scope ?? "";
   if (!access || !refresh) return null;
-  return { v: 1, provider: "google", access_token: access, refresh_token: refresh, expires_at: nowMs + expiresIn * 1000, scope };
+  return { v: 1, provider, access_token: access, refresh_token: refresh, expires_at: nowMs + expiresIn * 1000, scope };
+}
+
+/** The Google token set to store after a token response (see expiringSecretFromTokenResponse). */
+export function secretFromTokenResponse(res: unknown, nowMs: number, previous?: OAuthSecret | null): OAuthSecret | null {
+  return expiringSecretFromTokenResponse(res, nowMs, "google", previous);
 }
 
 export function nonceCookie(nonce: string, maxAgeSec = Math.floor(STATE_TTL_MS / 1000)): string {
@@ -263,17 +280,22 @@ export function returnOrigin(requested: unknown, appRaw: string | null | undefin
   return listed.includes(asked) ? asked : app;
 }
 
+export type AppReturnResult = "finish" | "admin_consent" | "error";
+
 /**
  * The URL to send the browser back to: the app's origin with the result.
- *   finish   Google answered; the app confirms with POST /finish {handle}
- *            under the signed-in person's JWT, and only then is anything
- *            stored.
- *   error    the sign-in did not complete.
+ *   finish          the provider answered; the app confirms with POST
+ *                   /finish {handle} under the signed-in person's JWT, and
+ *                   only then is anything stored.
+ *   admin_consent   the provider refused because the organization's
+ *                   administrator must approve Clayware first; the app asks
+ *                   POST /admin-consent for the link to send them.
+ *   error           the sign-in did not complete.
  * Null when APP_ORIGIN is missing or is not a bare origin.
  */
 export function appReturnUrl(
   rawOrigin: string | null | undefined,
-  result: "finish" | "error",
+  result: AppReturnResult,
   integrationId: string | null,
   handle?: string,
 ): string | null {
@@ -299,7 +321,7 @@ export function isExpired(expiresAt: string | null | undefined, nowMs: number): 
 }
 
 /**
- * Whether a completed Google sign-in may be stored for the caller of
+ * Whether a completed sign-in may be stored for the caller of
  * /finish: only for the person who started it, before it expires. Ownership
  * of the Space is checked separately, against the database.
  */

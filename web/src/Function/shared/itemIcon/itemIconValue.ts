@@ -1,10 +1,13 @@
 import { LABEL_PALETTE } from '@/Function/shared/labelColor';
+import { storedSvgIcon, SVG_PREFIX } from './svgIcon';
 
 // =============================================================
 // The icon and colour a Strategy, Object or Element can carry of its own.
 //
-//   icon   'glyph:<Name>'   one of Alcon's own drawings (@/ui/icons/glyphs)
+//   icon   'glyph:<Name>'   one of Clayware's own drawings (@/ui/icons/glyphs)
 //          'lucide:<name>'  one of the standard set, by its kebab-case name
+//          'svg:<svg …>'    a drawing someone uploaded or asked Athena for,
+//                           kept to shapes only (./svgIcon)
 //          anything else    an emoji, shown as text
 //          null             the concept's default icon
 //   color  a LABEL_PALETTE key, a '#rrggbb' hex, or null (the default tone)
@@ -15,6 +18,7 @@ import { LABEL_PALETTE } from '@/Function/shared/labelColor';
 export type ItemIconValue =
   | { kind: 'glyph'; name: string }
   | { kind: 'lucide'; name: string }
+  | { kind: 'svg'; value: string }
   | { kind: 'emoji'; text: string };
 
 const MAX_EMOJI_LENGTH = 16; // a flag or a skin-toned family is several code points
@@ -27,6 +31,7 @@ export function parseItemIcon(raw: string | null | undefined): ItemIconValue | n
     const name = value.slice(6);
     return /^[A-Z][A-Za-z0-9]*$/.test(name) ? { kind: 'glyph', name } : null;
   }
+  if (value.startsWith(SVG_PREFIX)) return storedSvgIcon(value) ? { kind: 'svg', value } : null;
   if (value.startsWith('lucide:')) {
     const name = value.slice(7);
     return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(name) ? { kind: 'lucide', name } : null;
@@ -39,7 +44,7 @@ export function glyphIcon(name: string): string { return `glyph:${name}`; }
 export function lucideIcon(name: string): string { return `lucide:${name}`; }
 
 /** The line weight of the standard set: a little heavier than its default,
- *  so it sits beside Alcon's solid drawings without looking faint. */
+ *  so it sits beside Clayware's solid drawings without looking faint. */
 export const STANDARD_ICON_STROKE = 2.5;
 
 /** The colours offered as swatches, in the order the picker shows them. */
@@ -60,7 +65,7 @@ export function isPaletteColor(raw: string | null | undefined): boolean {
   return !!raw && raw in PALETTE_HEX;
 }
 
-const RECENT_KEY = 'alcon:recent-emoji';
+const RECENT_KEY = 'clayware:recent-emoji';
 const RECENT_MAX = 24;
 
 /** The emoji picked most recently first, without repeats, at most 24. */

@@ -1,9 +1,10 @@
 'use client';
 
-import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
+import { DomainMark } from '@/Function/shared/DomainMark';
 import { SidebarFold } from '@/Function/shared/SidebarFold';
 import { FollowSection } from '@/Frame/sidebar/FollowSection';
-import { MeFooter } from '@/Frame/sidebar/MeFooter';
+import { VisionList } from '@/Frame/sidebar/VisionList';
+import { useStrategies } from '@/hooks/strategyData';
 import { requestElementDetail, requestObjectPage } from '@/Function/shared/element/elementDetailRequest';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -12,12 +13,15 @@ import { FONT } from '@/shared/designTokens';
 import { DomainAgentSettings } from '@/ActivitySpace/execution/domain/DomainAgentSettings';
 import { SettingsModal } from '@/Function/settings/SettingsModal';
 import { SegmentedControl, SettingField } from '@/Function/settings/SettingsControls';
-import { NavInboxIcon, NavStrategyIcon } from './sidebar/NavIcons';
+import { NavCalendarIcon, NavInboxIcon, NavMyTasksIcon, NavStrategyIcon } from './sidebar/NavIcons';
+import { TeamList } from './sidebar/TeamList';
+import { railSectionOf, type RailSection } from '@/Frame/railSections';
 import { loadSidebarOrder, moveSidebarItem, saveSidebarOrder, type SidebarItem } from './sidebarOrder';
 import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
 import { ArrowLeft, Compass, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
 import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
@@ -89,15 +93,15 @@ interface AppSidebarProps {
 const SIDEBAR_CLOSE_PULL = 72;
 
 
-// Workspace — Strategy and Execution in one sidebar, a section each.
-// Strategy is what we're trying to achieve and how we intend to win: one
-// row opens the Strategies (view id 'strategy'), which nest without limit.
-// Phase is reached from a Strategy or a Domain, not from here. Execution is the fighting:
-// the Domain tree, whose rows carry the D/O/E surfaces below.
+// The sidebar lists what the ModeRail's place holds: Home (Inbox, the
+// Agent, your Elements and Calendar, what you follow), Strategy (the
+// Strategies), Execution (the Domain tree, whose rows carry the D/O/E
+// surfaces) or Team (the units and who is in them). A screen under none
+// of them (Settings, a tool) keeps the place last chosen.
 
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 360;
-const SIDEBAR_WIDTH_KEY = 'alcon:sidebarWidth';
+const SIDEBAR_WIDTH_KEY = 'clayware:sidebarWidth';
 
 
 
@@ -159,6 +163,11 @@ export function AppSidebar({
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const createMenuRef = useRef<HTMLDivElement>(null);
   const railMode = railModeOf(activeView);
+  // The rail's place: the open screen's, else the last one shown.
+  const viewSection = railSectionOf(activeView);
+  const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'home');
+  if (viewSection && viewSection !== lastSection) setLastSection(viewSection);
+  const section = viewSection ?? lastSection;
   const { label: aiLabel, icon: AiIcon } = MODE_META.ai;
   const [draggingDomain, setDraggingDomain] = useState<Domain | null>(null);
   const [width, setWidth] = useState<number>(() => {
@@ -184,13 +193,32 @@ export function AppSidebar({
   // a Strategy, Domain or Object from a small menu. Modes with nothing to
   // create show no "+".
   const calendarDay = useCalendarDay();
+  // One row lights for the open screen: the one it was opened from. A
+  // Strategy or an Object opened from Following lights there, and the rows
+  // that reach the same screen (Strategy, the Domain's Objects) stay dark;
+  // once that screen is left, the pick is forgotten.
+  const [followPick, setFollowPick] = useState<{ kind: 'strategy' | 'object' | 'element'; id: string } | null>(null);
+  const followPickOpen = !!followPick && (followPick.kind === 'strategy'
+    ? activeView === 'strategy' && navigation.strategyId === followPick.id
+    : activeView === 'objects' && navigation.objectId === followPick.id);
+  if (followPick && !followPickOpen) setFollowPick(null);
+  const treeView = followPickOpen ? '' : activeView;
   // Slides makes nothing until the Space's decks are loaded; the load would replace it.
   const slidesReady = useSlidesReady();
-  const createLabel = ({
-    notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
-    calendar: 'Add schedule', workspace: 'Create new',
-  } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
+  // Team makes its units in its own list (owners only), so it has no "+".
+  const createLabel = section === 'team' ? undefined
+    : section === 'strategy' ? 'New Vision'
+    : ({
+      notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
+      calendar: 'Add schedule', workspace: 'Create new',
+    } as Partial<Record<RailMode, string>>)[railMode ?? 'workspace'];
+  // The Vision the open Strategy screen is in: the open Portfolio's, else
+  // the one navigated to.
+  const { data: allStrategies } = useStrategies();
+  const openVisionId = (activeView === 'strategy' && navigation.strategyId
+    ? allStrategies.find((st) => st.id === navigation.strategyId)?.vision_id : undefined) ?? navigation.visionId ?? null;
   const openCreateMenu = () => {
+    if (section === 'strategy') { openCreate('vision'); return; }
     if (railMode === 'tables') { openCreate('table'); return; }
     if (railMode === 'notebook') { openCreate('notebook'); return; }
     if (railMode === 'calendar') {
@@ -204,6 +232,24 @@ export function AppSidebar({
       setCreateMenuPos({ top: window.innerHeight - 250, left: 46 });
     }
     setCreateMenuOpen(true);
+  };
+
+  // The create menu answers the keyboard as a menu does: it opens with its
+  // first item focused, the arrows move through it, Escape or Tab closes it
+  // and focus goes back to the "+".
+  const closeCreateMenu = () => { setCreateMenuOpen(false); createBtnRef.current?.focus(); };
+  useEffect(() => {
+    if (!createMenuOpen) return;
+    createMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+  }, [createMenuOpen]);
+  const onCreateMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); closeCreateMenu(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(at + 1) % items.length]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(at - 1 + items.length) % items.length]?.focus(); }
+    else if (e.key === 'Home') { e.preventDefault(); items[0]?.focus(); }
+    else if (e.key === 'End') { e.preventDefault(); items[items.length - 1]?.focus(); }
   };
 
   const startResize = (e: React.PointerEvent) => {
@@ -248,6 +294,17 @@ export function AppSidebar({
   };
 
   const activeDomain = [...domains, ...guestDomains].find((d) => d.id === activeDomainId) ?? domains[0];
+
+  // A Domain's own page asks for its settings from its "…".
+  useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<{ domainId: string }>).detail?.domainId;
+      const domain = [...domains, ...guestDomains].find((d) => d.id === id);
+      if (domain) setSettingsDomain(domain);
+    };
+    window.addEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+    return () => window.removeEventListener(OPEN_DOMAIN_SETTINGS_EVENT, open);
+  }, [domains, guestDomains]);
 
   // Same reason as the order mirror above: the open dialog picks up the row
   // it is editing as it is rendered, not a frame later.
@@ -343,9 +400,9 @@ export function AppSidebar({
           width,
           transform: collapsed && !overlay ? 'translateX(-100%)' : 'translateX(0)',
         }}
-        className={`app-sidebar flex flex-col flex-shrink-0 overflow-hidden ${
+        className={`app-sidebar island-sidebar flex flex-col flex-shrink-0 overflow-hidden ${
           collapsed
-            ? 'absolute inset-y-0 left-0 z-50 h-full bg-background shadow-xl'
+            ? 'absolute inset-y-0 left-0 z-50 h-full bg-white dark:bg-card shadow-xl'
             : 'relative'
         } ${resizing ? '' : 'transition-transform duration-200 ease-out'}`}
       >
@@ -353,7 +410,7 @@ export function AppSidebar({
             height as the main island's header (50px), so the Space name and
             the island's title sit on one line. */}
         <ButtonAppearanceProvider appearance="navigation">
-        <div className={`${collapsed ? 'mt-1.5' : ''} flex h-12 shrink-0 items-center px-2`}>
+        <div className="flex h-12 shrink-0 items-center pl-1 pr-2">
           {activeView === 'settings' ? (
             <Button variant="ghost" size="sm" align="start" onClick={onCloseSettings} className="text-muted-foreground">
               <ArrowLeft size={14} />{t('Back')}
@@ -380,6 +437,8 @@ export function AppSidebar({
               <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-foreground"
                 ref={createBtnRef}
                 type="button"
+                aria-haspopup={section === 'strategy' || railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
+                aria-expanded={createMenuOpen || undefined}
                 onClick={openCreateMenu}
                 title={t(createLabel)}
                 aria-label={t(createLabel)}
@@ -408,14 +467,10 @@ export function AppSidebar({
             <kbd className="kbd-key">⌘K</kbd>
           </button>
 
-          {/* ── Workspace ── Strategy first (what we aim for: the Strategies,
-              a list in the main island where their nesting shows), then
-              Execution (the Domains, where
-              the work is done). */}
-          {/* The fixed top of every sidebar, in the person's order (drag a
-              row to move it). What sits under it is the open surface's own
-              list — the Domains for the Workspace, and so on. */}
-          <div className="space-y-0.5">
+          {section === 'home' && <>
+          {/* Home: the person's own rows, in their order (drag a row to
+              move it). */}
+          <div className="mt-3 space-y-0.5">
             {sidebarOrder.map((item) => {
               const row = (() => {
                 switch (item) {
@@ -426,14 +481,28 @@ export function AppSidebar({
                     return <SidebarRow active={activeView === 'inbox'} icon={<NavInboxIcon size={16} />} label={t('Inbox')}
                       meta={unreadCount > 0 ? unreadCount : undefined}
                       onClick={() => onViewChange('inbox')} />;
-                  case 'strategy':
-                    return <SidebarRow active={activeView === 'strategy'} icon={<NavStrategyIcon size={16} />} label={t('Strategy')}
-                      onClick={() => { onNavigate({ strategyId: null }); onViewChange('strategy'); }} />;
+                  case 'my-elements':
+                    return <SidebarRow active={activeView === 'my-elements'} icon={<NavMyTasksIcon size={16} />} label={t('My Elements')}
+                      onClick={() => onViewChange('my-elements')} />;
+                  case 'calendar':
+                    return <SidebarRow active={activeView === 'calendar' || activeView === 'schedule'} icon={<NavCalendarIcon size={16} />} label={t('Calendar')}
+                      onClick={() => onViewChange('calendar')} />;
                 }
               })();
               const over = rowDrop?.item === item && draggedRow !== null && draggedRow !== item ? rowDrop.place : null;
               return (
                 <div key={item} draggable className="relative"
+                  // Alt+↑ / Alt+↓ moves the focused row, the keyboard's drag.
+                  onKeyDown={(e) => {
+                    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                    const at = sidebarOrder.indexOf(item);
+                    const target = sidebarOrder[e.key === 'ArrowUp' ? at - 1 : at + 1];
+                    if (!target) return;
+                    e.preventDefault();
+                    const next = moveSidebarItem(sidebarOrder, item, target, e.key === 'ArrowUp' ? 'before' : 'after');
+                    setSidebarOrder(next);
+                    saveSidebarOrder(next);
+                  }}
                   onDragStart={(e) => { setDraggedRow(item); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', item); }}
                   onDragEnd={() => { setDraggedRow(null); setRowDrop(null); }}
                   onDragOver={(e) => {
@@ -459,17 +528,42 @@ export function AppSidebar({
             })}
           </div>
 
-          {/* Under it, always the Workspace: what you follow, then the
-              Domains. Each tool's own list is in the main pane. */}
-          <>
-          <FollowSection activeObjectId={navigation.objectId ?? null} onOpen={(f) => {
+          </>}
+
+          {section === 'team' && (
+            <TeamList navigation={activeView === 'team' || activeView === 'workload' ? navigation : undefined}
+              onOpen={(nav) => { onNavigate(nav); onViewChange('team'); }} />
+          )}
+
+          {section === 'strategy' && <>
+          <div className="mt-5" />
+          <VisionList activeView={treeView} visionId={openVisionId}
+            onOpenVision={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('vision'); }}
+            onOpenPortfolios={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('strategy'); }}
+            onCreate={() => openCreate('vision')} />
+          </>}
+
+          {section === 'execution' && <>
+          <div className="mt-5" />
+          {/* Execution: what this person starred, then the Domains. */}
+          <FollowSection kinds={['vision', 'strategy', 'domain', 'object', 'element']}
+            activeId={followPickOpen ? followPick!.id : null} onOpen={(f) => {
+            // A Vision and a Domain have their own rows below; those light.
+            if (f.kind === 'vision') { onNavigate({ visionId: f.id, strategyId: null }); onViewChange('vision'); return; }
+            if (f.kind === 'domain') {
+              setActiveDomainId(f.id); onNavigate({ objectId: null, landOnTab: 'overview' }); onViewChange('domain-overview'); return;
+            }
+            if (f.kind !== 'element') setFollowPick({ kind: f.kind, id: f.id });
+            if (f.kind === 'strategy') {
+              onNavigate({ strategyId: f.id, visionId: allStrategies.find((st) => st.id === f.id)?.vision_id ?? null });
+              onViewChange('strategy'); return;
+            }
             if (f.domainId) setActiveDomainId(f.domainId);
             if (f.kind === 'element') requestElementDetail(f.id); else requestObjectPage();
             const nav = { objectId: f.objectId, objectDomainId: f.domainId ?? undefined };
             if (onOpenItem) onOpenItem('objects', nav);
             else { onNavigate(nav); onViewChange('objects'); }
           }} />
-
           <SidebarFold id="execution-domains" label={t('Your Execution')}>
 
           {/* All domains — the name opens the overview; the chevron expands the tree.
@@ -483,7 +577,7 @@ export function AppSidebar({
                   domain={d}
                   isActive={d.id === activeDomain?.id}
                   expanded={expandedDomainIds.has(d.id)}
-                  activeView={activeView}
+                  activeView={treeView}
                   onOpen={() => {
                     setActiveDomainId(d.id);
                     onNavigate({ objectId: null, landOnTab: 'overview' });
@@ -509,7 +603,7 @@ export function AppSidebar({
               the active Space's Domains; a Domain invite never exposes the rest
               of a Space. */}
           {guestDomains.map(d => <DomainNavigationRow key={d.id} name={d.name} mark={<DomainMark domain={d} size={16} />}
-            active={d.id === activeDomain?.id} expanded={expandedDomainIds.has(d.id)} activeView={activeView}
+            active={d.id === activeDomain?.id} expanded={expandedDomainIds.has(d.id)} activeView={treeView}
             onOpen={() => { setActiveDomainId(d.id); onNavigate({ objectId: null, landOnTab: 'overview' }); onViewChange('domain-overview'); }}
             onToggle={() => setExpandedDomainIds(prev => {
               const next = new Set(prev);
@@ -520,15 +614,12 @@ export function AppSidebar({
             onSettings={() => setSettingsDomain(d)}
           />)}
           </SidebarFold>
-
-          </>
+          </>}
 
           </>
           )}
         </nav></ButtonAppearanceProvider>
 
-        {/* Who you are, at the foot; it opens the Profile. */}
-        <MeFooter active={railMode === 'personal'} onOpen={() => onViewChange('profile')} onOpenView={onViewChange} onSettings={onOpenSettings} />
 
 
         {!collapsed && (
@@ -545,9 +636,12 @@ export function AppSidebar({
           the original Domain / Object / Note menu. */}
       {createMenuOpen && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setCreateMenuOpen(false)} />
+          <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setCreateMenuOpen(false)} />
           <div
             ref={createMenuRef}
+            role="menu"
+            aria-label={t(createLabel ?? 'Create new')}
+            onKeyDown={onCreateMenuKey}
             className="gloss-overlay fixed z-50 w-60 overflow-hidden rounded-[10px] p-1 text-popover-foreground"
             style={{ top: createMenuPos.top, left: createMenuPos.left }}
           >
@@ -681,30 +775,6 @@ function SortableDomainRow({
     </div>
   );
 }
-
-function DomainMark({ domain, size = 15 }: { domain: Domain; size?: number }) {
-  // Domain is the size reference; the other sidebar glyphs are sized up to
-  // match this concept icon. An uploaded image is a complete mark of its own;
-  // otherwise the Domain's icon and colour are drawn as a Strategy's or an
-  // Object's are (ItemIcon), with the Domain mark when it has none.
-  if (domain.icon && /^(https?:|data:|\/)/.test(domain.icon)) {
-    return (
-      // A Domain icon is whatever file its owner uploaded. Routing it through
-      // next/image would put every one of them through the deployment's image
-      // optimizer, which is a billed service and a decision that is not this
-      // component's to make. Same call as the avatar in Profile settings.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={domain.icon}
-        alt=""
-        className="rounded object-cover flex-shrink-0"
-        style={{ width: size + 2, height: size + 2 }}
-      />
-    );
-  }
-  return <ItemIcon icon={domain.icon} color={domain.color} size={size} fallback={<DomainIcon size={size} />} />;
-}
-
 
 function DomainSettingsModal({
   domain,
@@ -940,9 +1010,11 @@ function CreateMenuItem({ icon, label, desc, onClick, disabled = false }: {
 }) {
   return (
     <button
+      type="button"
+      role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      className="group/citem flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--surface-strong)] disabled:opacity-50 disabled:hover:bg-transparent"
+      className="group/citem flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)] disabled:opacity-50 disabled:hover:bg-transparent"
     >
       <span className="flex size-7 shrink-0 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-muted-foreground transition-colors group-hover/citem:text-foreground">
         {icon}

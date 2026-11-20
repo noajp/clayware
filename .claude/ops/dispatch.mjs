@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 //
-// The dispatcher: Alcon hands work to Claude Code.
+// The dispatcher: Clayware hands work to Claude Code.
 //
 // A person hands an Element to Claude Code by labelling it 'dispatch' (the
 // Initiative's Plan tab does it when an approved draft goes to Claude Code,
 // the Execute tab's "Hand to Claude Code" does it for one Element). This
 // script, running on the developer's Mac, finds those Elements and starts one
 // headless Claude Code session per Element, each in a fresh worktree off
-// origin/main, which then follows the alcon skill: claim the lease, branch,
-// PR, review, merge, report. Only labelled Elements move — the dev Domain
+// origin/main, which then follows the clayware skill: claim the lease, branch,
+// PR, review, merge, report. Only labelled Elements move — the Space
 // carries a long backlog assigned to Claude that nobody has handed over.
 //
 // What it will start, in order (pickDispatchable):
-//   - in the dev Domain (dev_control.domain_id)
+//   - in the Space of the dev Domain (dev_control.domain_id), any Domain of it:
+//     a session on this Mac writes to this repository, so another Space's
+//     Elements never start one
 //   - labelled 'dispatch', status todo or in_progress
 //   - assigned to a Worker whose ai_config.runner is 'claude-code'
 //   - nobody holds its lease (or the lease has lapsed)
@@ -47,7 +49,7 @@ export const DISPATCH_LABEL = 'dispatch'
 export const RUNNER = 'claude-code'
 
 // What a session may do without asking. Edits are accepted; shell commands
-// are limited to the tools the alcon skill's protocol uses. Anything else is
+// are limited to the tools the clayware skill's protocol uses. Anything else is
 // refused in a headless session, and the skill tells it to stop and file a
 // decision instead of working around a refusal.
 export const ALLOWED_TOOLS = [
@@ -139,15 +141,15 @@ function board({ url, key }) {
 }
 
 async function control(db) {
-  const [row] = await db.get('dev_control?id=eq.1&select=paused,max_concurrent,domain_id')
-  return { paused: !!row?.paused, max: Number(row?.max_concurrent ?? 3), domain: row?.domain_id ?? null }
+  const [row] = await db.get('dev_control?id=eq.1&select=paused,max_concurrent,domain:domains(activity_space_id)')
+  return { paused: !!row?.paused, max: Number(row?.max_concurrent ?? 3), space: row?.domain?.activity_space_id ?? null }
 }
 
-async function candidates(db, domain) {
+async function candidates(db, space) {
   const rows = await db.get(
     'elements?select=id,display_id,title,status,priority,labels,claimed_by,claim_expires_at,phase_id,created_at,'
-    + 'objects!inner(domain_id),element_assignees(role,workers(ai_config))'
-    + `&objects.domain_id=eq.${domain}&labels=cs.${encodeURIComponent(JSON.stringify([DISPATCH_LABEL]))}&status=in.(todo,in_progress)`,
+    + 'objects!inner(domain:domains!objects_domain_id_fkey!inner(activity_space_id)),element_assignees(role,workers(ai_config))'
+    + `&objects.domain.activity_space_id=eq.${space}&labels=cs.${encodeURIComponent(JSON.stringify([DISPATCH_LABEL]))}&status=in.(todo,in_progress)`,
   )
   return rows.map((r) => ({
     ...r,
@@ -207,10 +209,10 @@ function start(el, db, logKey, dryRun) {
 }
 
 async function pass(db, logKey, dryRun) {
-  const { paused, max, domain } = await control(db)
+  const { paused, max, space } = await control(db)
   if (paused) return
-  if (!domain) throw new Error('dev_control.domain_id is not set')
-  const rows = await candidates(db, domain)
+  if (!space) throw new Error('dev_control.domain_id is not set')
+  const rows = await candidates(db, space)
   const picked = pickDispatchable(rows, { running: new Set(running.keys()), slots: max - running.size, now: Date.now() })
   for (const el of picked) start(el, db, logKey, dryRun)
 }

@@ -69,7 +69,9 @@ export type Database = {
           logo: string | null
           memory_auto_capture: boolean
           name: string
+          nouns: Json
           order_index: number
+          plan: string
           scope: string
           updated_at: string
         }
@@ -96,7 +98,9 @@ export type Database = {
           logo?: string | null
           memory_auto_capture?: boolean
           name: string
+          nouns?: Json
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }
@@ -123,7 +127,9 @@ export type Database = {
           logo?: string | null
           memory_auto_capture?: boolean
           name?: string
+          nouns?: Json
           order_index?: number
+          plan?: string
           scope?: string
           updated_at?: string
         }
@@ -1077,6 +1083,84 @@ export type Database = {
             columns: ["attachment_id"]
             isOneToOne: true
             referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artifact_links: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          deck_id: string | null
+          domain_id: string | null
+          element_id: string | null
+          file_id: string | null
+          id: string
+          note_id: string | null
+          object_id: string | null
+          strategy_id: string | null
+          vision_id: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          deck_id?: string | null
+          domain_id?: string | null
+          element_id?: string | null
+          file_id?: string | null
+          id?: string
+          note_id?: string | null
+          object_id?: string | null
+          strategy_id?: string | null
+          vision_id?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          deck_id?: string | null
+          domain_id?: string | null
+          element_id?: string | null
+          file_id?: string | null
+          id?: string
+          note_id?: string | null
+          object_id?: string | null
+          strategy_id?: string | null
+          vision_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artifact_links_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "artifact_links_vision_id_fkey"
+            columns: ["vision_id"]
+            isOneToOne: false
+            referencedRelation: "visions"
             referencedColumns: ["id"]
           },
         ]
@@ -3153,6 +3237,7 @@ export type Database = {
           object_id: string | null
           strategy_id: string | null
           user_id: string
+          vision_id: string | null
         }
         Insert: {
           comment_id?: string | null
@@ -3164,6 +3249,7 @@ export type Database = {
           object_id?: string | null
           strategy_id?: string | null
           user_id: string
+          vision_id?: string | null
         }
         Update: {
           comment_id?: string | null
@@ -3175,6 +3261,7 @@ export type Database = {
           object_id?: string | null
           strategy_id?: string | null
           user_id?: string
+          vision_id?: string | null
         }
         Relationships: [
           {
@@ -3298,6 +3385,7 @@ export type Database = {
           start_date: string | null
           start_time: string | null
           status: string | null
+          status_id: string | null
           title: string
           type: string | null
           updated_at: string | null
@@ -3336,6 +3424,7 @@ export type Database = {
           start_date?: string | null
           start_time?: string | null
           status?: string | null
+          status_id?: string | null
           title: string
           type?: string | null
           updated_at?: string | null
@@ -3374,6 +3463,7 @@ export type Database = {
           start_date?: string | null
           start_time?: string | null
           status?: string | null
+          status_id?: string | null
           title?: string
           type?: string | null
           updated_at?: string | null
@@ -3511,6 +3601,7 @@ export type Database = {
       }
       integration_oauth_states: {
         Row: {
+          binding_hash: string | null
           browser_nonce_hash: string | null
           code_verifier: string
           completion_expires_at: string | null
@@ -3527,6 +3618,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          binding_hash?: string | null
           browser_nonce_hash?: string | null
           code_verifier: string
           completion_expires_at?: string | null
@@ -3543,6 +3635,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          binding_hash?: string | null
           browser_nonce_hash?: string | null
           code_verifier?: string
           completion_expires_at?: string | null
@@ -3595,6 +3688,7 @@ export type Database = {
           materialized_integration_id: string | null
           name: string
           name_key: string
+          oauth_config: Json | null
           request_context: Json
           required_commands: Json
           sources: Json
@@ -3634,6 +3728,7 @@ export type Database = {
           materialized_integration_id?: string | null
           name: string
           name_key: string
+          oauth_config?: Json | null
           request_context?: Json
           required_commands?: Json
           sources?: Json
@@ -3673,6 +3768,7 @@ export type Database = {
           materialized_integration_id?: string | null
           name?: string
           name_key?: string
+          oauth_config?: Json | null
           request_context?: Json
           required_commands?: Json
           sources?: Json
@@ -3736,6 +3832,8 @@ export type Database = {
           last_test: Json | null
           manifest: Json | null
           name: string
+          oauth_client_secret_id: string | null
+          oauth_config: Json | null
           preset: string | null
           secret_id: string | null
           updated_at: string
@@ -3758,6 +3856,8 @@ export type Database = {
           last_test?: Json | null
           manifest?: Json | null
           name: string
+          oauth_client_secret_id?: string | null
+          oauth_config?: Json | null
           preset?: string | null
           secret_id?: string | null
           updated_at?: string
@@ -3780,6 +3880,8 @@ export type Database = {
           last_test?: Json | null
           manifest?: Json | null
           name?: string
+          oauth_client_secret_id?: string | null
+          oauth_config?: Json | null
           preset?: string | null
           secret_id?: string | null
           updated_at?: string
@@ -4237,6 +4339,7 @@ export type Database = {
           strategy_id: string
           subtitle: string | null
           superseded_by_intent_id: string | null
+          verdict: string | null
           target_value: number | null
           title: string
           uncaptured_dimensions: string[]
@@ -4264,6 +4367,7 @@ export type Database = {
           strategy_id: string
           subtitle?: string | null
           superseded_by_intent_id?: string | null
+          verdict?: string | null
           target_value?: number | null
           title: string
           uncaptured_dimensions?: string[]
@@ -4291,6 +4395,7 @@ export type Database = {
           strategy_id?: string
           subtitle?: string | null
           superseded_by_intent_id?: string | null
+          verdict?: string | null
           target_value?: number | null
           title?: string
           uncaptured_dimensions?: string[]
@@ -4624,6 +4729,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_email_preferences: {
+        Row: {
+          enabled: boolean
+          kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled: boolean
+          kind: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       notification_preferences: {
         Row: {
@@ -4967,6 +5093,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          kind: string
         }
         Insert: {
           blocked_object_id: string
@@ -4974,6 +5101,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
         }
         Update: {
           blocked_object_id?: string
@@ -4981,6 +5109,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          kind?: string
         }
         Relationships: [
           {
@@ -5111,6 +5240,8 @@ export type Database = {
           type: string | null
           updated_at: string | null
           user_id: string | null
+          work_stage: string
+          work_status_id: string | null
         }
         Insert: {
           icon?: string | null
@@ -5134,6 +5265,8 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_stage?: string
+          work_status_id?: string | null
         }
         Update: {
           icon?: string | null
@@ -5157,6 +5290,8 @@ export type Database = {
           type?: string | null
           updated_at?: string | null
           user_id?: string | null
+          work_stage?: string
+          work_status_id?: string | null
         }
         Relationships: [
           {
@@ -5892,6 +6027,9 @@ export type Database = {
           scope: Json
           status: string | null
           updated_at: string
+          vision_id: string
+          work_stage: string
+          work_status_id: string | null
         }
         Insert: {
           activity_space_id?: string | null
@@ -5910,6 +6048,9 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          vision_id?: string
+          work_stage?: string
+          work_status_id?: string | null
         }
         Update: {
           activity_space_id?: string | null
@@ -5928,6 +6069,9 @@ export type Database = {
           scope?: Json
           status?: string | null
           updated_at?: string
+          vision_id?: string
+          work_stage?: string
+          work_status_id?: string | null
         }
         Relationships: [
           {
@@ -6166,6 +6310,89 @@ export type Database = {
           },
         ]
       }
+      strategy_gap_checks: {
+        Row: {
+          activity_space_id: string | null
+          checked_by: string | null
+          cost_usd: number
+          created_at: string
+          findings: Json
+          id: string
+          model: string | null
+          scope: Json
+          strategy_id: string
+          summary: string
+          uncovered: Json
+        }
+        Insert: {
+          activity_space_id?: string | null
+          checked_by?: string | null
+          cost_usd?: number
+          created_at?: string
+          findings?: Json
+          id?: string
+          model?: string | null
+          scope?: Json
+          strategy_id: string
+          summary?: string
+          uncovered?: Json
+        }
+        Update: {
+          activity_space_id?: string | null
+          checked_by?: string | null
+          cost_usd?: number
+          created_at?: string
+          findings?: Json
+          id?: string
+          model?: string | null
+          scope?: Json
+          strategy_id?: string
+          summary?: string
+          uncovered?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_gap_checks_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategy_domains: {
+        Row: {
+          created_at: string
+          domain_id: string
+          strategy_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          strategy_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          strategy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_domains_domain_id_fkey"
+            columns: ["domain_id"]
+            isOneToOne: false
+            referencedRelation: "domains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategy_domains_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategy_objects: {
         Row: {
           created_at: string
@@ -6385,6 +6612,7 @@ export type Database = {
           display_names: string
           first_day_of_week: string
           home_view: string
+          list_layouts: Json
           send_comment_shortcut: string
           timeline_months_ahead: number
           timeline_months_back: number
@@ -6400,6 +6628,7 @@ export type Database = {
           display_names?: string
           first_day_of_week?: string
           home_view?: string
+          list_layouts?: Json
           send_comment_shortcut?: string
           timeline_months_ahead?: number
           timeline_months_back?: number
@@ -6415,6 +6644,7 @@ export type Database = {
           display_names?: string
           first_day_of_week?: string
           home_view?: string
+          list_layouts?: Json
           send_comment_shortcut?: string
           timeline_months_ahead?: number
           timeline_months_back?: number
@@ -6479,6 +6709,85 @@ export type Database = {
             columns: ["definition_id"]
             isOneToOne: false
             referencedRelation: "definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vision_members: {
+        Row: {
+          created_at: string
+          role: string
+          user_id: string
+          vision_id: string
+        }
+        Insert: {
+          created_at?: string
+          role: string
+          user_id: string
+          vision_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: string
+          user_id?: string
+          vision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vision_members_vision_id_fkey"
+            columns: ["vision_id"]
+            isOneToOne: false
+            referencedRelation: "visions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visions: {
+        Row: {
+          activity_space_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+          privacy: string
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          privacy?: string
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          privacy?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visions_activity_space_id_fkey"
+            columns: ["activity_space_id"]
+            isOneToOne: false
+            referencedRelation: "activity_spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -6768,6 +7077,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      work_statuses: {
+        Row: {
+          activity_space_id: string
+          builtin: boolean
+          color: string | null
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number
+          scope: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          builtin?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number
+          scope: string
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          builtin?: boolean
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number
+          scope?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       workers: {
         Row: {
@@ -7409,6 +7763,10 @@ export type Database = {
         Args: { p_domain_id?: string; p_object_id?: string }
         Returns: Json
       }
+      get_integration_oauth_client_secret: {
+        Args: { p_integration_id: string }
+        Returns: string
+      }
       get_integration_secret: {
         Args: { p_integration_id: string }
         Returns: string
@@ -7710,8 +8068,16 @@ export type Database = {
         }
         Returns: Json
       }
+      set_integration_oauth_client_secret: {
+        Args: { p_integration_id: string; p_secret: string }
+        Returns: undefined
+      }
       set_integration_secret: {
         Args: { p_integration_id: string; p_secret: string }
+        Returns: undefined
+      }
+      set_list_layout: {
+        Args: { p_key: string; p_layout: Json }
         Returns: undefined
       }
       set_oauth_client_access: {

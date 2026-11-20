@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja" data-mode="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>チェンジマネジメント | Clayware</title>
+<meta name="description" content="Claywareは、バラバラなチャネルをひとつに集め、届いた依頼をタスクにして、いつ・何を・なぜ・誰がやるのかを決めます。">
+<meta property="og:title" content="チェンジマネジメント | Clayware">
+<meta property="og:description" content="Claywareは、バラバラなチャネルをひとつに集め、届いた依頼をタスクにして、いつ・何を・なぜ・誰がやるのかを決めます。">
+<script>
+document.documentElement.classList.add('js');
+try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-mode',m)}catch(e){}
+</script>
+<link rel="preload" href="../assets/Geist-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/Geist-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="alternate" hreflang="en" href="../change.html">
+</head>
+<body>
+<a class="skip" href="#main">本文へ移動</a>
+
+<header class="nav">
+  <div class="container nav__bar">
+    <a href="index.html" class="wordmark" aria-label="Clayware ホーム">Clayware</a>
+    <nav class="menu" id="menu" aria-label="メイン">
+      <div class="dd">
+        <a class="menu__link dd__link" href="product.html" aria-haspopup="true">プロダクト</a>
+        <div class="mega">
+          <div class="mega__panel">
+            <div class="mega__grid"><a class="mega__item" href="channels.html"><b>マルチチャネル連携</b><span>メールから業務アプリ・社内システムまで、APIでつないで一か所に</span></a><a class="mega__item" href="strategy.html"><b>目標の策定からタスクの実行まで</b><span>Strategyで目標を決め、Elementに分けて最後まで追う</span></a><a class="mega__item" href="athena.html"><b>Athena AI</b><span>自ら状況を集めてElementに落とし、Strategyとのずれを確かめる</span></a><a class="mega__item" href="timeline.html"><b>タイムライン</b><span>期限と依存関係を1本の日程に並べ、ぶつかりを赤で示す</span></a></div>
+          </div>
+        </div>
+      </div>
+      <a class="menu__link" href="change.html" aria-current="page">チェンジマネジメント</a>
+      <a class="menu__link" href="education.html">教育</a>
+      <a class="menu__link" href="pricing.html">料金</a>
+      <a class="menu__link" href="#contact">お問い合わせ</a>
+    </nav>
+    <div class="nav__end">
+      <div class="prefs" role="group" aria-label="表示">
+        <a href="../change.html" class="prefs__lang" hreflang="en" aria-label="English に切り替える"><span class="on" aria-hidden="true">JA</span><span aria-hidden="true">EN</span></a>
+        <span class="prefs__sep" aria-hidden="true"></span>
+        <button type="button" class="prefs__mode" id="theme" aria-label="ダークとライトを切り替える">
+          <svg class="mode-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg class="mode-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+      <a href="/login" class="btn btn--small btn--pill">ログイン</a>
+      <button type="button" class="icon-btn burger" id="burger" aria-label="メニューを開く" aria-controls="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="phero" aria-labelledby="change-title">
+  <div class="container">
+    <h1 id="change-title">業務の進め方を、AIを使う前提で組み直す支援をします。</h1>
+    <p class="lead">エンジニアが御社の現場に入り、業務の洗い出し、成功条件の設定、AIとの接続、試験運用、運用の定着までを一緒に進めます。</p>
+  </div>
+</section>
+
+<section class="section section--flush" id="stuck" aria-labelledby="stuck-title">
+  <div class="container">
+    <div class="head"><h2 id="stuck-title">よくある状況と、最初に行うこと</h2></div><table class="index"><thead><tr><th scope="col">よくある状況</th><th scope="col">最初に行うこと</th></tr></thead><tbody><tr><td>AIを導入したが、文章の下書きにしか使われていない</td><td>AIに任せる作業と、人が判断する作業を業務ごとに分け直す</td></tr><tr><td>依頼がメールやチャットに分かれていて、対応漏れが起きる</td><td>依頼が届くサービスをClaywareに接続し、すべての依頼を担当者と期限つきで記録する</td></tr><tr><td>誰の判断を待っているのかが分からない</td><td>人の判断が要る作業だけを一覧にし、判断を待っている人と期間が分かるようにする</td></tr><tr><td>業務の手順が担当者しか分からない</td><td>手順と、作業を止める条件を文書にし、AIも読める形（ハーネス）にする</td></tr></tbody></table>
+  </div>
+</section>
+
+<section class="section" id="change" aria-labelledby="change-title">
+  <div class="container">
+    <div class="head"><h2 id="change-title">4つの段階で進めます</h2></div><ol class="steps"><li><h3>1. 現場の業務を調べる</h3><p>どこから何が届き、誰が何を判断し、どれだけ時間がかかっているかを洗い出し、一覧にします。</p></li><li><h3>2. 成功条件を決める</h3><p>「一次返信を4時間以内」のように、業務がうまくいっているかを数字で決めます。</p></li><li><h3>3. 接続して試験運用する</h3><p>Claywareを使う業務に接続し、外部への書き込みを止めた状態で動かして、AIが行う操作をすべて確認します。</p></li><li><h3>4. 運用しながら直す</h3><p>毎朝、判断待ちの一覧と結果を確認し、成功条件と照らして手順を直します。</p></li></ol><div class="switch" data-switch>
+      <div class="switch__label"><h3>AIに任せる範囲の設定</h3><p>Claywareでは、AIが外部へ書き込む操作を承認なしで実行してよいかを、3段階から選べます。</p></div>
+      <div class="seg" role="tablist" aria-label="AIに任せる範囲">
+        <button type="button" role="tab" id="t-ask" aria-controls="p-ask" aria-selected="true">毎回聞く</button>
+        <button type="button" role="tab" id="t-auto" aria-controls="p-auto" aria-selected="false" tabindex="-1">自動</button>
+        <button type="button" role="tab" id="t-free" aria-controls="p-free" aria-selected="false" tabindex="-1">聞かない</button>
+      </div>
+      <div class="panels">
+        <div class="panel" role="tabpanel" id="p-ask" aria-labelledby="t-ask" tabindex="0"><b>毎回聞く</b>外部への書き込みは、毎回、人の承認を待ちます。導入した直後はこの設定から始めます。</div>
+        <div class="panel" role="tabpanel" id="p-auto" aria-labelledby="t-auto" tabindex="0"><b>自動</b>差し戻されずに実行できた操作から順に、承認なしで実行できる範囲が広がります。差し戻しや事故があると、範囲は狭まります。</div>
+        <div class="panel" role="tabpanel" id="p-free" aria-labelledby="t-free" tabindex="0"><b>聞かない</b>許可した範囲の操作は、承認なしで実行します。取り消せない操作は、この設定でも承認を待ちます。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="roles" aria-labelledby="roles-title">
+  <div class="container">
+    <div class="head"><h2 id="roles-title">支援に関わる3つの役割</h2></div><ol class="rows"><li class="row"><h3>エンジニア<small>支援する側</small></h3><p>業務を調べ、Claywareとサービスを接続し、仕事のやり方の定義（ハーネス）を書き、試験運用と修正を行います。</p></li><li class="row"><h3>現場の担当者<small>業務を行う人</small></h3><p>AIに作業を依頼し、結果を確認し、合わないものを差し戻します。使いにくい点をエンジニアに伝えます。</p></li><li class="row"><h3>管理職・責任者<small>判断する人</small></h3><p>成功条件と、承認が必要な操作の範囲を決め、結果を見て任せる範囲を広げるかを決めます。</p></li></ol>
+  </div>
+</section>
+
+<section class="section" id="leaves" aria-labelledby="leaves-title">
+  <div class="container">
+    <div class="head"><h2 id="leaves-title">支援が終わったあとに、御社に残るもの</h2></div><dl class="facts"><div><dt>仕事のやり方の定義</dt><dd>手順、止める条件、成果物の形、使うサービスを書いたハーネス。</dd></div><div><dt>数字で決めた成功条件</dt><dd>業務がうまくいっているかを判定するための数字。</dd></div><div><dt>判断の記録</dt><dd>誰が、何を、なぜ決めたかの記録。</dd></div><div><dt>接続したサービス</dt><dd>依頼が届くサービスとClaywareの接続。</dd></div><div><dt>AIに任せる範囲の設定</dt><dd>試験運用の結果をもとに決めた、承認なしで実行してよい操作の範囲。</dd></div><div><dt>社内で続けるための知識</dt><dd>次の業務を社内の担当者が自分で追加できるようにするための教育。</dd></div></dl><p class="more"><a href="education.html" class="textlink">教育について</a></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer__close" id="contact">
+    <h2>まずは、1つの業務から。</h2>
+    <div class="actions">
+      <a href="mailto:hello@clayware.app?subject=%E5%B0%8E%E5%85%A5%E3%81%AE%E3%81%94%E7%9B%B8%E8%AB%87" class="btn">相談する</a>
+      <a href="mailto:hello@clayware.app?subject=%E8%B3%87%E6%96%99%E3%81%AE%E3%81%94%E8%AB%8B%E6%B1%82" class="textlink">資料をもらう</a>
+    </div>
+  </div>
+  <div class="container footer__grid">
+    <a href="index.html" class="wordmark" aria-label="Clayware ホーム">Clayware</a>
+    <nav aria-label="サービス"><h2>サービス</h2><a href="channels.html">マルチチャネル連携</a><a href="strategy.html">目標から実行まで</a><a href="athena.html">Athena AI</a><a href="timeline.html">タイムライン</a><a href="change.html">チェンジマネジメント</a><a href="education.html">教育</a></nav>
+    <nav aria-label="会社"><h2>会社</h2><a href="pricing.html#case">事例</a><a href="pricing.html">料金</a></nav>
+    <nav aria-label="お問い合わせ"><h2>お問い合わせ</h2><a href="mailto:hello@clayware.app">hello@clayware.app</a><a href="/login">ログイン</a></nav>
+  </div>
+  <div class="container footer__legal"><span>© 2026 Clayware</span><span>clayware.app</span></div>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  document.getElementById('theme').addEventListener('click',function(){
+    var m=root.getAttribute('data-mode')==='light'?'dark':'light';
+    root.setAttribute('data-mode',m);
+    try{localStorage.setItem('cw-theme',m)}catch(e){}
+  });
+  var menu=document.getElementById('menu'),burger=document.getElementById('burger');
+  burger.addEventListener('click',function(e){e.stopPropagation();var o=menu.classList.toggle('show');burger.setAttribute('aria-expanded',String(o))});
+  menu.querySelectorAll(':scope > a').forEach(function(a){a.addEventListener('click',function(){menu.classList.remove('show')})});
+  document.querySelectorAll('[data-switch]').forEach(function(sw){
+    var tabs=[].slice.call(sw.querySelectorAll('[role=tab]'));
+    function pick(t){tabs.forEach(function(x){var on=x===t;x.setAttribute('aria-selected',String(on));x.tabIndex=on?0:-1;document.getElementById(x.getAttribute('aria-controls')).hidden=!on})}
+    pick(tabs[0]);
+    tabs.forEach(function(t,i){
+      t.addEventListener('click',function(){pick(t)});
+      t.addEventListener('keydown',function(e){var d=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;if(!d)return;e.preventDefault();var n=tabs[(i+d+tabs.length)%tabs.length];pick(n);n.focus()});
+    });
+  });
+})();
+</script>
+</body>
+</html>

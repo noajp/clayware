@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { basisErrorText, bindBasis } from "./elementBasis.ts";
+import { linkOf, placedFilesOf } from "./recordLinks.ts";
 
 // Board tools — Domain / Object / Element / Sub-element reads and writes that
 // run with the caller's JWT, so RLS decides what each call can see and touch.
 //
-// Shared by the in-app Copilot (alcon-copilot) and the MCP server
-// (alcon-mcp). Each entry exposes the subset it wants by name; a write the
+// Shared by the in-app Copilot (clayware-copilot) and the MCP server
+// (clayware-mcp). Each entry exposes the subset it wants by name; a write the
 // entry does not list cannot be reached from it.
 
 export type ToolDef = {
@@ -15,11 +16,17 @@ export type ToolDef = {
 };
 
 export type ToolResult =
-  | { ok: true; data: unknown; meta?: { rows?: number; nextOffset?: number | null; total?: number | null } }
+  | {
+    ok: true;
+    data: unknown;
+    meta?: { rows?: number; nextOffset?: number | null; total?: number | null };
+    /** Pictures the result carries (readFile on an image), base64. An entry that can show them passes them on. */
+    images?: { mimeType: string; data: string }[];
+  }
   | { ok: false; error: string };
 
 /**
- * Who is writing. `agent` is the AI's label ("Alcon Copilot",
+ * Who is writing. `agent` is the AI's label ("Clayware Copilot",
  * "Claude Code (MCP)"): the comment author, and named in each Activity line.
  * `userId` is the person whose JWT the call runs under, so a comment stays
  * traceable to who delegated it.
@@ -29,15 +36,111 @@ export interface BoardActor {
   userId: string | null;
 }
 
+/** The verbs an Element can ask for (elements.action); the first four only a
+ *  person carries. Same table as web Function/shared/elementActionKinds.ts. */
+export const ELEMENT_ACTIONS = ["judge", "decide", "approve", "answer", "plan", "research", "create", "execute", "verify", "report", "send", "delegate", "monitor"] as const;
+export const HUMAN_ELEMENT_ACTIONS = ["judge", "decide", "approve", "answer"] as const;
+const ACTION_SCHEMA = {
+  type: "string",
+  enum: [...ELEMENT_ACTIONS],
+  description: "求める行動。judge（選択肢を量る）/ decide（決めて確定させる）/ approve（承認）/ answer（人にしか分からないことを答える）は人だけ。ほかは AI もできる",
+};
+
+/** Pure. A valid action, null to clear, or an error. */
+export function actionOf(v: unknown): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (v === null) return { ok: true, value: null };
+  return typeof v === "string" && (ELEMENT_ACTIONS as readonly string[]).includes(v)
+    ? { ok: true, value: v }
+    : { ok: false, error: `action must be one of ${ELEMENT_ACTIONS.join(" / ")}` };
+}
+
+/** Pure. Why a date field is not a calendar day ('YYYY-MM-DD' or null to
+ *  clear), or null when every listed field present is one. */
+export function dateFieldsError(input: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const k of keys) {
+    const v = input[k];
+    if (v === undefined || v === null) continue;
+    const s = String(v);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00Z`) : null;
+    if (!d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return `${k} must be YYYY-MM-DD (or null to clear)`;
+  }
+  return null;
+}
+
+/** Pure. Why a start comes after its due day, or null. */
+export function spanError(start: unknown, due: unknown): string | null {
+  return typeof start === "string" && typeof due === "string" && start > due ? "start_date must not be after due_date" : null;
+}
+
+/** The colours a label, an Object or an Element can wear: web
+ *  Function/shared/labelColor.ts LABEL_PALETTE keys. */
+export const PALETTE_KEYS = ["grey", "darkgrey", "purple", "teal", "green", "yellow", "orange", "pink", "red"] as const;
+
+/** Pure. Why an icon string is not one the app draws, or null. Same forms
+ *  as web Function/shared/itemIcon/itemIconValue.ts: 'glyph:<Name>',
+ *  'lucide:<kebab-name>', an emoji, or null for the default. */
+export function iconError(v: unknown): string | null {
+  if (v === null) return null;
+  const s = String(v ?? "").trim();
+  if (/^glyph:[A-Z][A-Za-z0-9]*$/.test(s) || /^lucide:[a-z0-9]+(-[a-z0-9]+)*$/.test(s)) return null;
+  if (s && s.length <= 16 && !/[A-Za-z0-9<>]/.test(s)) return null;
+  return "icon must be 'glyph:<Name>', 'lucide:<kebab-name>', an emoji, or null";
+}
+
+/** Pure. Why a colour is not a palette key or '#rrggbb', or null. */
+export function colorError(v: unknown): string | null {
+  if (v === null) return null;
+  const s = String(v ?? "");
+  return (PALETTE_KEYS as readonly string[]).includes(s) || /^#[0-9a-fA-F]{6}$/.test(s)
+    ? null : `color must be one of ${PALETTE_KEYS.join(" / ")}, '#rrggbb', or null`;
+}
+
+const OBJECT_LOOK = {
+  start_date: { type: "string", description: "ISO 8601 YYYY-MM-DD。Timeline の帯の始まり。null で解除" },
+  due_date: { type: "string", description: "ISO 8601 YYYY-MM-DD。Timeline の帯の終わり。null で解除" },
+  icon: { type: "string", description: "'glyph:<Name>'（Clayware のアイコン）/ 'lucide:<kebab-name>' / 絵文字。null で既定の Object アイコン" },
+  color: { type: "string", description: `アイコンの色。${PALETTE_KEYS.join(" / ")} か '#rrggbb'。null で既定` },
+  type: { type: "string", description: "Object type 名（Domain に既存のもの推奨）" },
+  leadWorkerId: { type: "string", description: "Lead（担当者）の Worker UUID。null で外す" },
+};
+
+/** Pure. The objects-row patch an Object tool's input asks for, or why not. */
+export function objectPatch(input: Record<string, unknown>): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
+  const patch: Record<string, unknown> = {};
+  for (const k of ["name", "prefix", "description", "start_date", "due_date", "icon", "color", "type"]) {
+    if (input[k] !== undefined) patch[k] = input[k];
+  }
+  if (input.leadWorkerId !== undefined) patch.lead_id = input.leadWorkerId;
+  const error = dateFieldsError(patch, ["start_date", "due_date"]) ?? spanError(patch.start_date, patch.due_date)
+    ?? (patch.icon !== undefined ? iconError(patch.icon) : null)
+    ?? (patch.color !== undefined ? colorError(patch.color) : null);
+  return error ? { ok: false, error } : { ok: true, patch };
+}
+
+/** Why a Worker cannot lead an Object in this Domain, or null. The Space
+ *  boundary an assignee keeps (worker_assignable) holds for a Lead too:
+ *  the database's list of who can be assigned in the Domain decides. */
+async function leadRefusal(supabase: SupabaseClient, domainId: string | null, workerId: unknown): Promise<string | null> {
+  if (workerId === undefined || workerId === null) return null;
+  const { data, error } = await supabase
+    .rpc("list_assignable_workers", { p_space_id: null, p_domain_id: domainId, p_element_id: null })
+    .select("id");
+  if (error) throw error;
+  const rows = (Array.isArray(data) ? data : data ? [data] : []) as { id: string }[];
+  return rows.some((w) => w.id === String(workerId))
+    ? null
+    : "This Worker can't lead this Object: it is in another Space or inactive. listWorkers with objectId returns who can.";
+}
+
 export const BOARD_TOOLS: ToolDef[] = [
   {
     name: "listMyDomains",
-    description: "ログイン中のユーザーが参加している Domain の一覧を返す。引数なし。",
+    description: "ログイン中のユーザーが参加している Domain の一覧（description を含む）を返す。引数なし。",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "listObjects",
-    description: "Domain 内の Object 一覧。domainId を省略すると、ユーザーが参加する全 Domain のものを返す。アーカイブした Object は含まない。",
+    description: "Domain 内の Object 一覧（description を含む）。domainId を省略すると、ユーザーが参加する全 Domain のものを返す。アーカイブした Object は含まない。",
     input_schema: {
       type: "object",
       properties: {
@@ -47,8 +150,18 @@ export const BOARD_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "getObject",
+    description: "Object 単体の詳細（description / 期間 / アイコンと色 / type / Lead / 結び付いた Strategy / 配下の Element のステータス別件数 / アプリで開く url）。description に置かれたファイル（画像など）は placedFiles に並び、readFile で読める。Element の一覧は listElements に objectId を渡して読む。",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "string", description: "Object UUID または display_id" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "listElements",
-    description: "Element を任意条件で一覧。デフォルトで最新 50 件、order_index asc。",
+    description: "Element を任意条件で一覧。既定 50 件、order_index asc。続きは答えの nextOffset を offset に渡す（meta.nextOffset が null なら終わり）。自分の担当は assigneeWorkerId に \"me\"。",
     input_schema: {
       type: "object",
       properties: {
@@ -61,14 +174,19 @@ export const BOARD_TOOLS: ToolDef[] = [
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         dueWithinDays: { type: "number", description: "今日から N 日以内に due のものに絞る" },
         overdueOnly: { type: "boolean", description: "true なら未完で due 過ぎたものだけ" },
+        assigneeWorkerId: { type: "string", description: "この Worker が担当の Element だけ。\"me\" で接続している本人" },
+        label: { type: "string", description: "このラベルが付いた Element だけ" },
+        parentId: { type: "string", description: "この Element の Sub-element だけ（UUID または display_id）。\"none\" で親を持たない Element だけ" },
+        updatedSince: { type: "string", description: "この日時（ISO 8601）以降に更新されたものだけ" },
         limit: { type: "number", description: "最大件数（既定 50、最大 200）" },
+        offset: { type: "number", description: "前の答えの meta.nextOffset" },
       },
       additionalProperties: false,
     },
   },
   {
     name: "getElement",
-    description: "Element 単体のフル詳細（Sub-element（この Element を親に持つ Element）/ labels / assignees / 所属 Object / 直近のコメント10件を含む）",
+    description: "Element 単体のフル詳細（Sub-element（この Element を親に持つ Element）/ labels / assignees / 所属 Object / 直近のコメント10件とコメントの総数 / アプリで開く url を含む）。description に置かれたファイル（画像など）は placedFiles に並び、readFile で読める。コメントをすべて読むときは listElementComments、変更履歴は getElementHistory。",
     input_schema: {
       type: "object",
       properties: { id: { type: "string", description: "Element UUID または ELE-NNN 形式の display_id" } },
@@ -142,8 +260,10 @@ export const BOARD_TOOLS: ToolDef[] = [
         status: { type: "string", enum: ["backlog", "todo", "in_progress", "review", "done", "blocked", "cancelled"] },
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         type: { type: "string", description: "Element type 名（Domain に既存のもの推奨）" },
+        start_date: { type: "string", description: "ISO 8601 YYYY-MM-DD。Timeline の帯の始まり" },
         due_date: { type: "string", description: "ISO 8601 YYYY-MM-DD" },
         labels: { type: "array", items: { type: "string" } },
+        action: ACTION_SCHEMA,
         assigneeWorkerIds: { type: "array", items: { type: "string" }, description: "初期アサインの worker id 群" },
         basisIntentIds: { type: "array", items: { type: "string" }, description: "この Element が何のためにあるか：根拠にする Strategy の成功条件・前提・意思決定の intent id（getInitiative で読んだもの）。Strategy が変わったとき、影響を受ける Element を見つけるのに使う" },
       },
@@ -163,9 +283,11 @@ export const BOARD_TOOLS: ToolDef[] = [
         status: { type: "string", enum: ["backlog", "todo", "in_progress", "review", "done", "blocked", "cancelled"] },
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         type: { type: "string" },
+        start_date: { type: "string", description: "ISO 8601 YYYY-MM-DD。Timeline の帯の始まり。null で解除" },
         due_date: { type: "string", description: "ISO 8601 YYYY-MM-DD。null で解除" },
         estimated_hours: { type: "number" },
         labels: { type: "array", items: { type: "string" } },
+        action: ACTION_SCHEMA,
       },
       required: ["id"],
       additionalProperties: false,
@@ -276,7 +398,7 @@ export const BOARD_TOOLS: ToolDef[] = [
   // ── Write: Object ───────────────────────────────────────────────────────
   {
     name: "createObject",
-    description: "Domain 内に新しい Object を作成する。",
+    description: "Domain 内に新しい Object を作成する。期間（start_date / due_date）を入れると Timeline に帯が出る。",
     input_schema: {
       type: "object",
       properties: {
@@ -284,6 +406,7 @@ export const BOARD_TOOLS: ToolDef[] = [
         name: { type: "string" },
         prefix: { type: "string", description: "Element 採番用プレフィックス（任意）" },
         description: { type: "string" },
+        ...OBJECT_LOOK,
       },
       required: ["domainId", "name"],
       additionalProperties: false,
@@ -291,7 +414,7 @@ export const BOARD_TOOLS: ToolDef[] = [
   },
   {
     name: "updateObject",
-    description: "Object を更新（name / prefix / description）。",
+    description: "Object を更新（name / prefix / description / 期間 / アイコンと色 / type / Lead）。指定したフィールドだけ patch。",
     input_schema: {
       type: "object",
       properties: {
@@ -299,6 +422,7 @@ export const BOARD_TOOLS: ToolDef[] = [
         name: { type: "string" },
         prefix: { type: "string" },
         description: { type: "string" },
+        ...OBJECT_LOOK,
       },
       required: ["id"],
       additionalProperties: false,
@@ -372,7 +496,7 @@ export const BOARD_TOOLS: ToolDef[] = [
   // ── Write: Bulk ─────────────────────────────────────────────────────────
   {
     name: "bulkUpdateElements",
-    description: "複数 Element を同じ patch で一括更新（status / priority / type / due_date / labels）。",
+    description: "複数 Element を同じ patch で一括更新（status / priority / type / start_date / due_date / labels）。",
     input_schema: {
       type: "object",
       properties: {
@@ -380,10 +504,25 @@ export const BOARD_TOOLS: ToolDef[] = [
         status: { type: "string", enum: ["backlog", "todo", "in_progress", "review", "done", "blocked", "cancelled"] },
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         type: { type: "string" },
+        start_date: { type: "string" },
         due_date: { type: "string" },
         labels: { type: "array", items: { type: "string" } },
       },
       required: ["ids"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "setLabelColor",
+    description: "Domain のラベルの色を決める。決めるまでは名前から自動で色が付く。同じ Domain のその名前のラベルすべてに効く。決めた色を外すのは Settings から（このラベルの一覧も一緒に消えるため）。",
+    input_schema: {
+      type: "object",
+      properties: {
+        domainId: { type: "string", description: "Domain UUID" },
+        label: { type: "string", description: "ラベル名" },
+        color: { type: "string", enum: [...PALETTE_KEYS], description: "色" },
+      },
+      required: ["domainId", "label", "color"],
       additionalProperties: false,
     },
   },
@@ -431,6 +570,16 @@ export function displayIdCandidates(raw: string): string[] {
 // Returns null when nothing visible to this user (RLS scope) matches.
 // display_id is matched on its own column: an `id.eq.<display_id>` filter
 // makes Postgres reject the whole query as an invalid uuid.
+/** The Worker ids an assignee filter names: "me" is the caller's own Workers (one per Space). */
+export async function assigneeWorkerIds(supabase: SupabaseClient, ref: string, actor: BoardActor): Promise<string[]> {
+  if (ref.trim().toLowerCase() !== "me") return [ref.trim()];
+  let userId = actor.userId;
+  if (!userId) userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  if (!userId) return [];
+  const { data } = await supabase.from("workers").select("id").eq("user_id", userId);
+  return ((data ?? []) as { id: string }[]).map((w) => w.id);
+}
+
 export async function resolveElementId(supabase: SupabaseClient, idArg: string): Promise<string | null> {
   return (await resolveElementIdTraced(supabase, idArg)).id;
 }
@@ -529,10 +678,19 @@ export async function updateElementById(
   actor: BoardActor,
 ): Promise<ToolResult> {
   const patch: Record<string, unknown> = {};
-  for (const k of ["title", "description", "status", "priority", "type", "due_date", "due_time", "estimated_hours"]) {
+  for (const k of ["title", "description", "status", "priority", "type", "start_date", "due_date", "due_time", "estimated_hours"]) {
     if (input[k] !== undefined) patch[k] = input[k];
   }
+  const dateError = dateFieldsError(patch, ["start_date", "due_date"]) ?? spanError(patch.start_date, patch.due_date);
+  if (dateError) return { ok: false, error: dateError };
+  const crossed = await storedSpanCrossed(supabase, [id], patch);
+  if (crossed) return { ok: false, error: crossed };
   if (Array.isArray(input.labels)) patch.labels = input.labels;
+  if (input.action !== undefined) {
+    const a = actionOf(input.action);
+    if (!a.ok) return { ok: false, error: a.error };
+    patch.action = a.value;
+  }
   if (Object.keys(patch).length === 0) return { ok: false, error: "no fields to update" };
   const normalized = normalizeStatusPatch(patch);
   const { data, error } = await supabase
@@ -541,6 +699,21 @@ export async function updateElementById(
   if (error) throw error;
   await audit(supabase, actor, id, describePatch(patch));
   return { ok: true, data, meta: { rows: 1 } };
+}
+
+/** Why moving one end of these Elements' spans would cross the stored
+ *  other end, or null. Only one end moving needs the stored dates. */
+async function storedSpanCrossed(supabase: SupabaseClient, ids: string[], patch: Record<string, unknown>): Promise<string | null> {
+  const moves = (patch.start_date && patch.due_date === undefined) || (patch.due_date && patch.start_date === undefined);
+  if (!moves || ids.length === 0) return null;
+  const { data, error } = await supabase.from("elements").select("title, start_date, due_date").in("id", ids);
+  if (error) throw error;
+  for (const e of (data ?? []) as { title: string; start_date: string | null; due_date: string | null }[]) {
+    if (spanError(patch.start_date ?? e.start_date, patch.due_date ?? e.due_date)) {
+      return `「${e.title}」: start_date must not be after due_date`;
+    }
+  }
+  return null;
 }
 
 /**
@@ -580,7 +753,7 @@ export async function runBoardTool(
       case "listMyDomains": {
         const { data, error } = await supabase
           .from("domains")
-          .select("id, name, identifier, activity_space_id, created_at")
+          .select("id, name, identifier, description, activity_space_id, created_at")
           .order("name");
         if (error) throw error;
         return { ok: true, data, meta: { rows: data?.length ?? 0 } };
@@ -589,7 +762,7 @@ export async function runBoardTool(
       case "listObjects": {
         let q = supabase
           .from("objects")
-          .select("id, name, prefix, domain_id, order_index, created_at")
+          .select("id, name, prefix, description, domain_id, order_index, created_at")
           .is("archived_at", null)
           .order("order_index", { ascending: true, nullsFirst: false });
         if (input.domainId) q = q.eq("domain_id", input.domainId as string);
@@ -598,13 +771,66 @@ export async function runBoardTool(
         return { ok: true, data, meta: { rows: data?.length ?? 0 } };
       }
 
+      case "getObject": {
+        const ref = String(input.id ?? "").trim();
+        if (!ref) return { ok: false, error: "Object not found" };
+        const { data: obj, error } = await supabase
+          .from("objects")
+          .select("id, display_id, name, prefix, description, domain_id, type, icon, color, start_date, due_date, lead_id, archived_at, created_at, updated_at, lead:workers!objects_lead_id_fkey(id, name)")
+          .eq(UUID_RE.test(ref) ? "id" : "display_id", ref).maybeSingle();
+        if (error) throw error;
+        if (!obj) return { ok: false, error: "Object not found" };
+        const id = (obj as { id: string }).id;
+        const [links, els] = await Promise.all([
+          supabase.from("strategy_objects").select("strategy:strategies(id, name)").eq("object_id", id),
+          supabase.from("elements").select("status").eq("object_id", id).is("parent_id", null),
+        ]);
+        const elementCounts: Record<string, number> = {};
+        for (const e of (els.data ?? []) as { status: string | null }[]) {
+          const k = e.status ?? "backlog";
+          elementCounts[k] = (elementCounts[k] ?? 0) + 1;
+        }
+        return {
+          ok: true,
+          data: {
+            ...obj,
+            strategies: ((links.data ?? []) as { strategy: unknown }[]).map((l) => l.strategy).filter(Boolean),
+            elementCounts,
+            placedFiles: await placedFilesOf(supabase, (obj as { description: string | null }).description),
+            url: linkOf("object", id),
+          },
+        };
+      }
+
       case "listElements": {
         const limit = Math.min(Math.max(Number(input.limit ?? 50), 1), 200);
+        const offset = Number.isFinite(Number(input.offset)) && Number(input.offset) > 0 ? Math.floor(Number(input.offset)) : 0;
         let q = supabase
           .from("elements")
-          .select("id, display_id, seq_number, title, status, priority, type, due_date, object_id, order_index, updated_at")
+          .select("id, display_id, seq_number, title, status, priority, type, labels, due_date, object_id, parent_id, order_index, updated_at", { count: "exact" })
           .order("order_index", { ascending: true, nullsFirst: false })
-          .limit(limit);
+          .order("seq_number", { ascending: true })
+          .range(offset, offset + limit - 1);
+        if (input.assigneeWorkerId) {
+          const workerIds = await assigneeWorkerIds(supabase, String(input.assigneeWorkerId), actor);
+          if (!workerIds.length) return { ok: true, data: [], meta: { rows: 0, nextOffset: null, total: 0 } };
+          const { data: rows } = await supabase.from("element_assignees").select("element_id").in("worker_id", workerIds);
+          const ids = [...new Set(((rows ?? []) as { element_id: string }[]).map((r) => r.element_id))];
+          if (!ids.length) return { ok: true, data: [], meta: { rows: 0, nextOffset: null, total: 0 } };
+          q = q.in("id", ids);
+        }
+        if (input.label) q = q.contains("labels", JSON.stringify([String(input.label)]));
+        if (input.parentId === "none") q = q.is("parent_id", null);
+        else if (input.parentId) {
+          const parent = await resolveElementId(supabase, String(input.parentId));
+          if (!parent) return { ok: false, error: "Element not found" };
+          q = q.eq("parent_id", parent);
+        }
+        if (input.updatedSince) {
+          const since = new Date(String(input.updatedSince));
+          if (Number.isNaN(since.getTime())) return { ok: false, error: "updatedSince must be an ISO 8601 date-time" };
+          q = q.gte("updated_at", since.toISOString());
+        }
         if (input.domainId) {
           const { data: objs } = await supabase
             .from("objects").select("id").eq("domain_id", input.domainId as string).is("archived_at", null);
@@ -625,9 +851,11 @@ export async function runBoardTool(
           const today = new Date().toISOString().slice(0,10);
           q = q.lt("due_date", today).not("status", "in", "(done,cancelled)");
         }
-        const { data, error } = await q;
+        const { data, error, count } = await q;
         if (error) throw error;
-        return { ok: true, data, meta: { rows: data?.length ?? 0 } };
+        const rows = data?.length ?? 0;
+        const total = count ?? null;
+        return { ok: true, data, meta: { rows, nextOffset: total !== null && offset + rows < total ? offset + rows : null, total } };
       }
 
       case "getElement": {
@@ -651,7 +879,7 @@ export async function runBoardTool(
             .select("object_id, is_primary")
             .eq("element_id", elementId),
           supabase.from("element_comments")
-            .select("id, author_name, author_kind, content, created_at")
+            .select("id, parent_id, author_name, author_kind, content, created_at", { count: "exact" })
             .eq("element_id", elementId).order("created_at", { ascending: false }).limit(10),
         ]);
         return {
@@ -662,6 +890,9 @@ export async function runBoardTool(
             assignees: assignees.data ?? [],
             objects: homes.data ?? [],
             recentComments: comments.data ?? [],
+            commentCount: comments.count ?? null,
+            placedFiles: await placedFilesOf(supabase, (el as { description: string | null }).description),
+            url: linkOf("element", elementId),
           },
         };
       }
@@ -775,10 +1006,17 @@ export async function runBoardTool(
         if (!objectId) return { ok: false, error: "objectId is required" };
         if (!title) return { ok: false, error: "title is required" };
         const payload: Record<string, unknown> = { object_id: objectId, title };
-        for (const k of ["description", "status", "priority", "type", "due_date"]) {
+        for (const k of ["description", "status", "priority", "type", "start_date", "due_date"]) {
           if (input[k] !== undefined) payload[k] = input[k];
         }
+        const dateError = dateFieldsError(payload, ["start_date", "due_date"]) ?? spanError(payload.start_date, payload.due_date);
+        if (dateError) return { ok: false, error: dateError };
         if (Array.isArray(input.labels)) payload.labels = input.labels;
+        if (input.action !== undefined) {
+          const a = actionOf(input.action);
+          if (!a.ok) return { ok: false, error: a.error };
+          payload.action = a.value;
+        }
         const normalized = normalizeStatusPatch(payload);
         const { data, error } = await supabase
           .from("elements")
@@ -976,13 +1214,14 @@ export async function runBoardTool(
         const name = String(input.name ?? "").trim();
         if (!domainId) return { ok: false, error: "domainId is required" };
         if (!name) return { ok: false, error: "name is required" };
-        const payload: Record<string, unknown> = { domain_id: domainId, name };
-        for (const k of ["prefix", "description"]) {
-          if (input[k] !== undefined) payload[k] = input[k];
-        }
+        const look = objectPatch(input);
+        if (!look.ok) return look;
+        const leadError = await leadRefusal(supabase, domainId, look.patch.lead_id);
+        if (leadError) return { ok: false, error: leadError };
+        const payload: Record<string, unknown> = { ...look.patch, domain_id: domainId, name };
         const { data, error } = await supabase
           .from("objects").insert(payload)
-          .select("id, name, prefix, domain_id").single();
+          .select("id, name, prefix, domain_id, start_date, due_date, icon, color, type, lead_id").single();
         if (error) throw error;
         return { ok: true, data, meta: { rows: 1 } };
       }
@@ -990,14 +1229,25 @@ export async function runBoardTool(
       case "updateObject": {
         const id = String(input.id ?? "");
         if (!id) return { ok: false, error: "id is required" };
-        const patch: Record<string, unknown> = {};
-        for (const k of ["name", "prefix", "description"]) {
-          if (input[k] !== undefined) patch[k] = input[k];
-        }
+        const look = objectPatch(input);
+        if (!look.ok) return look;
+        const patch = look.patch;
         if (Object.keys(patch).length === 0) return { ok: false, error: "no fields to update" };
+        // One end of the span may move alone; it must not cross the stored other end.
+        if ((patch.start_date && patch.due_date === undefined) || (patch.due_date && patch.start_date === undefined)) {
+          const { data: current } = await supabase.from("objects").select("start_date, due_date").eq("id", id).maybeSingle();
+          const crossed = spanError(patch.start_date ?? current?.start_date, patch.due_date ?? current?.due_date);
+          if (crossed) return { ok: false, error: crossed };
+        }
+        if (patch.lead_id) {
+          const { data: obj } = await supabase.from("objects").select("domain_id").eq("id", id).maybeSingle();
+          if (!obj) return { ok: false, error: "Object not found" };
+          const leadError = await leadRefusal(supabase, (obj as { domain_id: string | null }).domain_id, patch.lead_id);
+          if (leadError) return { ok: false, error: leadError };
+        }
         const { data, error } = await supabase
-          .from("objects").update(patch).eq("id", id)
-          .select("id, name, prefix").single();
+          .from("objects").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id)
+          .select("id, name, prefix, start_date, due_date, icon, color, type, lead_id").single();
         if (error) throw error;
         return { ok: true, data, meta: { rows: 1 } };
       }
@@ -1072,9 +1322,11 @@ export async function runBoardTool(
         const idsRaw = Array.isArray(input.ids) ? input.ids as string[] : [];
         if (idsRaw.length === 0) return { ok: false, error: "ids required" };
         const patch: Record<string, unknown> = {};
-        for (const k of ["status", "priority", "type", "due_date"]) {
+        for (const k of ["status", "priority", "type", "start_date", "due_date"]) {
           if (input[k] !== undefined) patch[k] = input[k];
         }
+        const dateError = dateFieldsError(patch, ["start_date", "due_date"]) ?? spanError(patch.start_date, patch.due_date);
+        if (dateError) return { ok: false, error: dateError };
         if (Array.isArray(input.labels)) patch.labels = input.labels;
         if (Object.keys(patch).length === 0) return { ok: false, error: "no fields to update" };
         const resolved: string[] = [];
@@ -1083,6 +1335,8 @@ export async function runBoardTool(
           if (r) resolved.push(r);
         }
         if (resolved.length === 0) return { ok: false, error: "no resolvable Element ids" };
+        const crossed = await storedSpanCrossed(supabase, resolved, patch);
+        if (crossed) return { ok: false, error: crossed };
         const normalized = normalizeStatusPatch(patch);
         const { data, error } = await supabase
           .from("elements").update(normalized).in("id", resolved)
@@ -1090,6 +1344,28 @@ export async function runBoardTool(
         if (error) throw error;
         for (const row of data ?? []) await audit(supabase, actor, row.id, describePatch(patch));
         return { ok: true, data: { updated: data?.length ?? 0, patch: normalized, items: data ?? [] }, meta: { rows: data?.length ?? 0 } };
+      }
+
+      case "setLabelColor": {
+        const domainId = String(input.domainId ?? "");
+        const label = String(input.label ?? "").trim();
+        const color = String(input.color ?? "");
+        if (!UUID_RE.test(domainId)) return { ok: false, error: "domainId must be a Domain UUID" };
+        if (!label) return { ok: false, error: "label is required" };
+        if (!(PALETTE_KEYS as readonly string[]).includes(color)) {
+          return { ok: false, error: `color must be one of ${PALETTE_KEYS.join(" / ")}` };
+        }
+        // The same atomic merge the app's Label settings use, so a pick made
+        // here and one made in the app at the same time both land. It only
+        // sets: a key removed from label_colors is a label removed from
+        // Settings' catalogue, so clearing a colour is left to Settings.
+        const { data, error } = await supabase.rpc("merge_domain_label_colors", {
+          p_domain_id: domainId,
+          p_set: { [label]: color },
+          p_remove: [],
+        });
+        if (error) throw error;
+        return { ok: true, data: { domainId, label, color, labelColors: data ?? {} }, meta: { rows: 1 } };
       }
 
       case "bulkDeleteElements": {

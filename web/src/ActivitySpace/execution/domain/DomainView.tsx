@@ -9,12 +9,12 @@ import { fetchCustomColumnsWithValues } from '@/hooks/useSupabase';
 
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { ObjectSidePanel } from '@/ActivitySpace/execution/object/ObjectSidePanel';
-import { addObjectDependency, removeObjectDependency, useObjectDependencies } from '@/hooks/objectDependencyData';
-import { linkConflicts, linkWouldLoop } from '@/Function/shared/objectDependencyModel';
-import { Plus } from '@/ui/icons';
+import { addObjectDependency, removeObjectDependency, useObjectDependencies, setObjectDependencyKind } from '@/hooks/objectDependencyData';
+import { asDependencyKind, dependencyConflicts, linkWouldLoop } from '@/Function/shared/objectDependencyModel';
+import { Plus, Settings } from '@/ui/icons';
 import { TabBar } from '@/Frame/TabBar';
 import type { ObjectTab, ObjectTabType, Json } from '@/types/database';
-import type { AlconObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
+import type { ClaywareObjectWithChildren, ElementWithDetails } from '@/hooks/useSupabase';
 import { updateObject, usePhases, useObjectMilestones } from '@/hooks/useSupabase';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
@@ -34,6 +34,7 @@ import {
 } from '@/Function/shared/listControls';
 import { DomainOverview } from './DomainOverview';
 import { DomainNote } from './DomainNote';
+import { NEW_DOMAIN_NOTEBOOK } from '@/ActivitySpace/artifacts/notebook/NotebookList';
 import { DomainMembers } from './DomainMembers';
 import { HomeView } from '@/ActivitySpace/home/HomeView';
 import { WidgetActionSlotProvider, WidgetActionSlotTarget } from '@/Function/widget';
@@ -42,7 +43,9 @@ import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/b
 import { ElementDrilldown } from '@/ActivitySpace/execution/element/ElementDrilldown';
 import { ObjectIcon } from '@/Frame/icons';
 import { IslandHeader } from '@/Function/shared/MainIsland';
-import { FollowButton } from '@/Function/shared/FollowButton';
+import { ActionsButton } from '@/Function/shared/ActionMenus';
+import { SectionMenuItems, useSectionItems } from '@/Function/shared/sectionVisibility';
+import { openDomainSettings } from '@/Function/shared/appNavigation';
 import { useDomains } from '@/hooks/useSupabase';
 import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
 import { useCurrentUserId } from '@/providers/authContext';
@@ -169,6 +172,8 @@ interface DomainViewProps {
 export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, onViewChange, surface }: DomainViewProps) {
   const explorerData = useExplorerData();
   const { t } = useI18n();
+  // The Domain page's sections, listed in its "…" to show one hidden from its own.
+  const domainSectionItems = useSectionItems('domain', [{ id: 'domain-artifacts', label: t('Artifacts') }]);
   const { openCreate } = useWorkspaceActions();
   const userId = useCurrentUserId();
   const domainRole = useDomainRole(activeDomainId ?? null);
@@ -422,10 +427,18 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
       {/* The overview is for reading the Object; Elements are added on its lists. */}
       {!isEmptyObjectElements && effectiveActiveType !== 'overview' && (
         <Button variant="ghost" size="sm" type="button" className="text-muted-foreground"
-          onClick={() => window.dispatchEvent(new CustomEvent('alcon:quick-add-element'))}>
+          onClick={() => window.dispatchEvent(new CustomEvent('clayware:quick-add-element'))}>
           <Plus size={14} />{t('Add Element')}
         </Button>
       )}
+    </div>
+  ) : effectiveActiveType === 'note' ? (
+    // The Note tab makes notebooks, not Objects.
+    <div className="ml-auto flex items-center gap-2">
+      <Button variant="ghost" size="sm" type="button" className="text-muted-foreground"
+        onClick={() => window.dispatchEvent(new CustomEvent(NEW_DOMAIN_NOTEBOOK))}>
+        <Plus size={14} />{t('New notebook')}
+      </Button>
     </div>
   ) : !isEmptyDomain ? (
     <div className="ml-auto flex items-center gap-2">
@@ -452,14 +465,21 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
           onDomainClick={() => { onNavigate({ objectId: null }); onViewChange?.('domain-overview'); }}
           objectsCrumb={surface === 'objects'}
           onObjectsClick={selectedObject ? () => onNavigate({ objectId: null }) : undefined}
-          objectSlot={selectedObject ? (<>
+          menu={selectedObject ? (
             <ObjectActionsMenu
               object={selectedObject}
               onRefresh={onRefresh}
               onDeleted={() => onNavigate({ objectId: null })}
+              extra={<SectionMenuItems page="object" sections={[{ id: 'object-artifacts', label: t('Artifacts') }]} />}
             />
-            <FollowButton kind="object" id={selectedObject.id} />
-          </>) : undefined}
+          ) : activeDomain && surface !== 'objects' ? (
+            <ActionsButton label={t('Domain actions')} items={[{
+              key: 'settings', label: t('Settings'), icon: <Settings size={14} />,
+              onSelect: () => openDomainSettings(activeDomain.id),
+            }, ...domainSectionItems]} />
+          ) : undefined}
+          follow={selectedObject ? { kind: 'object', id: selectedObject.id }
+            : activeDomain && surface !== 'objects' ? { kind: 'domain', id: activeDomain.id } : undefined}
           actions={headerActions}
         />
       )}
@@ -543,7 +563,8 @@ function HierarchyHeader({
   onDomainClick,
   objectsCrumb,
   onObjectsClick,
-  objectSlot,
+  menu,
+  follow,
   actions,
 }: {
   domainName: string;
@@ -553,9 +574,11 @@ function HierarchyHeader({
   objectsCrumb?: boolean;
   /** Present when "Objects" leads somewhere (an Object is open). */
   onObjectsClick?: () => void;
-  /** Rendered immediately after the Object name (the lowest breadcrumb item) —
-   *  e.g. the Object "⋯" actions menu. */
-  objectSlot?: ReactNode;
+  /** The "⋯" right after the last crumb: the Object's, or the Domain's on
+   *  its own page. */
+  menu?: ReactNode;
+  /** The follow star after it. */
+  follow?: { kind: 'object' | 'domain'; id: string };
   actions?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -566,7 +589,8 @@ function HierarchyHeader({
         ...(objectsCrumb ? [{ id: 'objects', label: t('Objects'), onClick: onObjectsClick }] : []),
         ...(objectName ? [{ id: 'object', label: objectName, icon: <ObjectIcon size={12} /> }] : []),
       ]}
-      after={objectName ? objectSlot : undefined}
+      menu={menu}
+      follow={follow}
       actions={actions}
     />
   );
@@ -622,7 +646,7 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
   }
 
   if (activeType === 'note') {
-    return <DomainNote key={domainId} domainId={domainId ?? null} />;
+    return <DomainNote key={domainId} domainId={domainId ?? null} onNavigate={onNavigate} onViewChange={onViewChange} />;
   }
 
   if (activeType === 'overview') {
@@ -637,10 +661,15 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
     // route persistence through updateObject.
     const objectsAsBars: ElementWithDetails[] = explorerData.objects.map((o) => objectToGanttBar(o));
     const dueOf = new Map(explorerData.objects.map((o) => [o.id, o]));
-    const ganttLinks = objectLinks.map((l) => ({
-      id: l.id, from: l.blocker_object_id, to: l.blocked_object_id,
-      conflict: linkConflicts(dueOf.get(l.blocker_object_id)?.due_date, dueOf.get(l.blocked_object_id)?.start_date),
-    }));
+    const ganttLinks = objectLinks.map((l) => {
+      const kind = asDependencyKind(l.kind);
+      const blocker = dueOf.get(l.blocker_object_id);
+      const blocked = dueOf.get(l.blocked_object_id);
+      return {
+        id: l.id, from: l.blocker_object_id, to: l.blocked_object_id, kind,
+        conflict: dependencyConflicts(kind, { start: blocker?.start_date, due: blocker?.due_date }, { start: blocked?.start_date, due: blocked?.due_date }),
+      };
+    });
     const picked = ganttObjectId ? explorerData.objects.find((o) => o.id === ganttObjectId) ?? null : null;
     return (
       <div className="flex flex-1 overflow-hidden">
@@ -649,7 +678,7 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
             elements={objectsAsBars}
             leftHeaderLabel="Objects"
             rowScale="object"
-            defaultZoom="month"
+            defaultZoom="week"
             onItemUpdate={(id, u) => updateObject(id, { start_date: u.start_date, due_date: u.due_date })}
             onRefresh={onRefresh}
             phases={domainPhases}
@@ -657,11 +686,12 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
             links={ganttLinks}
             // Dragged from one bar's end onto another: the second waits for
             // the first — unless that would close a loop.
-            onLinkCreate={(from, to) => {
+            onLinkCreate={(from, to, kind) => {
               const pairs = objectLinks.map((l) => ({ blocker: l.blocker_object_id, blocked: l.blocked_object_id }));
               if (pairs.some((p) => p.blocker === from && p.blocked === to) || linkWouldLoop(pairs, from, to)) return;
-              void addObjectDependency(from, to).catch((e) => console.error('Failed to add dependency', e));
+              void addObjectDependency(from, to, kind).catch((e) => console.error('Failed to add dependency', e));
             }}
+            onLinkKindChange={(link, kind) => { if (link.id) void setObjectDependencyKind(link.id, kind).catch((e) => console.error('Failed to change dependency', e)); }}
             onLinkRemove={(link) => { if (link.id) void removeObjectDependency(link.id).catch((e) => console.error('Failed to remove dependency', e)); }}
             // A click on a bar opens the Object beside the timeline; again closes it.
             onElementOpen={(bar) => setGanttObjectId((cur) => (cur === bar.id ? null : bar.id))}
@@ -735,13 +765,13 @@ function DomainTabContent({ activeType, allElements, objects, onSelectObject, on
 // pinned to 'todo' for a neutral bar colour — Objects don't carry a status of
 // their own, and showing them all the same colour is the honest read.
 /** Pure. The share of an Object's Elements that are done, 0–100; null with none. */
-function objectProgress(o: AlconObjectWithChildren): number | null {
+function objectProgress(o: ClaywareObjectWithChildren): number | null {
   const open = (o.elements ?? []).filter((e) => e.status !== 'cancelled');
   if (open.length === 0) return null;
   return Math.round((open.filter((e) => e.status === 'done').length / open.length) * 100);
 }
 
-export function objectToGanttBar(o: AlconObjectWithChildren): ElementWithDetails {
+export function objectToGanttBar(o: ClaywareObjectWithChildren): ElementWithDetails {
   return {
     id: o.id,
     object_id: null,

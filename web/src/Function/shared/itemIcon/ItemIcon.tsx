@@ -6,15 +6,16 @@ import { DynamicIcon, type IconName } from '@/ui/icons/dynamic';
 import { standardIconKey, useStandardIcons } from '@/ui/icons/standardIcons';
 import type { IconProps } from '@/ui/icons/glyph';
 import { STANDARD_ICON_STROKE, itemColor, parseItemIcon } from './itemIconValue';
+import { reactAttr, storedSvgIcon, type SvgNode } from './svgIcon';
 
 type Glyph = ComponentType<IconProps>;
 
-/** Alcon's own concept marks, shown first in the picker. */
+/** Clayware's own concept marks, shown first in the picker. */
 const FEATURED = ['GuidingStar', 'CompassRose', 'Spearhead', 'Milestone', 'Layers', 'Box', 'Component', 'Flag', 'Bot', 'Users', 'FileText', 'BookOpen', 'Calendar', 'Inbox', 'ShieldCheck', 'HeartHandshake'];
 
-/** Alcon's own drawings by name, one entry per drawing (aliases dropped),
+/** Clayware's own drawings by name, one entry per drawing (aliases dropped),
  *  its concept marks first. */
-export const ALCON_GLYPHS: [name: string, Glyph][] = (() => {
+export const CLAYWARE_GLYPHS: [name: string, Glyph][] = (() => {
   const seen = new Set<unknown>();
   const out: [string, Glyph][] = [];
   for (const [name, value] of Object.entries(GLYPH_MODULE)) {
@@ -31,7 +32,7 @@ const GLYPH_BY_NAME = new Map<string, Glyph>(
 
 /**
  * A Strategy's, Object's or Element's icon: its own when it has one (an
- * Alcon drawing, a standard icon or an emoji), else the concept's default
+ * Clayware drawing, a standard icon or an emoji), else the concept's default
  * (`fallback`), in its own colour when it has one.
  */
 export function ItemIcon({ icon, color, fallback, size = 16, className = '' }: {
@@ -54,6 +55,9 @@ export function ItemIcon({ icon, color, fallback, size = 16, className = '' }: {
     const Glyph = GLYPH_BY_NAME.get(value.name);
     if (Glyph) return <span aria-hidden className={wrap} style={style}>{createElement(Glyph, { size })}</span>;
   }
+  if (value?.kind === 'svg') {
+    return <span aria-hidden className={wrap} style={style}><SvgIconDrawing value={value.value} size={size} /></span>;
+  }
   if (value?.kind === 'lucide') {
     return <span aria-hidden className={wrap} style={style}><StandardIcon name={value.name} size={size} /></span>;
   }
@@ -68,4 +72,18 @@ function StandardIcon({ name, size }: { name: string; size: number }) {
   const Icon = icons[standardIconKey(name)];
   if (!Icon) return <DynamicIcon name={name as IconName} size={size} strokeWidth={STANDARD_ICON_STROKE} fallback={() => <span style={{ width: size, height: size }} />} />;
   return createElement(Icon, { size, strokeWidth: STANDARD_ICON_STROKE });
+}
+
+/** An uploaded or generated icon, drawn from its kept shapes with React
+ *  elements (never as markup), in the colour around it. */
+function SvgIconDrawing({ value, size }: { value: string; size: number }) {
+  const icon = storedSvgIcon(value);
+  if (!icon) return <span style={{ width: size, height: size }} />;
+  const props = (attrs: [string, string][]) => Object.fromEntries(attrs.map(([k, v]) => [reactAttr(k), v]));
+  const draw = (n: SvgNode, key: number): ReactNode => createElement(n.tag, { key, ...props(n.attrs) }, ...n.children.map(draw));
+  return (
+    <svg width={size} height={size} viewBox={icon.viewBox} {...props(icon.attrs)}>
+      {icon.children.map(draw)}
+    </svg>
+  );
 }

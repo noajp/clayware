@@ -7,7 +7,7 @@
 // drop shadow. That wrapper holds a `<select>`, so the ring is banned here: see
 // globals.css, which draws no focus rings. It is replaced by a resting
 // background fill (so the trigger is still legible as a control) and an
-// `--accent-subtle` tint while it holds focus.
+// `--surface-strong` ground while it holds focus.
 //
 // The day cells keep their focus ring on purpose: they are `<button>`s, and
 // pressable parts visualize keyboard focus
@@ -15,6 +15,7 @@
 //
 // If you re-run the shadcn generator, re-apply this file by hand.
 
+import { formatDateTime } from '@/Function/shared/dateUtils';
 import * as React from "react"
 import {
   ChevronDownIcon,
@@ -56,7 +57,7 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          formatDateTime(date, { month: "short" }),
         ...formatters,
       }}
       classNames={{
@@ -89,7 +90,7 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "relative rounded-md bg-muted/60 transition-colors has-focus:bg-[var(--accent-subtle)]",
+          "relative rounded-md bg-muted/60 transition-colors has-focus:bg-[var(--surface-strong)]",
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(

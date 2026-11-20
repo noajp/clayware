@@ -3,7 +3,7 @@
 // (names, descriptions, schemas), how one call is judged for approval, how
 // it is shown on an approval card, and how it runs. run-agent adds its run
 // machinery around these (steps, transcripts, continuations, PR linking);
-// alcon-copilot calls the same pieces directly, so a manifest means the
+// clayware-copilot calls the same pieces directly, so a manifest means the
 // same thing at both entries and there is no second manifest→tool code.
 //
 // Scope of the shared assembly (buildSpaceIntegrationTools): an
@@ -33,13 +33,14 @@ import {
 import { askReasonOf, type ApprovalFacts, type AskReason } from "./approvalPolicy.ts";
 import { overlayPresentation } from "./approvalPresentations.ts";
 import {
-  McpSession, callHttp, httpIsRead, httpPseudoAction, isAuthFailure, isSafeEndpoint, pointsAtAlcon, resolveCredential,
+  McpSession, callHttp, httpIsRead, httpPseudoAction, isAuthFailure, isSafeEndpoint, pointsAtClayware, resolveCredential,
   type IntegrationRow, type RemoteTool,
 } from "./integrationClient.ts";
 import type { ReplayTransport } from "./definitionTests.ts";
-import { isGoogleDriveRow, isGoogleOAuthRow } from "./googleOAuth.ts";
+import { isGoogleDriveRow } from "./googleOAuth.ts";
 import { CONNECTOR_PRESET_NAMES, foldConnectorName } from "./connectorNeeds.ts";
 import { isGithubOAuthRow } from "./githubOAuth.ts";
+import { signInOf } from "./oauthProviders.ts";
 import { runVerifyRead, verifyDiffText, type VerifyCheck } from "./verifyReads.ts";
 import { applyBodyBuilder, applyResponseTransform } from "./manifestTransforms.ts";
 import { loadToolPlans, planCacheState, planFingerprint, saveToolPlan } from "./integrationPlans.ts";
@@ -184,7 +185,7 @@ export function lazyBinding(
 /** One call as the approval card shows it, stored with the pending action. */
 export interface ApprovalDisplay {
   id: string; integration: string; operation: string;
-  /** Where the call goes: the connection's base URL, or "Alcon" for its own tools. */
+  /** Where the call goes: the connection's base URL, or "Clayware" for its own tools. */
   destination: string;
   /** A manifest HTTP command's resolved request line (`POST /repos/…`), when it has one. */
   detail: string | null;
@@ -311,7 +312,7 @@ export function approvalDisplayForCall(tools: Map<string, IntegrationTool>, c: T
       });
       const operation = catalogOperation(c.name, c.input);
       return {
-        id: c.id, integration: "Alcon", operation, destination: "Alcon", detail: null, effect: "write", critical: null, rememberable: false,
+        id: c.id, integration: "Clayware", operation, destination: "Clayware", detail: null, effect: "write", critical: null, rememberable: false,
         title: humanizedTitle(c.name), fields: fallbackFields(c.input), preview: null, askReason,
       };
     }
@@ -598,16 +599,18 @@ const MAX_INTEGRATION_TOOLS = 120;
 /**
  * Pure. Whether an assembly may open this row at all: an OAuth row is
  * openable only when a sign-in this engine can complete stands behind
- * it — Google's (a profile's rows: the token resolveCredential refreshes
- * serves every profile, Drive's typed surface aside) or GitHub's. Any
- * other OAuth row has no way to authenticate, so both assemblies (a
- * run's, in run-agent, and the chat's, below) close it rather than
- * offer tools that could only fail. Non-OAuth rows pass.
+ * it — a row a provider's profile claims in the registry
+ * (oauthProviders.ts: Google's, GitHub's, Microsoft's; the token
+ * resolveCredential refreshes serves every profile, Drive's typed surface
+ * aside), or a row with a valid OAuth config of its own (customOAuth.ts).
+ * Any other OAuth row has no way to authenticate, so both
+ * assemblies (a run's, in run-agent, and the chat's, below) close it
+ * rather than offer tools that could only fail. Non-OAuth rows pass.
  */
 export function oauthRowOpens(
-  row: { auth_type?: string | null; preset?: string | null; endpoint?: string | null; kind?: string | null },
+  row: { auth_type?: string | null; preset?: string | null; endpoint?: string | null; kind?: string | null; oauth_config?: unknown },
 ): boolean {
-  return row.auth_type !== "oauth" || isGoogleOAuthRow(row) || isGithubOAuthRow(row);
+  return row.auth_type !== "oauth" || signInOf(row) !== null;
 }
 
 /**
@@ -616,7 +619,7 @@ export function oauthRowOpens(
  * decides), enabled, MCP or HTTP, with the same closings a run applies —
  * an unsafe endpoint is skipped, a manifest that declares nothing usable
  * closes its integration, an untested MCP connection stays closed, a
- * connection pointing at Alcon itself is never used. What cannot be used
+ * connection pointing at Clayware itself is never used. What cannot be used
  * is reported in `down` with the reason, so the agent can tell the person
  * instead of guessing.
  *
@@ -647,7 +650,7 @@ export async function buildSpaceIntegrationTools(args: {
   const usable: IntegrationUsable[] = [];
   const down: IntegrationDown[] = [];
   const { data: rows } = await userDb.from("integrations")
-    .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at")
+    .select("id, preset, kind, name, description, endpoint, auth_type, auth_header, delegation, enabled, manifest, guide, updated_at, oauth_config")
     .eq("activity_space_id", spaceId).eq("enabled", true).in("kind", ["mcp", "http"]).order("created_at");
   const list = (rows ?? []) as (IntegrationRow & { enabled: boolean; manifest: unknown; guide: string | null; updated_at?: string | null })[];
   const cachedPlans = await loadToolPlans(admin, list.map((r) => r.id));
@@ -676,10 +679,10 @@ export async function buildSpaceIntegrationTools(args: {
       down.push({ name: row.name, reason: "接続テストが済んでいない（Settings › Customize で接続テストが必要）" });
       continue;
     }
-    // Never Alcon itself: the board tools already act as the person, and a
+    // Never Clayware itself: the board tools already act as the person, and a
     // stored token would act outside their authority.
-    if (pointsAtAlcon(row.endpoint, args.supabaseUrl)) {
-      down.push({ name: row.name, reason: "Alcon 自身を指しているため使いません（Alcon のデータは標準の道具で操作します）" });
+    if (pointsAtClayware(row.endpoint, args.supabaseUrl)) {
+      down.push({ name: row.name, reason: "Clayware 自身を指しているため使いません（Clayware のデータは標準の道具で操作します）" });
       continue;
     }
     // OAuth here is a sign-in this engine can complete (oauthRowOpens):

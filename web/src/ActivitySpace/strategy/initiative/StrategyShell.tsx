@@ -1,28 +1,25 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { formatError } from '@/Function/shared/formatError';
 
-import { DescriptionEditor } from '@/Function/shared/DescriptionEditor';
 import { IslandHeader } from '@/Function/shared/MainIsland';
 import { ViewTabs } from '@/Function/shared/ViewTabs';
 import { BoardOrientationToggle, useBoardOrientation } from '@/Function/shared/boardOrientation';
 import { appDialog } from '@/Function/shared/appDialogStore';
+import { useVisions } from '@/hooks/visionData';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, FileText, MessageCircle, MoreHorizontal, Plus, Search, X } from '@/ui/icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, FileText, MessageCircle, Plus, Search, X } from '@/ui/icons';
 import { NotePicker } from '@/ActivitySpace/artifacts/notebook/NotePicker';
 import { LinkedNoteEmbed } from '@/ActivitySpace/artifacts/notebook/LinkedNoteEmbed';
-import { FoldSection, FoldSectionAddRow } from '@/Function/shared/FoldSection';
 import { EmbedHostContext } from '@/Function/notebook/editor/embedBlocks';
 import { useStrategyEmbeds } from './StrategyEmbeds';
-import { ReactionChips, ReactionPicker } from '@/Function/shared/ReactionControls';
-import { AttachButton } from '@/Function/shared/attachments/AttachButton';
-import { AttachmentList } from '@/Function/shared/attachments/AttachmentList';
+import { UnplacedFrameLines } from './StrategyFrameLine';
+import { PageActionRow, PAGE_MORE_ITEM } from '@/Function/shared/PageActionRow';
 import { requestNewDeck } from '@/ActivitySpace/artifacts/slides/newDeckRequest';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { NavSlidesIcon, NavStrategyIcon } from '@/Frame/sidebar/NavIcons';
-import { PageIcon, PageSection, PAGE_FRAME, PAGE_TITLE, PAGE_TITLE_WEIGHT } from '@/Function/shared/PageHead';
+import { DetailPage, PageHead, PageSection, PAGE_FRAME } from '@/Function/shared/PageHead';
 import { ItemIconButton, useItemLook } from '@/Function/shared/itemIcon/IconPicker';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { IndexList, IndexRow } from '@/Function/shared/IndexList';
@@ -35,7 +32,7 @@ import { QuickCreatePopup, quickCreatePillClass } from '@/Function/shared/QuickC
 import { Popover, PopoverTrigger } from '@/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/ui/command';
 import { MenuShell } from '@/Function/shared/menu';
-import { isCancelKey, isCommitEnter, isSubmitChord, useEscapeLayer } from '@/Function/shared/keyboard';
+import { isCancelKey, isCommitEnter, useEscapeLayer } from '@/Function/shared/keyboard';
 import { ConfirmDialog } from '@/Function/shared/ConfirmDialog';
 import {
   addDomainObjectType,
@@ -54,8 +51,8 @@ import {
   useDomains,
   useObjects,
   useStrategies,
-  type AlconObject,
-  type AlconObjectWithChildren,
+  type ClaywareObject,
+  type ClaywareObjectWithChildren,
   type StrategyWithObjects,
   type Worker,
 } from '@/hooks/useSupabase';
@@ -69,8 +66,9 @@ import { requestPlan } from './mission/plannerRequest';
 import { useQueryClient } from '@tanstack/react-query';
 import { InitiativeCodeChanges } from '@/ActivitySpace/execution/codeChanges/InitiativeCodeChanges';
 import { StrategyEvaluationPanel } from './StrategyEvaluationPanel';
+import { StrategyGapPanel } from './StrategyGapPanel';
 import { InitiativeMission } from './mission/InitiativeMission';
-import { SegmentedProgress } from '@/Function/shared/SegmentedProgress';
+import { ProgressBelt } from '@/Function/shared/ProgressBelt';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { canEditInitiative } from '@/Function/strategy/initiativeAccess';
 import { useSpaceRole } from '@/Function/space/data';
@@ -81,8 +79,12 @@ import type { InitiativeHealth } from './initiativeHealthModel';
 import { useInitiativeMeasureTallies } from './useInitiativeMeasureTallies';
 import { MeasureStatus } from './MeasureStatus';
 import type { MeasureTally } from './initiativeMeasureModel';
-import { useNow } from '@/Function/shared/useNow';
-import { formatRelative } from '@/Function/shared/dateUtils';
+import { formatDateOnly } from '@/Function/shared/dateUtils';
+import { HealthBelt } from '@/Function/shared/HealthBelt';
+import { extractPlainText } from '@/Function/notebook/contentUtils';
+import { strategyFacts } from '@/Function/strategy/strategyFacts';
+import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
+import { useWorkersByIds } from '@/hooks/teamData';
 import {
   useBoard,
   WidgetSurface,
@@ -95,11 +97,19 @@ import {
 } from '@/Function/widget';
 import { DueDateCell, LeadCell, TypeCell } from '@/Function/shared/listTable/cells';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  MenuCheck,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@/ui/dropdown-menu';
+import { ConceptSection } from '@/Function/shared/ConceptSection';
+import { useSectionItems } from '@/Function/shared/sectionVisibility';
+import { DomainMark } from '@/Function/shared/DomainMark';
+import { DomainIcon } from '@/Function/shared/conceptIcons';
+import { ArtifactsSection } from '../ArtifactsSection';
+import { PortfolioRow, useWorkersByUser } from '../PortfolioRow';
+import { useStrategyDomains } from '@/hooks/strategyDomainData';
 import { completionOf } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
@@ -165,6 +175,8 @@ function InitiativeBoard({ surface, defaults, subjectId, host, zones, children }
 // =============================================================
 
 export function StrategyShell({
+  visionId,
+  onOpenVision,
   activeStrategyId,
   onSelectStrategy,
   onOpenObject,
@@ -172,6 +184,10 @@ export function StrategyShell({
   createRequested,
   onCreateHandled,
 }: {
+  /** The Vision whose Portfolios the list shows; null = the Space's first. */
+  visionId?: string | null;
+  /** The path's Vision crumb opens the Vision's page. */
+  onOpenVision?: (visionId: string) => void;
   /** Which Strategy the detail page shows; null = the root Strategy list.
    *  Controlled by the caller (navigation.strategyId) so other surfaces can
    *  deep-link straight into a Strategy. */
@@ -208,7 +224,10 @@ export function StrategyShell({
   // parent, as deep as they go.
   const { t } = useI18n();
   const spaceId = useActiveSpaceId();
-  const tree = useMemo(() => buildInitiativeTree(strategies.filter((s) => inSpace(s, spaceId, () => true))), [strategies, spaceId]);
+  const { data: visions } = useVisions();
+  const vision = visions.find((v) => v.id === visionId) ?? visions[0] ?? null;
+  const tree = useMemo(() => buildInitiativeTree(strategies.filter((s) => inSpace(s, spaceId, () => true)
+    && (!vision || s.vision_id === vision.id))), [strategies, spaceId, vision]);
 
   if (openStrategy) {
     return (
@@ -217,6 +236,7 @@ export function StrategyShell({
         allStrategies={strategies}
         onBack={() => setOpenStrategyId(null)}
         onOpenStrategy={setOpenStrategyId}
+        onOpenVision={onOpenVision}
         onSaved={() => refetchStrategies()}
         onOpenObject={onOpenObject}
         onOpenDomain={onOpenDomain}
@@ -226,18 +246,21 @@ export function StrategyShell({
 
   return (
     <div className="flex flex-col h-full bg-card">
-      <IslandHeader crumbs={[{ id: 'initiatives', label: t('Strategies') }]} actions={
+      <IslandHeader crumbs={[
+        ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : undefined }] : []),
+        { id: 'initiatives', label: t('Portfolio') },
+      ]} actions={
         <ButtonAppearanceProvider appearance="navigation">
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setNewOpen(true)}>
-            <Plus size={14} />{t('Add Strategy')}</Button>
+            <Plus size={14} />{t('Add Portfolio')}</Button>
         </ButtonAppearanceProvider>
       } />
 
       <div className="flex-1 overflow-hidden">
         {loading ? null : tree.length === 0 ? (
-          <EmptyState art="initiative" title="Create your first Strategy"
-            description="A Strategy groups Objects across Domains around one outcome."
-            cta="Create Strategy" onCta={() => setNewOpen(true)} />
+          <EmptyState art="initiative" title="Create your first Portfolio"
+            description="A Portfolio groups Domains and Objects around one outcome."
+            cta="Create Portfolio" onCta={() => setNewOpen(true)} />
         ) : (
           <div className="h-full overflow-auto">
             <StrategyListView nodes={tree} onSelectStrategy={(s) => setOpenStrategyId(s.id)} />
@@ -247,6 +270,7 @@ export function StrategyShell({
 
       {newOpen && (
         <StrategyCreateDialog
+          visionId={vision?.id}
           onClose={() => setNewOpen(false)}
           onCreated={(id) => {
             setNewOpen(false);
@@ -268,7 +292,7 @@ export function StrategyShell({
 // the same predicates the Strategy page uses (initiativeRiskModel), so the
 // row never disagrees with the page it opens. Quiet register throughout — a
 // row is not the place to shout; the number is the signal.
-function InitiativeHealthCell({ health, measures }: { health: InitiativeHealth | undefined; measures: MeasureTally | undefined }) {
+function InitiativeHealthCell({ health, measures, start, due }: { health: InitiativeHealth | undefined; measures: MeasureTally | undefined; start: string | null; due: string | null }) {
   const { t } = useI18n();
   if (!health) {
     return <span className="text-[11px] text-muted-foreground/50">…</span>;
@@ -278,44 +302,40 @@ function InitiativeHealthCell({ health, measures }: { health: InitiativeHealth |
   if (risk.overdue > 0) alerts.push(t('{n} overdue', { n: risk.overdue }));
   if (risk.stalled > 0) alerts.push(t('{n} stalled', { n: risk.stalled }));
   if (risk.blocked > 0) alerts.push(t('{n} blocked', { n: risk.blocked }));
-  const moved = health.lastActivityAt !== null
-    ? formatRelative(new Date(health.lastActivityAt).toISOString())
-    : null;
-  const unmeasured = health.risk.openTotal > 0 && !health.scheduleMeasured;
   return (
-    <div className="flex items-center gap-3 min-w-0 text-[11px] text-muted-foreground tabular-nums">
-      {/* Outcome before effort: the success conditions lead, the Element
-          completion that follows is only how much work has been done. */}
-      <MeasureStatus tally={measures} />
+    <div className="flex min-w-0 items-center gap-3 text-[11px] tabular-nums text-muted-foreground">
       {health.progressPct === null ? (
         <span className="shrink-0 text-muted-foreground/60">{t('No Elements')}</span>
       ) : (
-        <span className="flex items-center gap-1.5 shrink-0 w-24">
-          <SegmentedProgress value={health.progressPct} className="flex-1" />
+        <span className="flex shrink-0 items-center gap-1.5">
+          <HealthBelt progress={health.progressPct} start={start} due={due} />
           <span className="w-7 text-right">{health.progressPct}%</span>
         </span>
       )}
-      {/* An empty Strategy already said "No Elements"; "No activity" would
-          be the same fact twice. */}
-      {!(health.total === 0 && moved === null) && (
-        <span className="shrink-0 min-w-0 truncate text-muted-foreground/70" title={moved ? t('Last movement {when}', { when: moved }) : t('Nothing has reported yet')}>
-          {moved ?? t('No activity')}
-        </span>
+      {/* What it is measured by, then what is on fire — after the belt, so
+          the belt stands at the column's start under its heading. */}
+      <MeasureStatus tally={measures} />
+      {alerts.length > 0 && (
+        <span className="min-w-0 truncate text-foreground/80" title={alerts.join(' · ')}>{alerts.join(' · ')}</span>
       )}
-      {alerts.length > 0 ? (
-        <span
-          className="min-w-0 truncate text-foreground/80"
-          // The alerts take the slot, but an unmeasured schedule is still a
-          // fact — it rides in the title rather than costing width.
-          title={unmeasured ? t('{alerts} — open Elements carry no due dates, so the schedule is unmeasured', { alerts: alerts.join(' · ') }) : alerts.join(' · ')}
-        >
-          {alerts.join(' · ')}
-        </span>
-      ) : unmeasured ? (
-        // 0 overdue with no dated work is not "on time" — it is unmeasured.
-        <span className="min-w-0 truncate text-muted-foreground/60" title={t('Open Elements carry no due dates, so the schedule is unmeasured')}>{t('No dates')}</span>
-      ) : null}
     </div>
+  );
+}
+
+/** A description as one plain line, for a list row; null when there is none. */
+function plainLine(text: string | null | undefined): string | null {
+  const line = text ? extractPlainText(text).replace(/\s+/g, ' ').trim() : '';
+  return line || null;
+}
+
+/** Who leads a Strategy's Objects: their avatar and name; nothing when no Object has a lead. */
+function StrategyLead({ worker }: { worker: Parameters<typeof WorkerAvatar>[0]['worker'] }) {
+  if (!worker) return null;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <WorkerAvatar worker={worker} size={18} />
+      <span className="truncate text-[13px] text-muted-foreground">{worker.name}</span>
+    </span>
   );
 }
 
@@ -333,7 +353,7 @@ function StrategyListView({
   nodes: InitiativeNode<StrategyWithObjects>[];
   onSelectStrategy: (strategy: StrategyWithObjects) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const rows = useMemo(() => flattenInitiativeTree(nodes, (key) => !folded.has(key)), [nodes, folded]);
   const strategies = useMemo(() => rows.map((n) => n.initiative), [rows]);
@@ -343,9 +363,15 @@ function StrategyListView({
   const tallies = useInitiativeMeasureTallies(strategies.map((s) => s.id));
   // Archived Objects stay linked but are not counted.
   const countObjects = useActiveObjectCount();
-  // Subscribe to the shared tick so "Today" / "3m ago" in the cells ages
-  // honestly while the list stays open; the cells re-render with this view.
-  useNow();
+  // What each row says of the schedule and the people: read off its Objects.
+  const { data: explorer } = useObjects(null);
+  const facts = useMemo(() => {
+    const byId = new Map(explorer.objects.map((o) => [o.id, o]));
+    return new Map(strategies.map((s) => [s.id, strategyFacts(s.objectIds.map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o))]));
+  }, [explorer.objects, strategies]);
+  const leadIds = useMemo(() => Array.from(new Set(Array.from(facts.values()).map((f) => f.leadId).filter((id): id is string => !!id))), [facts]);
+  const leadWorkers = useWorkersByIds(leadIds);
+  const leadsById = useMemo(() => new Map(leadWorkers.map((w) => [w.id, w])), [leadWorkers]);
 
   // Drag a row to reorder it, or onto the middle of another row to put it
   // inside that one. The pointer's height in the row picks which.
@@ -366,7 +392,7 @@ function StrategyListView({
     }
   };
   return (
-    <IndexList headers={[t('Name'), t('Health'), t('Objects')]} withActions>
+    <IndexList headers={[t('Name'), t('Health'), t('Due date'), t('Lead'), t('Objects')]} withActions>
       {rows.map(({ initiative: s, key, depth, children }) => {
         const over = drop?.key === key && dragKey !== null ? drop.place : null;
         return (
@@ -396,7 +422,7 @@ function StrategyListView({
                 style={{ left: depth * 20 + 22 }} />
             )}
             <IndexRow indent={depth * 20} icon={<ItemIcon icon={s.icon} color={s.color} fallback={<NavStrategyIcon size={16} />} />} name={s.name}
-              lead={children.length > 0 ? (
+              fold={children.length > 0 ? (
                 <button type="button"
                   onClick={() => setFolded((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; })}
                   className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:text-foreground"
@@ -404,8 +430,11 @@ function StrategyListView({
                   <DisclosureTriangle open={!folded.has(key)} />
                 </button>
               ) : undefined}
-              health={<InitiativeHealthCell health={health.get(s.id)} measures={tallies.get(s.id)} />}
-              count={countObjects(s.objectIds)}
+              health={<InitiativeHealthCell health={health.get(s.id)} measures={tallies.get(s.id)} start={facts.get(s.id)?.start ?? null} due={facts.get(s.id)?.due ?? null} />}
+              description={plainLine(s.description)}
+              due={facts.get(s.id)?.due ? formatDateOnly(facts.get(s.id)!.due!, locale) : undefined}
+              person={<StrategyLead worker={facts.get(s.id)?.leadId ? leadsById.get(facts.get(s.id)!.leadId!) : undefined} />}
+              count={<span className="inline-flex items-center gap-1" title={t('Objects')}><ObjectIcon size={13} className="text-muted-foreground/70" />{countObjects(s.objectIds)}</span>}
               onOpen={() => onSelectStrategy(s)}
               actions={<InitiativeActionsButton initiative={s} />} />
           </div>
@@ -416,18 +445,7 @@ function StrategyListView({
   );
 }
 
-// Auto-grow a textarea to fit its content, mirroring the seamless
-// title/description textareas on the Object Overview / Element detail tabs.
-function useAutoGrowTextarea(ref: { current: HTMLTextAreaElement | null }, value: string) {
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [ref, value]);
-}
-
-function useAllObjects(): { objects: AlconObjectWithChildren[]; refetch: () => Promise<void> } {
+function useAllObjects(): { objects: ClaywareObjectWithChildren[]; refetch: () => Promise<void> } {
   const { data: explorer, refetch } = useObjects(null);
 
   const objects = explorer.objects;
@@ -442,14 +460,18 @@ function useObjectPicker(query: string) {
   const { data: domains } = useDomains();
   const { objects: allObjects } = useAllObjects();
 
+  // Only this Space's Objects: useDomains is scoped to the active Space, and
+  // a Strategy bundles work from its own Space. Objects of another Space (or
+  // with no Domain) are never candidates.
   const filtered = useMemo(() => {
+    const inSpace = new Set(domains.map((d) => d.id));
     const q = query.trim().toLowerCase();
-    if (!q) return allObjects;
-    return allObjects.filter((o) => o.name.toLowerCase().includes(q));
-  }, [allObjects, query]);
+    return allObjects.filter((o) => !!o.domain_id && inSpace.has(o.domain_id)
+      && (!q || o.name.toLowerCase().includes(q)));
+  }, [allObjects, domains, query]);
 
   const grouped = useMemo(() => {
-    const m = new Map<string, { domainName: string; objects: AlconObject[] }>();
+    const m = new Map<string, { domainName: string; objects: ClaywareObject[] }>();
     for (const o of filtered) {
       const did = o.domain_id ?? '__none__';
       const dname = domains.find((d) => d.id === did)?.name ?? t('No Domain');
@@ -467,7 +489,7 @@ function ObjectPickerList({
   selectedIds,
   onToggle,
 }: {
-  grouped: Array<[string, { domainName: string; objects: AlconObject[] }]>;
+  grouped: Array<[string, { domainName: string; objects: ClaywareObject[] }]>;
   selectedIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
@@ -521,11 +543,14 @@ function StrategyDetailView({
   allStrategies,
   onBack,
   onOpenStrategy,
+  onOpenVision,
   onSaved,
   onOpenObject,
   onOpenDomain,
 }: {
   strategy: StrategyWithObjects;
+  /** The path's Vision crumb opens the Vision's page. */
+  onOpenVision?: (visionId: string) => void;
   /** Every Strategy, so this page can list/pick its nested children. */
   allStrategies: StrategyWithObjects[];
   onBack: () => void;
@@ -536,7 +561,6 @@ function StrategyDetailView({
   onOpenDomain?: (domainId: string) => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState(strategy.name);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(strategy.objectIds));
   const [query, setQuery] = useState('');
   // Objects section starts collapsed to the selected chips — "+" reveals
@@ -575,7 +599,6 @@ function StrategyDetailView({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setName(strategy.name);
     setSaveError(null);
     setSelectedIds(new Set(strategy.objectIds));
   }, [strategy.id, strategy.name, strategy.description, strategy.objectIds]);
@@ -586,13 +609,25 @@ function StrategyDetailView({
     setPickerMode('closed');
   }, [strategy.id]);
 
-  const nameRef = useRef<HTMLTextAreaElement | null>(null);
-  useAutoGrowTextarea(nameRef, name);
+
+  // The description as it reads right now, typing included: which lines of
+  // the frame it places is asked of this, so a line just placed is not also
+  // listed as unplaced until the save lands.
+  const [savedDescription, setSavedDescription] = useState(strategy.description ?? '');
+  const [liveDescription, setLiveDescription] = useState(savedDescription);
+  // The text a save is carrying, until the Strategy reads back as it.
+  // Kept with the Strategy it belongs to: another Strategy opened meanwhile
+  // is never shown this one's text.
+  const [saving, setSaving] = useState<{ id: string; text: string } | null>(null);
+  if (saving && (saving.id !== strategy.id || (strategy.description ?? '') === saving.text)) setSaving(null);
+  const savingDescription = saving && saving.id === strategy.id ? saving.text : null;
+  if ((strategy.description ?? '') !== savedDescription) {
+    setSavedDescription(strategy.description ?? '');
+    setLiveDescription(strategy.description ?? '');
+  }
 
   const { data: domains, refetch: refetchDomains } = useDomains();
   const { objects: allObjects, refetch: refetchObjects } = useAllObjects();
-  // Nested Strategies' counts leave archived Objects out, like the list.
-  const countObjects = useActiveObjectCount();
 
   // A Strategy's Elements are the union of its Objects' Elements. That one
   // line is all it takes for every Element-counting widget already in the
@@ -610,7 +645,8 @@ function StrategyDetailView({
     return allObjects.filter((o) => scope.has(o.id));
   }, [allObjects, strategy.objectIds]);
   const embedChanged = useCallback(() => { void refetchObjects(); onSaved(); }, [refetchObjects, onSaved]);
-  const embeds = useStrategyEmbeds({ elements: initiativeElements, objects: strategyObjects, onOpenObject, onChanged: embedChanged });
+  const embeds = useStrategyEmbeds({ elements: initiativeElements, objects: strategyObjects, onOpenObject, onChanged: embedChanged,
+    timelineZoom: strategy.parentIds.length === 0 ? 'quarter' : 'month' });
 
   // The conversation opens on request; another Strategy opens without it,
   // on its Overview.
@@ -715,6 +751,41 @@ function StrategyDetailView({
     }
     return seen;
   }, [allStrategies, strategy.id, strategy.parentIds]);
+  // The header's path: the Vision, then the Portfolios this one sits inside,
+  // from the top down (through the first parent where there are several).
+  const { data: visions } = useVisions();
+  const vision = visions.find((v) => v.id === strategy.vision_id) ?? null;
+  const parentPath = useMemo(() => {
+    const byId = new Map(allStrategies.map((s) => [s.id, s] as const));
+    const path: StrategyWithObjects[] = [];
+    const seen = new Set<string>([strategy.id]);
+    let next = strategy.parentIds.find((id) => byId.has(id));
+    while (next && !seen.has(next)) {
+      seen.add(next);
+      const parent = byId.get(next)!;
+      path.unshift(parent);
+      next = parent.parentIds.find((id) => byId.has(id));
+    }
+    return path;
+  }, [allStrategies, strategy.id, strategy.parentIds]);
+  // Domains this Portfolio holds beside its Objects, and those it could add.
+  const strategyDomains = useStrategyDomains(strategy.id);
+  const linkedDomains = useMemo(() => strategyDomains.domainIds
+    .map((id) => domains.find((d) => d.id === id)).filter((d): d is NonNullable<typeof d> => !!d),
+  [strategyDomains.domainIds, domains]);
+  const domainChoices = useMemo(() => domains.filter((d) => !strategyDomains.domainIds.includes(d.id)),
+    [domains, strategyDomains.domainIds]);
+  const byUser = useWorkersByUser();
+  // The page "…" lists the sections, to show one hidden from its own "…".
+  const sectionItems = useSectionItems('portfolio', [
+    { id: 'portfolio-artifacts', label: t('Artifacts') },
+    { id: 'portfolio-portfolios', label: t('Portfolios') },
+    { id: 'portfolio-domains-objects', label: t('Domains & Objects') },
+  ]);
+  const newChildPortfolio = async () => {
+    const name = (await appDialog.prompt(t('Portfolio name'), ''))?.trim();
+    if (name) await createChild(name);
+  };
   const childCandidates = useMemo(() => {
     const existingChildIds = new Set(childStrategies.map((c) => c.id));
     const q = childQuery.trim().toLowerCase();
@@ -841,31 +912,28 @@ function StrategyDetailView({
     }
   };
 
-  const saveName = async () => {
-    // An emptied name is not saved; show the saved one again.
-    if (!name.trim()) { setName(strategy.name); return; }
-    const trimmed = name.trim();
-    if (trimmed === strategy.name) return;
-    if (!canEdit) { setName(strategy.name); return; }
-    try {
-      await updateStrategy(strategy.id, { name: trimmed });
-      setSaveError(null);
-      onSaved();
-    } catch (e) {
-      console.error('Failed to rename Strategy:', e);
-      setName(strategy.name);
-      setSaveError(t('Could not save the name'));
-    }
+  // PageHead hands over the trimmed, changed name; a failure is shown under
+  // the title and the field keeps what was typed.
+  const saveName = async (next: string) => {
+    if (!canEdit) return;
+    await updateStrategy(strategy.id, { name: next });
+    setSaveError(null);
+    onSaved();
   };
 
   const saveDescription = async (description: string) => {
     const trimmed = description.trim() || null;
     if (trimmed === (strategy.description ?? null) || !canEdit) return;
+    // What is being saved is what the editor is given back at once: handed
+    // the old text until the save returned, it would start over from it and
+    // take down whatever was open inside it.
+    setSaving({ id: strategy.id, text: trimmed ?? '' });
     try {
       await updateStrategy(strategy.id, { description: trimmed });
       setSaveError(null);
       onSaved();
     } catch (e) {
+      setSaving(null);
       console.error('Failed to save Strategy description:', e);
       setSaveError(t('Could not save the description'));
     }
@@ -926,20 +994,6 @@ function StrategyDetailView({
 
   // The Objects "+" menu — from the section heading once the section has
   // content, and from its inline "+ verb" while it has none.
-  const objectsMenu = (trigger: React.ReactNode) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem onClick={() => setPickerMode('search')}>
-          <Search size={13} className="mr-1.5" /> {t('Search Objects')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setPickerMode('create')}>
-          <Plus size={13} className="mr-1.5" /> {t('Create Object')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   return (
     <>
     <ConfirmDialog
@@ -952,49 +1006,40 @@ function StrategyDetailView({
     />
     <WidgetActionSlotProvider>
     <div ref={rootRef} className="flex-1 flex flex-col overflow-hidden bg-card h-full">
-      {/* Drawn as the shared PageHeader (48px). */}
-      <div className="gloss-bar flex h-12 flex-shrink-0 items-center gap-1 bg-card pl-6 pr-3">
-        <SidebarReveal />
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-1.5 py-0.5 rounded-[5px] text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] transition-colors"
-        >
-          {t('Strategy')}
-        </button>
-        <ChevronRight size={12} className="text-muted-foreground/45 flex-shrink-0" />
-        <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground truncate max-w-[240px]">
-          {strategy.name}
-        </span>
-        {/* Beside the name, as on an Object: move it, or delete it. */}
-        <InitiativeActionsButton initiative={strategy} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />
-        {!canEdit && (
+      {/* The path from the top: the Vision it belongs to, the Portfolios it
+          sits inside, then this one — with its "⋯" and follow star. */}
+      <IslandHeader crumbs={[
+        ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : onBack }] : [{ id: 'portfolio', label: t('Portfolio'), onClick: onBack }]),
+        ...parentPath.map((p) => ({ id: p.id, label: p.name, onClick: () => onOpenStrategy(p.id) })),
+        { id: strategy.id, label: strategy.name },
+      ]}
+        menu={<InitiativeActionsButton initiative={strategy} extraItems={sectionItems} onDelete={() => { if (!deleting) setConfirmingDelete(true); }} />}
+        follow={{ kind: 'strategy', id: strategy.id }}
+        after={!canEdit && (
           // Said once, where the eye lands first. The Strategy's own
           // structure — name, description, Objects, nested Strategies —
           // is locked to match. The board's intent sections keep their own
           // policy and report their own failures (ELE_STR-025).
-          <span
-            className="ml-1 px-1.5 py-0.5 text-[11px] text-muted-foreground"
-            title={t("Only the Strategy's owner can edit it")}
-          >
+          <span className="ml-1 px-1.5 py-0.5 text-[11px] text-muted-foreground" title={t("Only the Strategy's owner can edit it")}>
             {t('Read-only')}
           </span>
         )}
-        <div className="ml-auto flex min-w-0 items-center gap-2">
-          {(deleteError || saveError) && (
-            <span role="alert" className="truncate text-[11.5px] font-medium text-[var(--status-danger)]">
-              {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
-            </span>
-          )}
-          <Button
-            size="xs"
-            variant={talking ? 'primary' : 'secondary'}
-            onClick={() => setTalking((v) => !v)}
-          >
-            {t('Talk it through')}
-          </Button>
-        </div>
-      </div>
+        actions={
+          <>
+            {(deleteError || saveError) && (
+              <span role="alert" className="truncate text-[11.5px] font-medium text-[var(--status-danger)]">
+                {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
+              </span>
+            )}
+            <Button
+              size="xs"
+              variant={talking ? 'primary' : 'secondary'}
+              onClick={() => setTalking((v) => !v)}
+            >
+              {t('Talk it through')}
+            </Button>
+          </>
+        } />
 
 
       <ViewTabs tabs={STRATEGY_TABS} active={tab} onSelect={setTab} label={t('Strategy views')}
@@ -1033,95 +1078,57 @@ function StrategyDetailView({
           // board: the records of finished runs, aggregated by the
           // Strategy's element set (StrategyEvaluationPanel).
           <div className={PAGE_FRAME}>
-            <StrategyEvaluationPanel objects={missionProps.objects} />
+            {/* Gap first: whether the work still matches the Strategy, read
+                from its links and, when asked, by Athena (StrategyGapPanel).
+                The run records' numbers follow. */}
+            <div className="space-y-8">
+              <StrategyGapPanel strategyId={strategy.id} strategyName={strategy.name} strategyUpdatedAt={strategy.updated_at ?? null}
+                objects={boardObjects} ownObjectIds={strategy.objectIds} via={descendantHolders} onOpenObject={onOpenObject} />
+              <StrategyEvaluationPanel objects={missionProps.objects} />
+            </div>
           </div>
         ) : (
-        <div className={PAGE_FRAME}>
         <InitiativeBoard surface="campaign" defaults={INITIATIVE_BOARD} subjectId={strategy.id} host={host} zones={BOARD_ZONES}>
-        {/* items-start: the island does not stretch the document column. */}
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
-          <div>
-            <PageIcon>
-              <ItemIconButton value={look} onChange={changeLook} canEdit={canEdit} defaultIcon={<NavStrategyIcon size={18} />} />
-            </PageIcon>
-            <textarea
-              ref={nameRef}
-              value={name}
-              rows={1}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={saveName}
-              onKeyDown={(e) => {
-                // A name is one line: Enter commits (via blur), Shift+Enter
-                // is the only way to a newline. The name autosaves, so
-                // Escape ends the edit and saves too; it is consumed here,
-                // so the page's own Escape (back to the list) waits for the
-                // next press.
-                if (isCommitEnter(e) || isSubmitChord(e) || isCancelKey(e)) {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-              }}
-              placeholder={t('Strategy name')}
-              readOnly={!canEdit}
-              aria-readonly={!canEdit}
-              tabIndex={canEdit ? undefined : -1}
-              className={`w-full bg-transparent border-none resize-none overflow-hidden ${PAGE_TITLE}`}
-              style={PAGE_TITLE_WEIGHT}
-            />
-            {/* Band — how it is going, right under the name. */}
-            <WidgetZone zone="band" className="mt-3" />
-          </div>
+        {/* The island: the Strategy's properties, and whatever else was placed beside it. */}
+        <DetailPage rail={<WidgetZone zone="rail" />} head={<>
           <EmbedHostContext.Provider value={embeds}>
-            <DescriptionEditor key={strategy.id} value={strategy.description ?? ''} readOnly={!canEdit}
-              placeholder={t('Add description… Type / for a live block')} onSave={saveDescription} />
+            <PageHead key={strategy.id}
+              icon={<ItemIconButton value={look} onChange={changeLook} canEdit={canEdit} defaultIcon={<NavStrategyIcon size={18} />} />}
+              title={strategy.name} description={savingDescription ?? strategy.description ?? ''} canEdit={canEdit}
+              titleLabel={t('Strategy name')} titlePlaceholder={t('Strategy name')}
+              descriptionLabel={t('Description')} descriptionPlaceholder={t('Describe this Portfolio…')}
+              emptyDescription={t('No description yet.')}
+              // Band — how it is going, right under the name.
+              under={<WidgetZone zone="band" className="mt-1" />}
+              onSaveTitle={saveName} onSaveDescription={saveDescription} onDescriptionChange={setLiveDescription} />
           </EmbedHostContext.Provider>
-
-          {/* Under the description, as on an Element: one quiet row —
-              reactions, attaching a file, and the "…" of other things to do
-              (talking it through among them) — then the attached files. */}
-          <div className="relative -ml-2.5 flex flex-wrap items-start gap-x-0.5 gap-y-5 [&>*.w-full]:pl-2.5">
-              <ButtonAppearanceProvider appearance="inline">
-                <div className="flex items-center gap-0.5">
-                  <ReactionPicker onToggle={(e) => void reactWith(e)} />
-                  <AttachButton owner={{ kind: 'strategy', id: strategy.id }}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50" />
-                  <div className="relative">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" title={t('More')} aria-label={t('More')}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground">
-                        <MoreHorizontal size={15} />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-[200px]">
-                      <DropdownMenuItem onSelect={() => setTalking(true)} className="gap-2.5 py-1.5 text-[13px]">
-                        <MessageCircle size={15} />{t('Talk it through')}
-                      </DropdownMenuItem>
-                      {canEdit && (
-                        <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                          <NavStrategyIcon size={15} />{t('Add existing Strategy')}
-                        </DropdownMenuItem>
-                      )}
-                      {canEdit && !strategy.note_id && (
-                        <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className="gap-2.5 py-1.5 text-[13px]">
-                          <FileText size={15} className="text-muted-foreground" />{t('Document')}
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onSelect={() => { requestNewDeck(strategy.name); openInApp('slides'); }} className="gap-2.5 py-1.5 text-[13px]">
-                        <NavSlidesIcon size={15} />{t('Slide')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
-                    onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
-                    anchorClassName="absolute top-full left-0 mt-1" />
-                  </div>
-                  <ReactionChips reactions={reactions} userId={userId} onToggle={(e) => void reactWith(e)} />
-                </div>
-              </ButtonAppearanceProvider>
-              <AttachmentList owner={{ kind: 'strategy', id: strategy.id }} />
-          </div>
+          {/* The frame's lines the description does not place stand after it. */}
+          <UnplacedFrameLines description={liveDescription} />
+        </>} actions={
+          <PageActionRow reactions={reactions} userId={userId} onReact={(e) => void reactWith(e)}
+            filesOf={{ kind: 'strategy', id: strategy.id }}
+            moreItems={<>
+              <DropdownMenuItem onSelect={() => setTalking(true)} className={PAGE_MORE_ITEM}>
+                <MessageCircle size={15} />{t('Talk it through')}
+              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <NavStrategyIcon size={15} />{t('Add existing Strategy')}
+                </DropdownMenuItem>
+              )}
+              {canEdit && !strategy.note_id && (
+                <DropdownMenuItem onSelect={() => setTimeout(() => setNotePickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                  <FileText size={15} className="text-muted-foreground" />{t('Document')}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => { requestNewDeck(strategy.name); openInApp('slides'); }} className={PAGE_MORE_ITEM}>
+                <NavSlidesIcon size={15} />{t('Slide')}
+              </DropdownMenuItem>
+            </>}
+            moreAnchor={<NotePicker open={notePickerOpen} onClose={() => setNotePickerOpen(false)}
+              onPick={(noteId) => { setNotePickerOpen(false); void linkNote(noteId); }}
+              anchorClassName="absolute top-full left-0 mt-1" />} />
+        }>
           {strategy.note_id && <LinkedNoteEmbed noteId={strategy.note_id} onUnlink={canEdit ? () => void linkNote(null) : undefined} />}
 
 
@@ -1147,27 +1154,26 @@ function StrategyDetailView({
               {/* What the work under these Objects has shipped as code, read
                   against this Strategy's intent. */}
               <InitiativeCodeChanges objects={allObjects.filter((o) => selectedIds.has(o.id))} />
-              <div className="w-full">
-              <FoldSection title={t('Sub Strategies')} count={childStrategies.length ? String(childStrategies.length) : undefined}>
-                {childStrategies.map((child) => {
-                  const n = countObjects(child.objectIds);
-                  return (
-                    <ContentRow key={child.id} icon={<ItemIcon icon={child.icon} color={child.color} size={16} fallback={<NavStrategyIcon size={16} />} />} name={child.name}
-                      onOpen={() => onOpenStrategy(child.id)}
-                      meta={<span>{n === 1 ? t('1 Object') : t('{n} Objects', { n })}</span>}
-                      actions={canEdit ? (
-                        <ContentRowAction label={t('Remove {name} from this Strategy', { name: child.name })} onClick={() => void unlinkChild(child.id)}>
-                          <X size={12} />
-                        </ContentRowAction>
-                      ) : undefined} />
-                  );
-                })}
+              <ArtifactsSection subject={{ kind: 'strategy', id: strategy.id }} canAdd={canEdit} />
+              {/* The Portfolios inside this one: each row opens its own page. */}
+              <ConceptSection page="portfolio" id="portfolio-portfolios" title={t('Portfolios')} count={childStrategies.length}
+                columns={[{ key: 'progress', label: t('Progress') }, { key: 'owner', label: t('Owner') }]}
+                addLabel={t('Add Portfolio')}
+                addMenu={canEdit ? <>
+                  <DropdownMenuItem onSelect={() => setTimeout(() => void newChildPortfolio(), 0)} className={PAGE_MORE_ITEM}>
+                    <Plus size={15} />{t('New Portfolio')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setTimeout(() => setChildPickerOpen(true), 0)} className={PAGE_MORE_ITEM}>
+                    <Search size={15} />{t('Add existing Portfolio')}
+                  </DropdownMenuItem>
+                </> : undefined}
+                addAnchor={childPickerOpen ? <>
                 {childPickerOpen && (
                   <div className="mt-1 px-2">
                     <div className="mb-1 flex items-center gap-2 rounded-md bg-muted/30 px-2 py-1.5">
                       <Search size={12} className="text-muted-foreground" />
                       <input value={childQuery} onChange={(e) => setChildQuery(e.target.value)}
-                        placeholder={t('Search Strategies…')} className="flex-1 bg-transparent text-[13px] outline-none" autoFocus />
+                        aria-label={t('Search Strategies…')} placeholder={t('Search Strategies…')} className="flex-1 bg-transparent text-[13px] outline-none" autoFocus />
                       <button type="button" onClick={() => { setChildPickerOpen(false); setChildQuery(''); }}
                         aria-label={t('Close')} className="text-muted-foreground hover:text-foreground">
                         <X size={12} />
@@ -1187,63 +1193,45 @@ function StrategyDetailView({
                     </div>
                   </div>
                 )}
-                {canEdit && (
-                  <FoldSectionAddRow icon={<NavStrategyIcon size={16} />} placeholder={t('Add Sub Strategy')} onAdd={createChild} />
-                )}
-              </FoldSection>
-              </div>
-              {/* The Objects that carry it: each row opens its Object; the last
-                  row adds one, as Sub Strategies does. */}
-              {(selectedIds.size > 0 || canEdit) && (
-              <div className="w-full">
-              <FoldSection title={t('Objects')} count={selectedIds.size ? String(selectedIds.size) : undefined}>
-              {selectedIds.size > 0 && (
-                <div className="mb-2">
-                  {Array.from(selectedIds).map((id) => {
-                    const obj = allObjects.find((o) => o.id === id);
-                    if (!obj) return null;
-                    const domain = obj.domain_id ? domains.find((d) => d.id === obj.domain_id) : undefined;
-                    const progress = completionOf(obj.elements ?? []).pct;
-                    const editable = canEditObject(myObjects, obj.id);
-                    const canTypes = editable && canManageDomainTypes(myDomainRoles, obj.domain_id);
-                    const why = editable ? undefined : t('Only members of this Object can change it');
-                    return (
-                      <div
-                        key={id}
-                        onClick={() => onOpenObject?.(obj.id, obj.domain_id ?? null)}
-                        // min-h locks the row against the Lead avatar's async
-                        // image swap (Fallback initial -> loaded photo mounts a
-                        // fraction of a px taller and visibly nudged the row).
-                        className={`flex items-center gap-2 px-2 py-1 min-h-[2.375rem] rounded-md hover:bg-muted/40 transition-colors ${onOpenObject ? 'cursor-pointer' : ''}`}
-                      >
-                        <ItemIcon icon={obj.icon} color={obj.color} size={16} className="text-muted-foreground" fallback={<ObjectIcon size={16} />} />
-                        <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{obj.name}</span>
-                        {/* The cells already draw read-only when handed no handler;
-                            membership decides whether they get one. */}
-                        <div className="w-20 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <TypeCell
-                            value={obj.type ?? null}
-                            types={domain?.object_types ?? []}
-                            onChange={editable ? (type) => handleObjectUpdate(obj.id, { type }) : undefined}
-                            onAddType={canTypes && obj.domain_id ? (name) => handleAddType(obj.domain_id as string, name) : undefined}
-                          />
-                        </div>
-                        <div className="w-24 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <DueDateCell obj={obj} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
-                        </div>
-                        <div className="w-28 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
-                          <LeadCell obj={obj} workers={workers} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
-                        </div>
-                        <div className="w-24 shrink-0 flex items-center gap-1.5">
-                          <SegmentedProgress value={progress} className="flex-1" />
-                          <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums shrink-0">{progress}%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
+                </> : undefined}
+                empty={childStrategies.length === 0}>
+                {(shows) => childStrategies.map((child) => (
+                  <PortfolioRow key={child.id} portfolio={child} objects={allObjects} shows={shows}
+                    owner={child.created_by ? byUser.get(child.created_by) : undefined}
+                    onOpen={() => onOpenStrategy(child.id)}
+                    actions={canEdit ? (
+                      <ContentRowAction label={t('Remove {name} from this Strategy', { name: child.name })} onClick={() => void unlinkChild(child.id)}>
+                        <X size={12} />
+                      </ContentRowAction>
+                    ) : undefined} />
+                ))}
+              </ConceptSection>
+              {/* The Domains and Objects that carry it: a Domain opens its page,
+                  an Object its own; "+" adds either. */}
+              <ConceptSection page="portfolio" id="portfolio-domains-objects" title={t('Domains & Objects')} count={linkedDomains.length + selectedIds.size}
+                columns={[{ key: 'type', label: t('Type') }, { key: 'due', label: t('Due date') }, { key: 'lead', label: t('Lead') }, { key: 'progress', label: t('Progress') }]}
+                addLabel={t('Add Domain or Object')}
+                addMenu={canEdit ? <>
+                  <DropdownMenuItem onSelect={() => setPickerMode('search')} className={PAGE_MORE_ITEM}>
+                    <ObjectIcon size={15} />{t('Add Object')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setPickerMode('create')} className={PAGE_MORE_ITEM}>
+                    <Plus size={15} />{t('Create Object')}
+                  </DropdownMenuItem>
+                  {domainChoices.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger className={PAGE_MORE_ITEM}><DomainIcon size={15} />{t('Add Domain')}</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-80 overflow-auto">
+                        {domainChoices.map((d) => (
+                          <DropdownMenuItem key={d.id} onSelect={() => strategyDomains.add.mutate(d.id, { onError: (e) => void appDialog.alert(formatError(e)) })} className={PAGE_MORE_ITEM}>
+                            <DomainMark domain={d} size={15} />{d.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                </> : undefined}
+                addAnchor={pickerMode !== 'closed' ? <div className="mb-2">
               {pickerMode === 'search' && (
                 <>
                   <div className="flex items-center gap-2 bg-muted/30 rounded-md px-2 py-1.5 mb-1">
@@ -1251,7 +1239,7 @@ function StrategyDetailView({
                     <input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder={t('Search Objects across Domains…')}
+                      aria-label={t('Search Objects across Domains…')} placeholder={t('Search Objects across Domains…')}
                       className="flex-1 bg-transparent text-[13px] outline-none"
                       autoFocus
                     />
@@ -1275,7 +1263,7 @@ function StrategyDetailView({
                   <input
                     value={newObjectName}
                     onChange={(e) => setNewObjectName(e.target.value)}
-                    placeholder={t('Object name')}
+                    aria-label={t('Object name')} placeholder={t('Object name')}
                     autoFocus
                     onKeyDown={(e) => {
                       if (isCommitEnter(e)) {
@@ -1310,15 +1298,65 @@ function StrategyDetailView({
                   </div>
                 </div>
               )}
-              {canEdit && pickerMode === 'closed' && objectsMenu(
-                <button type="button" className="flex min-h-[2.125rem] w-full items-center gap-2 px-2 text-left">
-                  <span className="flex text-muted-foreground opacity-50"><ObjectIcon size={16} /></span>
-                  <span className="text-[14px] text-muted-foreground/60">{t('Add Objects')}</span>
-                </button>,
-              )}
-              </FoldSection>
-              </div>
-              )}
+                </div> : undefined}
+                empty={linkedDomains.length === 0 && selectedIds.size === 0}>
+                {(shows) => <>
+                  {linkedDomains.map((d) => (
+                    <ContentRow key={d.id} icon={<DomainMark domain={d} size={16} />} name={d.name}
+                      onOpen={onOpenDomain ? () => onOpenDomain(d.id) : undefined}
+                      actions={canEdit ? (
+                        <ContentRowAction label={t('Remove {name} from this Strategy', { name: d.name })}
+                          onClick={() => strategyDomains.remove.mutate(d.id, { onError: (e) => void appDialog.alert(formatError(e)) })}>
+                          <X size={12} />
+                        </ContentRowAction>
+                      ) : undefined} />
+                  ))}
+                  {Array.from(selectedIds).map((id) => {
+                    const obj = allObjects.find((o) => o.id === id);
+                    if (!obj) return null;
+                    const domain = obj.domain_id ? domains.find((d) => d.id === obj.domain_id) : undefined;
+                    const progress = completionOf(obj.elements ?? []).pct;
+                    const editable = canEditObject(myObjects, obj.id);
+                    const canTypes = editable && canManageDomainTypes(myDomainRoles, obj.domain_id);
+                    const why = editable ? undefined : t('Only members of this Object can change it');
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => onOpenObject?.(obj.id, obj.domain_id ?? null)}
+                        // min-h locks the row against the Lead avatar's async
+                        // image swap (Fallback initial -> loaded photo mounts a
+                        // fraction of a px taller and visibly nudged the row).
+                        className={`flex items-center gap-2 px-2 py-1 min-h-[2.375rem] rounded-md hover:bg-muted/40 transition-colors ${onOpenObject ? 'cursor-pointer' : ''}`}
+                      >
+                        <ItemIcon icon={obj.icon} color={obj.color} size={16} className="text-muted-foreground" fallback={<ObjectIcon size={16} />} />
+                        {onOpenObject
+                          ? <button type="button" onClick={(e) => { e.stopPropagation(); onOpenObject(obj.id, obj.domain_id ?? null); }} className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0 text-left">{obj.name}</button>
+                          : <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">{obj.name}</span>}
+                        {/* The cells already draw read-only when handed no handler;
+                            membership decides whether they get one. */}
+                        {shows('type') && <div className="w-20 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <TypeCell
+                            value={obj.type ?? null}
+                            types={domain?.object_types ?? []}
+                            onChange={editable ? (type) => handleObjectUpdate(obj.id, { type }) : undefined}
+                            onAddType={canTypes && obj.domain_id ? (name) => handleAddType(obj.domain_id as string, name) : undefined}
+                          />
+                        </div>}
+                        {shows('due') && <div className="w-24 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <DueDateCell obj={obj} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
+                        </div>}
+                        {shows('lead') && <div className="w-28 shrink-0" title={why} onClick={(e) => e.stopPropagation()}>
+                          <LeadCell obj={obj} workers={workers} onObjectUpdate={editable ? handleObjectUpdate : undefined} />
+                        </div>}
+                        {shows('progress') && <div className="w-24 shrink-0 flex items-center gap-1.5">
+                          <ProgressBelt value={progress} className="flex-1" />
+                          <span className="text-[10px] text-muted-foreground w-7 text-right tabular-nums shrink-0">{progress}%</span>
+                        </div>}
+                      </div>
+                    );
+                  })}
+                </>}
+              </ConceptSection>
               <WidgetZone zone="main" columns={1} />
               {/* The discussion — last, because it grows. */}
               <PageSection title={t('Updates')}>
@@ -1329,14 +1367,8 @@ function StrategyDetailView({
                   workers={workers}
                 />
               </PageSection>
-        </div>
-        {/* The island: the Strategy's properties, and whatever else was placed beside it. */}
-        <aside className="min-w-0">
-          <WidgetZone zone="rail" />
-        </aside>
-        </div>
+        </DetailPage>
         </InitiativeBoard>
-        </div>
         )}
         </InitiativeIntentProvider>
       </div>
@@ -1351,9 +1383,12 @@ function StrategyDetailView({
 // push into a detail page for).
 // =============================================================
 function StrategyCreateDialog({
+  visionId,
   onClose,
   onCreated,
 }: {
+  /** The Vision it is made in; left out, the Space's first. */
+  visionId?: string;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
@@ -1383,7 +1418,7 @@ function StrategyCreateDialog({
       namePlaceholder={t('Strategy name…')}
       onClose={onClose}
       onSubmit={async ({ name, description }) => {
-        const created = await createStrategy({ name, description }, Array.from(selectedIds));
+        const created = await createStrategy({ name, description, ...(visionId ? { vision_id: visionId } : {}) }, Array.from(selectedIds));
         onCreated(created.id);
       }}
     >
@@ -1404,7 +1439,7 @@ function StrategyCreateDialog({
                 <CommandGroup key={did} heading={domainName}>
                   {objects.map((o) => (
                     <CommandItem key={o.id} value={`${o.name} ${o.id}`} onSelect={() => toggleObject(o.id)}>
-                      <ObjectIcon size={12} /><span className="flex-1 truncate">{o.name}</span>{selectedIds.has(o.id) && <Check size={12} />}
+                      <ObjectIcon size={12} /><span className="flex-1 truncate">{o.name}</span>{selectedIds.has(o.id) && <MenuCheck />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

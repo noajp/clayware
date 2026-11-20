@@ -24,7 +24,7 @@ import type {
   DomainPrivacy, DomainRiskThresholds, EdgeType, ElementDirection, ElementPriority, ElementStatus,
   IntentAlignmentKind, IntentAlignmentSeverity, IntentBindingTarget, IntentEscalationStatus,
   IntentEscalationTrigger, IntentKind, IntentLineageKind, IntentNextActionStatus, IntentPredictionRole,
-  IntentRelationship, IntentStatus, InvitationRole, InvitationStatus, MeasureDirection,
+  IntentRelationship, IntentStatus, IntentVerdict, InvitationRole, InvitationStatus, MeasureDirection,
   MeasureReadingSource, MemberRole, NotificationKind, ObjectTabType, PersonalAccessTokenAccess,
   PhaseStatus, StrategyDelegation, StrategyScope, StrategyStatus, WorkerAvailabilityKind, WorkerSkillLevel,
   Element, ElementComment, IssuedPersonalAccessToken,
@@ -39,6 +39,7 @@ import type {
 import type { ElementImportResult, ElementImportRow } from '@/Function/shared/element/intakeModel'
 import type { DeploymentGrant, GrantOperation } from '@/Function/audit/auditModel'
 import type { DefaultPlacement } from '@/Function/widget/boardModel'
+import type { SpaceNouns } from '@/Function/i18n/spaceNouns'
 import type { WidgetParams, WidgetSize } from '@/Function/widget/types'
 
 type WorkerType = 'human' | 'ai_agent' | 'robot'
@@ -47,7 +48,8 @@ type AssigneeRole = 'assignee' | 'reviewer' | 'collaborator'
 
 /** Column overrides per table, applied to Row, Insert and Update alike. */
 interface ColumnOverrides {
-  activity_spaces: { approval_mode: 'ask' | 'auto' | 'free' }
+  // CHECK space_nouns_valid(nouns)
+  activity_spaces: { approval_mode: 'ask' | 'auto' | 'free'; nouns: SpaceNouns }
   space_approval_mode_changes: { from_mode: 'ask' | 'auto' | 'free' | null; to_mode: 'ask' | 'auto' | 'free' }
   // The chat transcript; readers check Array.isArray before use.
   ai_sessions: { messages: unknown[] }
@@ -89,12 +91,13 @@ interface ColumnOverrides {
   custom_columns: { column_type: CustomColumnType; options: CustomColumnOptions }
   object_tabs: { tab_type: ObjectTabType }
   strategies: { status: StrategyStatus; scope: StrategyScope; delegation: StrategyDelegation }
+  visions: { privacy: 'workspace' | 'private' }
   strategy_comments: { author_kind: CommentAuthorKind }
   object_comments: { author_kind: CommentAuthorKind }
   phases: { status: PhaseStatus }
   tables: { status: DataTableStatus }
   table_columns: { type: DataTableColumnType }
-  intents: { kind: IntentKind; direction: MeasureDirection; status: IntentStatus }
+  intents: { kind: IntentKind; direction: MeasureDirection; status: IntentStatus; verdict: IntentVerdict | null }
   intent_bindings: { target_type: IntentBindingTarget; relationship_type: IntentRelationship }
   intent_predictions: { role_group: IntentPredictionRole }
   intent_lineage: { action_kind: IntentLineageKind }
@@ -334,7 +337,7 @@ interface RowChecks {
   domains: Compatible<TableRow<'domains'>, H.Domain>
   membership_invitations: Compatible<TableRow<'membership_invitations'>, H.MembershipInvitation>
   object_domains: Compatible<TableRow<'object_domains'>, H.ObjectDomain>
-  objects: Compatible<TableRow<'objects'>, H.AlconObject>
+  objects: Compatible<TableRow<'objects'>, H.ClaywareObject>
   elements: Compatible<TableRow<'elements'>, H.Element>
   workers: Compatible<TableRow<'workers'>, H.Worker>
   element_assignees: Compatible<TableRow<'element_assignees'>, H.ElementAssignee>

@@ -14,12 +14,17 @@ import { IntegrationIcon } from '@/AIP/connectors/IntegrationDetailDialog';
 // Adding opens the usual connection dialog; once connected, the connection
 // test lists its tools and turns them into the commands agents may use.
 
-export function RegistrySection({ connectedEndpoints, canAdd, onAdd, initialQuery }: {
+export function RegistrySection({ connectedEndpoints, canAdd, onAdd, initialQuery, title, note, searchable = true }: {
   connectedEndpoints: Set<string>;
   canAdd: boolean;
   onAdd: (entry: DirectoryEntry) => void;
   /** A search to open with (the install walk, looking for one named connector). */
   initialQuery?: string;
+  /** The heading and its note, when the caller words them for its context (t() keys). */
+  title?: string;
+  note?: string;
+  /** False when the caller's own search box drives `initialQuery`. */
+  searchable?: boolean;
 }) {
   const { t } = useI18n();
   const [input, setInput] = useState(initialQuery ?? '');
@@ -30,14 +35,14 @@ export function RegistrySection({ connectedEndpoints, canAdd, onAdd, initialQuer
   return (
     <section className="space-y-3">
       <div>
-        <h3 className={FONT.label}>{t('From the MCP Registry')}</h3>
-        <p className="mt-1 text-[12px] text-muted-foreground">{t('Servers listed in the public MCP Registry that run remotely. Anyone can list a server there, so add only ones you trust.')}</p>
+        <h2 className={`${FONT.lg} text-foreground`}>{t(title ?? 'From the MCP Registry')}</h2>
+        <p className="mt-1 text-[12px] text-muted-foreground">{t(note ?? 'Servers listed in the public MCP Registry that run remotely. Anyone can list a server there, so add only ones you trust.')}</p>
       </div>
-      <div className="relative">
+      {searchable && <div className="relative">
         <Search size={14} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('Search the registry…')} aria-label={t('Search the registry…')}
           className="h-7 pl-8 text-[12px] md:text-[12px]" />
-      </div>
+      </div>}
       {directory.error ? (
         <p className="text-[12px] text-[var(--status-danger)]">{t("Couldn't search the registry: {error}", { error: directory.error.message })}</p>
       ) : directory.loading ? (

@@ -12,8 +12,8 @@ import { MainContent } from '@/Frame/MainContent';
 import { CreateView, type CreateType, type CreateResult } from '@/Frame/CreateView';
 import { CommandPalette } from '@/Frame/CommandPalette';
 import { QuickAddElementLauncher } from '@/Frame/QuickAddElementLauncher';
-import { AlconCopilotPanel } from '@/AIP/ai/AlconCopilotPanel';
-import { copilotSubjectFor } from '@/AIP/ai/useAlconCopilot';
+import { ClaywareCopilotPanel } from '@/AIP/ai/ClaywareCopilotPanel';
+import { copilotSubjectFor } from '@/AIP/ai/useClaywareCopilot';
 import { CopilotProvider, useCopilotConversation } from '@/AIP/ai/CopilotProvider';
 import type { AppTab } from '@/Frame/appTab';
 import { forwardAfterNavigation, recordNavigation, routeKeyOf, stepBack, stepForward, type HistoryStep } from '@/Frame/historyState';
@@ -24,19 +24,21 @@ import { useDomains, useObjects, createObject, createActivitySpace, useActivityS
 import { QuickAddObjectPopup } from '@/ActivitySpace/execution/object/QuickAddObjectPopup';
 import { linkObjectToStrategy } from '@/hooks/strategyData';
 import { QuickAddNotebookPopup } from '@/ActivitySpace/artifacts/notebook/QuickAddNotebookPopup';
+import { QuickAddVisionPopup } from '@/ActivitySpace/strategy/vision/QuickAddVisionPopup';
+import { createVision } from '@/hooks/visionData';
 import { placeNewNotebook, seedNotebook, setNextNotebookFolder } from '@/ActivitySpace/artifacts/notebook/notebookActions';
 import { useNotes } from '@/hooks/useNotesDb';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { AuthPage } from '@/auth/AuthPage';
 import { getActiveDomainId, setActiveDomainId, ACTIVE_DOMAIN_CHANGE_EVENT, CREATE_DOMAIN_EVENT } from '@/Function/space/domainsStore';
 import { useActiveSpaceId, setActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { OnboardingCreate } from '@/Function/space/OnboardingCreate';
 import { MyInvitations } from '@/Function/membership/MyInvitations';
 import { getCachedHomeViewId } from '@/Function/settings/preferencesStore';
-import { setActiveSettingsSection, useActiveSettingsSection, useActiveSettingsTab } from '@/Function/settings/settingsNav';
+import { setActiveSettingsSection, useActiveSettingsSection } from '@/Function/settings/settingsNav';
 import { readOpenScreen, writeOpenScreen, type OpenScreen } from '@/Frame/openScreen';
 import { VIEW_REGISTRY } from '@/Frame/viewRegistry';
-import { completeOAuthReturn, readOAuthReturn, stripOAuthReturn, takeOAuthReturnSettingsTab } from '@/AIP/connectors/oauthReturn';
+import { useSpaceNounsSync } from '@/hooks/spaceNouns';
+import { completeOAuthReturn, readOAuthReturn, stripOAuthReturn, takeOAuthReturnSettingsPage } from '@/AIP/connectors/oauthReturn';
 import { finishIntegrationOAuth } from '@/AIP/connectors/data';
 import { useWorkspaceDeltaStream } from '@/Function/sync/deltaStream';
 import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
@@ -45,11 +47,22 @@ import { useI18n } from '@/Function/i18n/I18nProvider';
 import { SidebarRevealContext } from '@/Function/shared/SidebarReveal';
 import { seedStarterSpace } from '@/Function/space/seedStarterSpace';
 import { OPEN_IN_APP_EVENT, type OpenInAppDetail } from '@/Function/shared/appNavigation';
+import { useModelKeyCheck } from '@/Function/team/useModelKeyCheck';
+import { clearPendingDeepLink, parseDeepLink, setPendingDeepLink, stripDeepLink, usePendingDeepLink } from '@/lib/deepLink';
+import { resolveDeepLink } from '@/hooks/deepLinkTarget';
+import { notifyError } from '@/Function/shared/toastStore';
+import { ModeRail } from '@/Frame/ModeRail';
+import { railSectionOf, type RailSection } from '@/Frame/railSections';
 
 export default function Home() {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
 
-  if (!authLoading && !isAuthenticated) return <AuthPage />;
+  // Signed out: / is the homepage, like linear.app. Sign-in is at /login.
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) window.location.replace('/homepage');
+  }, [authLoading, isAuthenticated]);
+
+  if (!authLoading && !isAuthenticated) return null;
   // Assume the happy path during the (usually instant) session check and
   // paint the app shell — if it turns out logged-out, the line above flips
   // to AuthPage on the next render.
@@ -64,36 +77,36 @@ export default function Home() {
 // inlined-app-shell idea). Pure CSS, no data, so it paints immediately.
 function AppShellSkeleton() {
   return (
-    <div className="h-dvh flex overflow-hidden bg-[var(--content-bg)]" aria-hidden>
-      {/* Sidebar silhouette */}
-      <div className="w-[260px] shrink-0 flex flex-col gap-4 p-3 animate-pulse">
-        <div className="h-7 w-32 rounded-md bg-muted/70" />
-        <div className="flex flex-col gap-1.5 mt-1">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-7 rounded-md bg-muted/50" style={{ width: `${70 - i * 8}%` }} />
-          ))}
-        </div>
-        <div className="h-3 w-20 rounded bg-muted/40 mt-3" />
-        <div className="flex flex-col gap-1.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-7 rounded-md bg-muted/40" style={{ width: `${85 - i * 6}%` }} />
-          ))}
-        </div>
-      </div>
-      {/* Main island silhouette */}
-      <div className="flex-1 flex flex-col overflow-hidden pr-1.5 pb-1.5 pl-0">
-        <div className="h-10 flex items-center gap-2 px-1.5">
-          <div className="h-7 w-44 rounded-md bg-muted/60 animate-pulse" />
-        </div>
-        <div className="flex-1 rounded-lg gloss-island bg-white dark:bg-card p-4">
-          <div className="flex flex-col gap-2.5 animate-pulse">
-            <div className="h-5 w-40 rounded bg-muted/50 mb-2" />
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded-full bg-muted/50 shrink-0" />
-                <div className="h-4 rounded bg-muted/40" style={{ width: `${55 + ((i * 7) % 35)}%` }} />
-              </div>
-            ))}
+    <div className="h-dvh flex overflow-hidden bg-background" aria-hidden>
+      {/* The rail, sunk into the ground */}
+      <div className="max-md:hidden w-12 shrink-0" />
+      {/* One island: the sidebar, then the main screen */}
+      <div className="flex-1 flex overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
+        <div className="flex-1 flex overflow-hidden rounded-lg gloss-island bg-card">
+          <div className="max-md:hidden w-[260px] shrink-0 flex flex-col gap-4 p-3 border-r border-sidebar-border animate-pulse">
+            <div className="h-7 w-32 rounded-md bg-muted/70" />
+            <div className="flex flex-col gap-1.5 mt-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-7 rounded-md bg-muted/50" style={{ width: `${70 - i * 8}%` }} />
+              ))}
+            </div>
+            <div className="h-3 w-20 rounded bg-muted/40 mt-3" />
+            <div className="flex flex-col gap-1.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-7 rounded-md bg-muted/40" style={{ width: `${85 - i * 6}%` }} />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 p-4">
+            <div className="flex flex-col gap-2.5 animate-pulse">
+              <div className="h-5 w-40 rounded bg-muted/50 mb-2" />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-full bg-muted/50 shrink-0" />
+                  <div className="h-4 rounded bg-muted/40" style={{ width: `${55 + ((i * 7) % 35)}%` }} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -116,13 +129,17 @@ const isShellView = (view: string) => Object.prototype.hasOwnProperty.call(VIEW_
 // Below this viewport width the left sidebar auto-collapses so list/board
 // content keeps a usable width (matches Linear's narrow-window behavior).
 const SIDEBAR_AUTO_COLLAPSE_WIDTH = 1024;
+// Below this width (a phone) there is no room for the sidebar beside the
+// open screen whatever the person chose on a wider window: it is closed, and
+// opens as the drawer.
+const SIDEBAR_PHONE_WIDTH = 768;
 
 // The person's own sidebar choice, once they make one, outranks the width
 // band: stored device-locally ('1' = collapsed, '0' = shown), like the
-// sidebar's width (alcon:sidebarWidth in AppSidebar). Which window on
+// sidebar's width (clayware:sidebarWidth in AppSidebar). Which window on
 // which monitor has its sidebar closed is a device habit, not an account
 // preference, so it does not go through user_preferences.
-const SIDEBAR_COLLAPSED_KEY = 'alcon:sidebarCollapsed';
+const SIDEBAR_COLLAPSED_KEY = 'clayware:sidebarCollapsed';
 
 function readSidebarCollapsedChoice(): boolean | null {
   if (typeof window === 'undefined') return null;
@@ -158,6 +175,8 @@ function AppContent() {
     [activeSpaceId, spaces],
   );
   const effectiveActiveSpaceId = activeSpaceExists && activeSpaceId ? activeSpaceId : (spaces[0]?.id ?? '');
+  // What this Space calls Strategy, Object and Element, for every label.
+  useSpaceNounsSync(effectiveActiveSpaceId || null);
 
   useEffect(() => {
     if (spacesLoading || !spaces.length) return;
@@ -166,6 +185,31 @@ function AppContent() {
       setActiveSpaceId(first);
     }
   }, [activeSpaceExists, spaces, spacesLoading]);
+
+  // A link from outside the app (lib/deepLink.ts): read once, dropped from
+  // the address, found as this person can see it, and handed to the shell
+  // once it stands in the thing's Space. A Space the person is not a
+  // member of (a guest Domain's) is not switched to: guest Domains show in
+  // any Space.
+  const [deepLink] = useState(() => (typeof window === 'undefined' ? null : parseDeepLink(window.location.search)));
+  useEffect(() => {
+    if (!deepLink) return;
+    window.history.replaceState(window.history.state, '', stripDeepLink(window.location.href));
+    if (deepLink.kind === 'inbox') { setPendingDeepLink({ spaceId: null, view: 'inbox', nav: {}, placed: true }); return; }
+    let cancelled = false;
+    resolveDeepLink(deepLink)
+      .then((target) => { if (!cancelled) setPendingDeepLink(target ?? 'missing'); })
+      .catch(() => { if (!cancelled) setPendingDeepLink('missing'); });
+    return () => { cancelled = true; };
+  }, [deepLink]);
+  const pendingDeepLink = usePendingDeepLink();
+  useEffect(() => {
+    if (!pendingDeepLink || pendingDeepLink === 'missing' || pendingDeepLink.placed || spacesLoading) return;
+    const target = pendingDeepLink.spaceId;
+    const spaceId = target && spaces.some((s) => s.id === target) ? target : null;
+    if (spaceId && spaceId !== activeSpaceId) setActiveSpaceId(spaceId);
+    setPendingDeepLink({ ...pendingDeepLink, spaceId, placed: true });
+  }, [pendingDeepLink, spacesLoading, spaces, activeSpaceId]);
 
   // ── Domain: resolved WITHIN the active ActivitySpace ──
   const [activeDomainId, setActiveDomainIdState] = useState<string>(() => getActiveDomainId() ?? '');
@@ -323,7 +367,7 @@ function WorkspaceContent({
   // otherwise Settings > Preferences > "Default home view" — honoured at launch.
   const [restored] = useState<OpenScreen | null>(() => {
     const screen = typeof window === 'undefined' ? null : readOpenScreen(activeSpaceId, isShellView);
-    if (screen?.settings) setActiveSettingsSection(screen.settings.section, screen.settings.tab ?? undefined);
+    if (screen?.settings) setActiveSettingsSection(screen.settings.section);
     return screen;
   });
   const [initialTab] = useState<AppTab>(() => (restored ? makeNewTab(restored.view, restored.navigation) : makeNewTab(getCachedHomeViewId())));
@@ -422,14 +466,14 @@ function WorkspaceContent({
   const lastScreen = useRef<string | null>(null);
   useEffect(() => {
     const depth = storedTab.back.length;
-    if (lastScreen.current === null) window.history.replaceState({ ...window.history.state, alconBack: depth }, '');
-    else if (lastScreen.current !== screenKey && !fromBrowser.current) window.history.pushState({ alconBack: depth }, '');
+    if (lastScreen.current === null) window.history.replaceState({ ...window.history.state, claywareBack: depth }, '');
+    else if (lastScreen.current !== screenKey && !fromBrowser.current) window.history.pushState({ claywareBack: depth }, '');
     fromBrowser.current = false;
     lastScreen.current = screenKey;
   }, [screenKey, storedTab.back.length]);
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
-      const target = (e.state as { alconBack?: number } | null)?.alconBack;
+      const target = (e.state as { claywareBack?: number } | null)?.claywareBack;
       if (typeof target !== 'number') return;
       const depth = storedTab.back.length;
       if (target < depth) { fromBrowser.current = true; goBack(); }
@@ -459,17 +503,43 @@ function WorkspaceContent({
   });
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => readSidebarCollapsedChoice()
-      ?? (typeof window !== 'undefined' && window.innerWidth < SIDEBAR_AUTO_COLLAPSE_WIDTH),
+    () => (typeof window !== 'undefined' && window.innerWidth < SIDEBAR_PHONE_WIDTH)
+      || (readSidebarCollapsedChoice()
+        ?? (typeof window !== 'undefined' && window.innerWidth < SIDEBAR_AUTO_COLLAPSE_WIDTH)),
   );
   // When collapsed, the sidebar can still be peeked as a floating overlay
   // (via the strip's reveal button) instead of pinning it back into flow.
   const [sidebarOverlay, setSidebarOverlay] = useState(false);
 
+  // A window narrowed to a phone's width closes the sidebar (a fit, not the
+  // person's choice, so nothing is stored); widened past it again, the
+  // stored choice — or the width band — decides once more.
+  useEffect(() => {
+    const phone = window.matchMedia(`(max-width: ${SIDEBAR_PHONE_WIDTH - 0.02}px)`);
+    const apply = () => {
+      if (phone.matches) { setSidebarCollapsed(true); setSidebarOverlay(false); return; }
+      setSidebarCollapsed(readSidebarCollapsedChoice() ?? window.innerWidth < SIDEBAR_AUTO_COLLAPSE_WIDTH);
+    };
+    phone.addEventListener('change', apply);
+    return () => phone.removeEventListener('change', apply);
+  }, []);
+
   // Active-tab convenience writers (for sidebar + command palette which target
   // the visible tab).
   const setActiveView = (view: string) => updateTab(activeTab.id, { activeView: view });
   const setActiveNavigation = (nav: Partial<NavigationState>) => updateTabNavigation(activeTab.id, nav);
+
+  // The ModeRail: a place opens on its first screen; the place already open
+  // keeps whatever is open in it. Unlike a sidebar row it leaves the phone's
+  // drawer open, so the place's list can be chosen from next.
+  const handleRailSelect = (section: RailSection) => {
+    if (railSectionOf(activeTab.activeView) === section) return;
+    if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
+    if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
+    if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
+    setActiveNavigation({ workerId: null, unitId: null });
+    setActiveView('team');
+  };
 
   // Item opens get a tab of their own (tabState.ts): a followed Object,
   // a searched Element, an Automation's Strategy — the tab already
@@ -489,6 +559,25 @@ function WorkspaceContent({
     setActiveTabId(next.activeTabId);
     setSidebarOverlay(false);
   };
+  // A link from outside the app, found and in this Space (AppContent):
+  // open it as ⌘K would. Nothing found, or not theirs to see: the Inbox,
+  // and a word why — without saying which of the two it was.
+  const pendingDeepLink = usePendingDeepLink();
+  useEffect(() => {
+    if (!pendingDeepLink) return;
+    if (pendingDeepLink !== 'missing' && (!pendingDeepLink.placed || (pendingDeepLink.spaceId && pendingDeepLink.spaceId !== activeSpaceId))) return;
+    // After this render: the shell may have just switched Space.
+    const timer = setTimeout(() => {
+      clearPendingDeepLink();
+      if (pendingDeepLink === 'missing') {
+        setActiveView('inbox');
+        notifyError(null, t('That link could not be opened. It may have been deleted, or you may not have access.'));
+      } else if (pendingDeepLink.view === 'inbox') setActiveView('inbox');
+      else openItem(pendingDeepLink.view, pendingDeepLink.nav);
+    }, 0);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDeepLink, activeSpaceId]);
   // The strip's and palette's tab operations — the pure transitions in
   // tabState.ts, applied. A fresh tab opens at the home view.
   const applyTabState = (next: { tabs: AppTab[]; activeTabId: string }) => {
@@ -523,15 +612,14 @@ function WorkspaceContent({
   const [settingsReturnView, setSettingsReturnView] = useState<string | null>(() => restored?.settingsReturn ?? null);
   // Remember the open screen for a reload of this browser tab.
   const settingsSection = useActiveSettingsSection();
-  const settingsTab = useActiveSettingsTab();
   useEffect(() => {
     writeOpenScreen(activeSpaceId, {
       view: storedTab.activeView,
       navigation: storedTab.navigation,
       settingsReturn: storedTab.activeView === 'settings' ? settingsReturnView : null,
-      settings: { section: settingsSection, tab: settingsTab },
+      settings: { section: settingsSection },
     });
-  }, [activeSpaceId, storedTab.activeView, storedTab.navigation, settingsReturnView, settingsSection, settingsTab]);
+  }, [activeSpaceId, storedTab.activeView, storedTab.navigation, settingsReturnView, settingsSection]);
   const handleOpenSettings = () => {
     if (activeTab.activeView === 'settings') return;
     setSettingsReturnView(activeTab.activeView);
@@ -539,14 +627,15 @@ function WorkspaceContent({
   };
   // Back from an integration sign-in (integration-oauth): drop the parameters
   // from the URL, confirm the sign-in as this person (POST /finish — nothing
-  // is stored before that) and open Settings › AI to show the outcome.
+  // is stored before that) and open the Settings page it started from to
+  // show the outcome.
   useEffect(() => {
     const result = readOAuthReturn(window.location.search);
     if (!result) return;
     window.history.replaceState(window.history.state, '', stripOAuthReturn(window.location.href));
     // Settings' Back then returns to the view the app launched on. A sign-in
-    // started from another Settings › AI tab (a harness install) returns there.
-    setActiveSettingsSection('integrations', takeOAuthReturnSettingsTab() ?? 'external');
+    // started from Harnesses (a harness install) returns there.
+    setActiveSettingsSection(takeOAuthReturnSettingsPage() ?? 'connectors');
     // The reload usually restored that screen already; a fresh tab opens it
     // once the sign-in is confirmed.
     void completeOAuthReturn(result, finishIntegrationOAuth).finally(() => {
@@ -616,6 +705,7 @@ function WorkspaceContent({
   // Where the open Object popup was raised from (a Board's "+"), if anywhere.
   const [objectPopupContext, setObjectPopupContext] = useState<CreateObjectContext | null>(null);
   const [objectPopupWorkers, setObjectPopupWorkers] = useState<Worker[]>([]);
+  const keyMissing = useModelKeyCheck();
   // The Object popup uses the same visible Domain list as shell navigation.
   const previousDomainIdRef = useRef(activeDomainId);
 
@@ -636,6 +726,10 @@ function WorkspaceContent({
   // asking for the notebook's name.
   const [notebookPopupOpen, setNotebookPopupOpen] = useState(false);
   const openNotebookPopup = useCallback(() => setNotebookPopupOpen(true), []);
+  // A new Vision: the same card, from the Strategy place's "+", its list
+  // and its empty page.
+  const [visionPopupOpen, setVisionPopupOpen] = useState(false);
+  const openVisionPopup = useCallback(() => setVisionPopupOpen(true), []);
   const { createNode: createNoteNode, deleteNode: deleteNoteNode } = useNotes();
 
   // Fetch the active Domain's workers when the popup opens (lazy — keeps the
@@ -652,11 +746,11 @@ function WorkspaceContent({
     [activeDomainId, domains],
   );
 
-  // Narrow windows: auto-collapse the sidebar so list/board content keeps a
-  // usable width; wide windows: pin it back. Only acts when the window
-  // CROSSES the breakpoint, so a manual toggle still sticks within a given
-  // size band — and once a choice is stored, crossing no longer overrides
-  // it at all: the band only ever decides for someone who has not chosen.
+  // Narrow windows: the sidebar steps aside so the page keeps its width —
+  // always, whatever was chosen; it can still be peeked at as a drawer. Wide
+  // windows: it comes back as the person last left it (shown, if they never
+  // chose). Only acts when the window CROSSES the breakpoint, so a manual
+  // toggle still sticks within a given size band.
   // `wasNarrow` lives in a ref (not a closure local) so it can't
   // go stale across re-renders / HMR, and we sync once on mount so the
   // sidebar always matches the current width band on load.
@@ -666,8 +760,7 @@ function WorkspaceContent({
       const narrow = window.innerWidth < SIDEBAR_AUTO_COLLAPSE_WIDTH;
       if (wasNarrowRef.current === narrow) return;
       wasNarrowRef.current = narrow;
-      if (readSidebarCollapsedChoice() !== null) return;
-      setSidebarCollapsed(narrow);
+      setSidebarCollapsed(narrow ? true : readSidebarCollapsedChoice() ?? false);
       setSidebarOverlay(false);
     };
     apply(); // sync to the current width band immediately
@@ -784,12 +877,12 @@ function WorkspaceContent({
 
   return (
     <ExplorerDataProvider value={explorerData}>
-    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup}>
+    <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup} onOpenCreateVision={openVisionPopup}>
     <SidebarRevealContext.Provider value={{ hidden: sidebarCollapsed && !sidebarOverlay, show: handleSidebarToggle }}>
     <CopilotProvider>
     <CopilotArrivalWatcher visible={aiScreen || copilotOpen} carryRef={aiCarryRef} />
     <div
-      className="h-dvh flex flex-col overflow-hidden bg-[var(--content-bg)] text-foreground"
+      className="h-dvh flex flex-col overflow-hidden bg-background text-foreground"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -798,26 +891,12 @@ function WorkspaceContent({
       }}
     >
       <div className="relative flex-1 flex overflow-hidden">
-        {/* The sidebar's frame. Not positioned, so the sidebar's drawer
-            (absolute, measured from the row) escapes its clipping. */}
-        <div className="my-1.5 ml-1 mr-1.5 flex shrink-0 overflow-hidden rounded-lg gloss-island">
-        <AppSidebar
-          onToggleSidebar={handleSidebarToggle}
-          navigation={activeTab.navigation}
-          onNavigate={handleSidebarNavigate}
-          activeView={activeTab.activeView}
-          onViewChange={handleSidebarViewChange}
-          onOpenItem={openItem}
-          onOpenSettings={handleOpenSettings}
-          onCloseSettings={handleCloseSettings}
-          onRefresh={refetch}
-          width={260}
-          collapsed={sidebarCollapsed}
-          overlay={sidebarCollapsed && sidebarOverlay}
-          onCreateNew={handleSidebarCreateNew}
-          onSearch={() => setDiscoverOpen(true)}
-        />
-        </div>
+        {/* The ModeRail, sunk into the window's ground (the sidebar tone,
+            around the island): no frame of its own.
+            On a phone it shows with the drawer, above the scrim. */}
+        <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
+          activeView={activeTab.activeView} onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
+          className={sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'} />
 
         {sidebarCollapsed && sidebarOverlay && (
           <div
@@ -827,15 +906,39 @@ function WorkspaceContent({
           />
         )}
 
-        <div className={`relative flex-1 flex flex-col overflow-hidden py-1.5 pr-1.5`}>
+        <div className="relative flex-1 flex flex-col overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
         {/* No strip above the content: back / forward are the browser's
             arrows (and ⌘[ / ⌘]). The sidebar closes by dragging the island
             over it; each page's title row then offers it back (⌘\\). */}
-        {/* MainContent + Copilot live side-by-side as two islands. When the
-            Copilot is open it claims its own width on the right; otherwise
-            MainContent fills the row. */}
+        {/* One island holds the sidebar and the screen it opens, on one
+            ground with a hairline between them; the Copilot,
+            when open, is an island of its own on the right. */}
         <div className="flex-1 flex overflow-hidden gap-1.5">
-          <div className="flex-1 flex overflow-hidden bg-white dark:bg-card rounded-lg gloss-island">
+          <div className="flex-1 flex overflow-hidden bg-card rounded-lg gloss-island">
+            {/* The sidebar's holder is positioned and its frame is not, so
+                the drawer (absolute) escapes the frame and opens from the
+                island's left edge; the island clips it while it slides in and
+                out. Open as a drawer, the holder rises over the scrim. */}
+            <div className={`relative flex shrink-0 ${sidebarCollapsed && sidebarOverlay ? 'z-50' : ''}`}>
+            <div className={`flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'border-r border-sidebar-border'}`}>
+            <AppSidebar
+              onToggleSidebar={handleSidebarToggle}
+              navigation={activeTab.navigation}
+              onNavigate={handleSidebarNavigate}
+              activeView={activeTab.activeView}
+              onViewChange={handleSidebarViewChange}
+              onOpenItem={openItem}
+              onOpenSettings={handleOpenSettings}
+              onCloseSettings={handleCloseSettings}
+              onRefresh={refetch}
+              width={260}
+              collapsed={sidebarCollapsed}
+              overlay={sidebarCollapsed && sidebarOverlay}
+              onCreateNew={handleSidebarCreateNew}
+              onSearch={() => setDiscoverOpen(true)}
+            />
+            </div>
+            </div>
             {/* The open tool's own list (Tables, Artifacts, People …), left
                 of what it opens; the Workspace has none. */}
             {!createType && (
@@ -881,7 +984,7 @@ function WorkspaceContent({
             </div>
           </div>
           {!aiScreen && (
-            <AlconCopilotPanel open={copilotOpen} onOpenChange={handleCopilotOpenChange}
+            <ClaywareCopilotPanel open={copilotOpen} onOpenChange={handleCopilotOpenChange}
               subject={subject}
               variant="floating" onExpand={onSlides ? undefined : handleExpandAi} />
           )}
@@ -916,11 +1019,21 @@ function WorkspaceContent({
           setActiveNavigation({ noteFolderId: folder.id, noteSectionId: null, noteId: page.id });
         }}
       />
+      <QuickAddVisionPopup
+        open={visionPopupOpen}
+        onClose={() => setVisionPopupOpen(false)}
+        onSubmit={async ({ name, description }) => {
+          const vision = await createVision(name, description);
+          setActiveNavigation({ visionId: vision.id, strategyId: null });
+          setActiveView('vision');
+        }}
+      />
       <QuickAddObjectPopup
         open={objectPopupOpen}
         onClose={() => setObjectPopupOpen(false)}
-        workers={objectPopupWorkers.map((w) => ({ id: w.id, name: w.name }))}
-        domains={domains.map((d) => ({ id: d.id, name: d.name }))}
+        workers={objectPopupWorkers}
+        keyMissing={keyMissing}
+        domains={domains}
         types={activeDomainObjectTypes}
         defaultDomainId={objectPopupContext?.domainId ?? (activeDomainId || null)}
         contextLabel={objectPopupContext?.strategy?.name}

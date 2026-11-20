@@ -2,7 +2,7 @@
 
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { memo, useState } from 'react';
-import { Grip, Lock, Check, Trash2 } from '@/ui/icons';
+import { Grip, Lock, Trash2 } from '@/ui/icons';
 import { BUILTIN_COLUMN_ICONS } from '@/Function/property/columnTypes';
 import type { CustomColumnWithValues, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { scheduleElementDetailPrefetch, cancelElementDetailPrefetch } from '@/hooks/elementDetailQueries';
@@ -10,9 +10,12 @@ import { deleteElement, addElementAssignee, removeElementAssignee, fetchAssignab
 import { withCurrentWorkers } from '@/Function/shared/assignableWorkers';
 import { describeBlocker, type DependencyBlocker } from '@/Function/shared/element/dependencyReadiness';
 import { useSortable } from '@dnd-kit/sortable';
+import { appDialog } from '@/Function/shared/appDialogStore';
+import { notifyError } from '@/Function/shared/toastStore';
 import type { Json } from '@/types/database';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { ElementProgressMark, getElementProgress } from '@/Function/shared/ElementProgressMark';
+import { ElementStatusMark, useElementStatusName } from '@/Function/shared/ElementStatusMark';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent } from '@/ui/context-menu';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { PRIORITY_OPTIONS, STATUS_OPTIONS } from '@/shared/designTokens';
@@ -26,8 +29,8 @@ import { type ElementUpdate, DROP_LINE_CLASS, DROP_LINE_SQUARE, dropLineVar, ROW
 import { ElementCell, LabelChip } from './cells';
 import { toDateOnlyString } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import { statusLabel } from '@/shared/designTokens';
 import { isOverdue } from '@/Function/shared/dateUtils';
+import { MenuCheck } from '@/ui/dropdown-menu';
 
 // Memoised element row. All props are reference-stable across the common
 // re-render trigger (an element field edit changes only that element's `el`
@@ -71,6 +74,8 @@ interface ElementRowProps {
   /** Unfinished `depends_on` upstreams — undefined when the Element is ready,
    *  so the row shows nothing. */
   blockers?: DependencyBlocker[];
+  /** The row's place among all the list's rows, when only some are drawn. */
+  ariaRowIndex?: number;
 }
 
 export const ElementRow = memo(function ElementRow({
@@ -78,9 +83,10 @@ export const ElementRow = memo(function ElementRow({
   hasTrailingCol, canUpdate, canRowSelect, canAddType, onAddType,
   canRemoveType, onRemoveType, dropEdge, selPrev, selNext,
   onElementUpdate, onRefresh, onSelectElement, onRowSelect, onCustomColumnValueChange,
-  allCustomColumns, blockers,
+  allCustomColumns, blockers, ariaRowIndex,
 }: ElementRowProps) {
   const { t, locale } = useI18n();
+  const statusName = useElementStatusName();
   const labelsShown = rowLabels(el.labels);
   const overdue = isOverdue(el.due_date, el.status === 'done');
   const showsActivityColumn = visibleColumns.some((c) => c.id === 'activity');
@@ -131,9 +137,21 @@ export const ElementRow = memo(function ElementRow({
       <ContextMenuTrigger asChild>
     <tr
       ref={setNodeRef}
+      data-row
+      data-row-id={el.id}
+      aria-rowindex={ariaRowIndex}
       style={dragStyle}
       {...attributes}
+      // A table row stays a row to assistive tech: dnd-kit gives it
+      // role="button", which hides its cells and the controls in them.
+      role={undefined}
       {...dragListeners}
+      // Enter on the focused row opens it, as a click does; Space stays the
+      // drag key (dnd-kit's keyboard sensor).
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && e.target === e.currentTarget) { e.preventDefault(); e.currentTarget.click(); return; }
+        (dragListeners as { onKeyDown?: (event: React.KeyboardEvent) => void } | undefined)?.onKeyDown?.(e);
+      }}
       // Warm the detail facets while the pointer rests on the row, so the
       // click opens onto cached data (dwell-gated: a sweep warms nothing).
       onMouseEnter={() => scheduleElementDetailPrefetch(el)}
@@ -170,15 +188,15 @@ export const ElementRow = memo(function ElementRow({
               trigger={
                 <button
                   type="button"
-                  title={t('Status: {value}', { value: t(statusLabel(el.status ?? 'todo')) })}
+                  title={t('Status: {value}', { value: statusName(el) })}
                   className="flex size-4 items-center justify-center rounded-md transition-colors hover:bg-muted/40"
                 >
-                  <ElementProgressMark status={el.status} progress={getElementProgress(el, allCustomColumns)} size={16} />
+                  <ElementStatusMark status={el.status} statusId={el.status_id} progress={getElementProgress(el, allCustomColumns)} size={16} />
                 </button>
               }
             />
           ) : (
-            <ElementProgressMark status={el.status} progress={getElementProgress(el, allCustomColumns)} size={16} />
+            <ElementStatusMark status={el.status} statusId={el.status_id} progress={getElementProgress(el, allCustomColumns)} size={16} />
           )}
         </span>
       </td>
@@ -274,7 +292,7 @@ export const ElementRow = memo(function ElementRow({
               >
                 <ElementProgressMark status={o.value} size={14} />
                 <span className="flex-1">{t(o.label)}</span>
-                {el.status === o.value && <Check className="size-3.5" />}
+                {el.status === o.value && <MenuCheck />}
               </ContextMenuItem>
             ))}
           </ContextMenuSubContent>
@@ -293,7 +311,7 @@ export const ElementRow = memo(function ElementRow({
               >
                 <PriorityMark priority={o.value} />
                 <span className="flex-1">{t(o.label)}</span>
-                {(el.priority ?? 'medium') === o.value && <Check className="size-3.5" />}
+                {(el.priority ?? 'medium') === o.value && <MenuCheck />}
               </ContextMenuItem>
             ))}
           </ContextMenuSubContent>
@@ -362,7 +380,13 @@ export const ElementRow = memo(function ElementRow({
         <ContextMenuItem
           className="gap-2 text-[var(--status-danger)] focus:text-[var(--status-danger)]"
           onPointerEnter={() => setOpenSub(null)}
-          onClick={() => { void deleteElement(el.id); }}
+          onClick={() => { void (async () => {
+            // Asked first, as the bulk delete is: the row and what hangs off it
+            // go at once (the Object's Deleted Elements can bring it back).
+            if (!await appDialog.confirm(t('Delete “{title}”? You can restore it from the Object’s Deleted Elements.', { title: el.title }))) return;
+            try { await deleteElement(el.id); }
+            catch (e) { notifyError(e, t('Could not delete the Element.')); }
+          })(); }}
         >
           <Trash2 className="size-3.5" /> {t('Delete')}
         </ContextMenuItem>
@@ -451,7 +475,7 @@ function AssigneeContextSub({
             >
               <WorkerAvatar worker={w} size={16} />
               <span className="flex-1 truncate">{w.name}</span>
-              {assignees.some((a) => a.worker_id === w.id) && <Check className="size-3.5" />}
+              {assignees.some((a) => a.worker_id === w.id) && <MenuCheck />}
             </ContextMenuItem>
           ))
         )}
@@ -493,7 +517,7 @@ function PropertyContextSub({
               onClick={() => void onChange(opt.value)}
             >
               <span className="flex-1">{opt.value}</span>
-              {current === opt.value && <Check className="size-3.5" />}
+              {current === opt.value && <MenuCheck />}
             </ContextMenuItem>
           ))}
           {current && (
@@ -522,7 +546,7 @@ function PropertyContextSub({
               onSelect={(e) => { e.preventDefault(); void toggle(opt.value); }}
             >
               <span className="flex-1">{opt.value}</span>
-              {current.includes(opt.value) && <Check className="size-3.5" />}
+              {current.includes(opt.value) && <MenuCheck />}
             </ContextMenuItem>
           ))}
         </ContextMenuSubContent>
@@ -539,7 +563,7 @@ function PropertyContextSub({
         onSelect={(e) => { e.preventDefault(); void onChange(!checked); }}
       >
         <span className="flex-1">{col.name}</span>
-        {checked && <Check className="size-3.5" />}
+        {checked && <MenuCheck />}
       </ContextMenuItem>
     );
   }
