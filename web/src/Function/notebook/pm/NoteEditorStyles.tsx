@@ -263,6 +263,45 @@ export function NoteEditorStyles() {
           mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 17 17 7M8 7h9v9'/></svg>") center / contain no-repeat;
         }
         .note-editor ul[data-checklist="true"] > li[data-element-id]:hover::after { opacity: 1; }
+        /* Dynamic AI Note: inline ghost-text Tab completion */
+        .note-editor .note-ghost-completion {
+          display: inline;
+          pointer-events: none;
+          user-select: none;
+        }
+        .note-editor .note-ghost-text {
+          color: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
+        }
+        .note-editor .note-ghost-kbd {
+          display: inline-block;
+          margin-left: 0.35rem;
+          padding: 0 0.3rem;
+          border-radius: var(--radius-xs);
+          border: 1px solid var(--border-default);
+          background: var(--surface-muted);
+          color: var(--muted-foreground);
+          font-family: inherit;
+          font-size: 10.5px;
+          font-weight: 500;
+          line-height: 1.5;
+          vertical-align: 0.05em;
+        }
+        /* Dynamic AI Note: pinpoint block-level revision proposal highlights */
+        .note-editor .note-proposal-target {
+          border-radius: var(--radius-xs);
+          background: color-mix(in srgb, var(--accent-default) 8%, transparent);
+          box-shadow: -3px 0 0 0 color-mix(in srgb, var(--accent-default) 45%, transparent);
+          cursor: pointer;
+          transition: background 120ms ease;
+        }
+        .note-editor .note-proposal-target:hover {
+          background: color-mix(in srgb, var(--accent-default) 13%, transparent);
+        }
+        .note-editor .note-proposal-active {
+          border-radius: var(--radius-xs);
+          background: color-mix(in srgb, var(--accent-default) 16%, transparent);
+          box-shadow: -3px 0 0 0 var(--accent-default);
+        }
     `}</style>
   );
 }

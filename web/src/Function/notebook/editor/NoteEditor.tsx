@@ -16,20 +16,28 @@ import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, List, ListOrdered,
   Quote, Link as LinkIcon, Table as TableIcon, Minus, Paperclip, FileText,
+  Mic, Sparkles,
 } from '@/ui/icons';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { EMBED_LANG, embedSource, parseEmbed, useEmbedHost, type EmbedSpec } from './embedBlocks';
 import { ArtifactPicker, FILE_VIEW } from './fileBlocks';
+import { NotePinpointEdit } from './NotePinpointEdit';
+import { NoteProposalCard } from './NoteProposalCard';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { uploadToArtifacts } from '@/hooks/artifactData';
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 import { openNoteCollab, type CollabEvent, type CollabUser, type NoteCollab } from '@/hooks/noteCollab';
+import { completeNoteInline, type NoteBlockSummary, type NoteProposal, type SelectionEditResult } from '@/hooks/noteAi';
 import { usePresenceName } from '@/hooks/usePresence';
 import { formatError } from '@/Function/shared/formatError';
 import { openInApp } from '@/Function/shared/appNavigation';
 import { mergeNote } from '../noteMerge';
 import type { SaveHow } from '../noteContentStore';
+import {
+  analyzeNoteDensity, extractEditableUnits, extractEditorContext,
+  resolveProposalTargets, toBlockSummaries, type DensityReport, type ResolvedProposal,
+} from '../noteAiModel';
 import { schema } from '../pm/schema';
 import { docToHtml, htmlToDoc, isEmptyDoc } from '../pm/html';
 import { FRAGMENT, hashText, seedFromHtml } from '../pm/collab';
@@ -41,6 +49,10 @@ import {
   clearSlash, cursors, drawnEditing, localHistory, noteKeymap, pmRedo, pmUndo,
   shortcuts, slashKey, slashTrigger, tablePlugins,
 } from '../pm/plugins';
+import {
+  applyProposalToView, applySelectionEditToView, ghostCompletionPlugin, ghostKey,
+  pinpointProposalsPlugin, proposalsKey, setGhostCompletion, setProposalsState,
+} from '../pm/aiAssist';
 import { DrawnBlocks, DrawnRegistry, drawnNodeView } from '../pm/drawn';
 import { ChecklistMarks, MarkRegistry, checklistMarks, type LineMark } from '../pm/marks';
 import {
@@ -76,6 +88,24 @@ export interface NoteEditorProps {
   /** The Note this body is, to edit it together with whoever else has it
    *  open: everyone's typing shows as it happens, with their cursors. */
   collab?: string;
+  /** Enables the Note's AI, each called by the person: a line completion
+   *  (⌘J, /complete), a rewrite of the selection (⌘J), revision proposals
+   *  (/ai) and voice minutes (/voice). Nothing here calls a model unasked. */
+  aiAssist?: boolean;
+  /** Current document title, passed as context to line completion and selection edits. */
+  title?: string;
+  /** Recent spoken transcript context so Tab completion & pinpoint edits can draw from voice. */
+  recentTranscript?: string;
+  /** Called when the user triggers /voice from the slash menu. */
+  onStartVoice?: () => void;
+  /** Called when the user triggers /ai refinement proposals from the slash menu. */
+  onRequestProposals?: () => void;
+  /** Called when the user asks, from the slash menu, to turn the Note into an Object and Elements. */
+  onObjectize?: () => void;
+  /** Reports document density updates so the host can surface pinpoint cleanup cues. */
+  onDensityChange?: (report: DensityReport) => void;
+  /** Reports how many pinpoint proposals are currently highlighted in the editor. */
+  onProposalCountChange?: (count: number) => void;
 }
 
 export interface BulletContextInfo {
@@ -98,6 +128,21 @@ export interface NoteEditorHandle {
   focus(): void;
   /** Links lines just turned into Elements to them, then saves. */
   linkBullets(entries: { li: HTMLLIElement; elementId: string }[]): void;
+  /** Adds blocks to the end of the Note as one undoable step. What is already
+   *  written is left as it is, so typing meanwhile is never overwritten. */
+  appendHtml(html: string): void;
+  /** Appends a plain-text paragraph to the end of the note (for non-AI voice mode). */
+  appendParagraph(text: string): void;
+  /** Returns current editable text units for pinpoint AI proposals. */
+  getBlocks(): NoteBlockSummary[];
+  /** The Note as plain text, as context for what is added next. */
+  getText(): string;
+  /** Highlights pinpoint block-level proposals directly in the editor; returns matched count. */
+  setProposals(proposals: NoteProposal[]): number;
+  /** Clears all active pinpoint proposals. */
+  clearProposals(): void;
+  /** Requests an immediate Tab ghost-text completion at the current caret. */
+  triggerCompletion(): void;
 }
 
 const TOOLBAR_GAP = 8;
@@ -204,8 +249,16 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   compact = false,
   placeholder,
   collab,
+  aiAssist = false,
+  title = '',
+  recentTranscript = '',
+  onStartVoice,
+  onRequestProposals,
+  onObjectize,
+  onDensityChange,
+  onProposalCountChange,
 }, handleRef) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const frameRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -221,10 +274,22 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const bulletRef = useRef(onBulletContextMenu);
   const editableRef = useRef(editable);
   const placeholderRef = useRef(placeholder ?? t('Start writing…'));
+  const aiAssistRef = useRef(aiAssist);
+  const titleRef = useRef(title);
+  const recentTranscriptRef = useRef(recentTranscript);
+  const localeRef = useRef(locale);
+  const onDensityChangeRef = useRef(onDensityChange);
+  const onProposalCountChangeRef = useRef(onProposalCountChange);
   onChangeRef.current = onChange;
   onCommitRef.current = onCommit;
   bulletRef.current = onBulletContextMenu;
   placeholderRef.current = placeholder ?? t('Start writing…');
+  aiAssistRef.current = aiAssist;
+  titleRef.current = title;
+  recentTranscriptRef.current = recentTranscript;
+  localeRef.current = locale;
+  onDensityChangeRef.current = onDensityChange;
+  onProposalCountChangeRef.current = onProposalCountChange;
 
   /** The body as last saved from here (or brought in): what is not new. */
   const lastEmittedRef = useRef('');
@@ -245,6 +310,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const linkRangeRef = useRef<{ from: number; to: number } | null>(null);
   /** The lines offered to be made into Elements, kept in place the same way. */
   const offeredRef = useRef<{ dom: HTMLLIElement; pos: number }[]>([]);
+  /** Stale-response guard for inline ghost-text completion. */
+  const ghostSeqRef = useRef(0);
+  /** Selection range held open while pinpoint AI edit runs. */
+  const pinpointRangeRef = useRef<{ from: number; to: number } | null>(null);
 
   const spaceId = useActiveSpaceId();
   const spaceIdRef = useRef(spaceId);
@@ -267,6 +336,15 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
   const [tableMenu, setTableMenu] = useState<{ x: number; y: number; canMerge: boolean; canSplit: boolean } | null>(null);
   const [handles, setHandles] = useState<TableHandles | null>(null);
+  const [pinpointEdit, setPinpointEdit] = useState<{
+    x: number; y: number; selectedText: string; beforeContext: string; afterContext: string;
+  } | null>(null);
+  const [proposalsUi, setProposalsUi] = useState<{
+    items: ResolvedProposal[];
+    activeId: string | null;
+    anchor: { left: number; top: number; bottom: number; width: number } | null;
+  }>({ items: [], activeId: null, anchor: null });
+  const [hasGhost, setHasGhost] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // With others editing, one side saves the shared body for everyone (the
@@ -287,8 +365,104 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     onChangeRef.current?.(html);
   }, []);
 
-  // The toolbar over selected text, and the "/" menu, follow the editor.
+  // Measures the DOM rect of the active pinpoint proposal block so its diff card
+  // stays anchored beside it through edits, scrolling and resizes.
+  const measureProposalAnchor = useCallback((view: EditorView, activeId: string | null) => {
+    if (!activeId) return null;
+    const el = view.dom.querySelector<HTMLElement>(`[data-proposal-id="${activeId}"]`);
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return null;
+    return { left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width };
+  }, []);
+
+  // Requests a ghost-text Tab completion at the current caret.
+  const requestGhostNow = useCallback((view: EditorView) => {
+    if (!aiAssistRef.current || !editableRef.current || view.composing) return;
+    if (slashKey.getState(view.state)) return;
+    const proposals = proposalsKey.getState(view.state);
+    if (proposals && proposals.items.length > 0) return;
+    const { selection } = view.state;
+    if (!selection.empty || selection instanceof CellSelection) return;
+    const $from = selection.$from;
+    if (!$from.parent.isTextblock || $from.parent.type === code_block) return;
+
+    const ctx = extractEditorContext(view.state.doc, selection.from);
+    if (!ctx.prefix.trim() && !recentTranscriptRef.current.trim()) return;
+
+    const anchorPos = selection.from;
+    const seq = ++ghostSeqRef.current;
+
+    void completeNoteInline({
+      title: titleRef.current,
+      prefix: ctx.prefix,
+      suffix: ctx.suffix,
+      currentBlockText: ctx.currentBlockText,
+      blockType: ctx.blockType,
+      recentTranscript: recentTranscriptRef.current,
+      language: localeRef.current,
+    })
+      .then((completion) => {
+        if (seq !== ghostSeqRef.current) return;
+        const v = viewRef.current;
+        if (!v || v.isDestroyed || v.composing) return;
+        if (!v.state.selection.empty || v.state.selection.from !== anchorPos) return;
+        const cleaned = completion.trimEnd();
+        if (!cleaned) return;
+        setGhostCompletion(v, { pos: anchorPos, text: cleaned });
+      })
+      .catch(() => {
+        // Completion is best-effort; never interrupt typing on transient errors.
+      });
+  }, []);
+
+  // Opens the pinpoint AI edit popover over the current non-empty selection.
+  const openPinpointEdit = useCallback(() => {
+    const view = viewRef.current;
+    if (!view || !aiAssistRef.current || !editableRef.current) return;
+    const { from, to, empty } = view.state.selection;
+    if (empty || view.state.selection instanceof CellSelection) return;
+    const selectedText = view.state.doc.textBetween(from, to, '\n', ' ').trim();
+    if (!selectedText) return;
+    const beforeContext = view.state.doc.textBetween(Math.max(0, from - 600), from, '\n', ' ');
+    const afterContext = view.state.doc.textBetween(to, Math.min(view.state.doc.content.size, to + 600), '\n', ' ');
+    const coords = view.coordsAtPos(to);
+    pinpointRangeRef.current = { from, to };
+    setToolbar(null);
+    setPinpointEdit({
+      x: coords.left,
+      y: coords.bottom,
+      selectedText,
+      beforeContext,
+      afterContext,
+    });
+  }, []);
+  const openPinpointEditRef = useRef(openPinpointEdit);
+  openPinpointEditRef.current = openPinpointEdit;
+  const requestGhostNowRef = useRef(requestGhostNow);
+  requestGhostNowRef.current = requestGhostNow;
+
+  // The toolbar over selected text, the "/" menu, and pinpoint proposal anchors follow the editor.
   const syncUi = useCallback((view: EditorView) => {
+    setHasGhost(!!ghostKey.getState(view.state)?.text);
+    const propState = proposalsKey.getState(view.state);
+    const propItems = propState?.items ?? [];
+    const propActiveId = propState?.activeId ?? null;
+    const propAnchor = propItems.length ? measureProposalAnchor(view, propActiveId) : null;
+    setProposalsUi((prev) => {
+      if (
+        prev.items === propItems &&
+        prev.activeId === propActiveId &&
+        prev.anchor?.left === propAnchor?.left &&
+        prev.anchor?.top === propAnchor?.top &&
+        prev.anchor?.bottom === propAnchor?.bottom
+      ) {
+        return prev;
+      }
+      return { items: propItems, activeId: propActiveId, anchor: propAnchor };
+    });
+    onProposalCountChangeRef.current?.(propItems.length);
+
     const s = slashKey.getState(view.state);
     if (s) {
       const c = view.coordsAtPos(s.pos);
@@ -309,7 +483,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const rect = range && view.dom.contains(range.commonAncestorContainer) ? range.getBoundingClientRect() : null;
     if (!rect || (rect.width === 0 && rect.height === 0)) { setToolbar(null); return; }
     setToolbar({ x: rect.left + rect.width / 2, y: rect.top - TOOLBAR_GAP });
-  }, []);
+  }, [measureProposalAnchor]);
 
   // An editor that does not save watches that what is typed gets saved. When
   // the saved body trails it for a while (the one who saves is gone, asleep
@@ -467,11 +641,27 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         }, 0);
         return false;
       },
+      keydown(v, event) {
+        if (!aiAssistRef.current || !editableRef.current || event.isComposing) return false;
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'j') {
+          event.preventDefault();
+          if (v.state.selection.empty) {
+            requestGhostNowRef.current(v);
+          } else {
+            openPinpointEditRef.current();
+          }
+          return true;
+        }
+        return false;
+      },
       blur(v) {
         setTimeout(() => {
           if (viewRef.current !== v) return;
           settlePending(v);
-          if (!v.hasFocus()) setToolbar(null);
+          if (!v.hasFocus()) {
+            setToolbar(null);
+            if (ghostKey.getState(v.state)) setGhostCompletion(v, null);
+          }
         }, 0);
         return false;
       },
@@ -521,6 +711,10 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
           if (link && changed) {
             linkRangeRef.current = transactions.reduce((r, t) => ({ from: t.mapping.map(r.from, 1), to: t.mapping.map(r.to, -1) }), link);
           }
+          const pinpointRange = pinpointRangeRef.current;
+          if (pinpointRange && changed) {
+            pinpointRangeRef.current = transactions.reduce((r, t) => ({ from: t.mapping.map(r.from, 1), to: t.mapping.map(r.to, -1) }), pinpointRange);
+          }
           if (offeredRef.current.length && changed) {
             offeredRef.current = offeredRef.current.map((o) => ({ dom: o.dom, pos: transactions.reduce((pos, t) => t.mapping.map(pos, 1), o.pos) }));
           }
@@ -530,6 +724,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
             else if (pendingRef.current) { /* saved with the body that waits (settlePending) */ }
             else if (isSaver()) emit(next.doc);
             else armStandIn();
+            onDensityChangeRef.current?.(analyzeNoteDensity(next.doc));
           }
           syncUi(this);
         },
@@ -542,11 +737,20 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       // A shared document already holding edits nobody saved: whoever saves takes them.
       wasSaverRef.current = isSaver();
       if (wasSaverRef.current) emit(view.state.doc);
+      onDensityChangeRef.current?.(analyzeNoteDensity(view.state.doc));
       setReady(true);
     };
 
     const common = (undo: Command, redo: Command): Plugin[] => [
       slashTrigger((key) => slashKeyRef.current(key)),
+      ghostCompletionPlugin(),
+      pinpointProposalsPlugin((id) => {
+        const v = viewRef.current;
+        if (!v) return;
+        const cur = proposalsKey.getState(v.state);
+        if (!cur) return;
+        setProposalsState(v, { items: cur.items, activeId: id });
+      }),
       ...tablePlugins(),
       ...noteKeymap(undo, redo, { underline: !compact }),
       shortcuts(),
@@ -668,8 +872,92 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     offeredRef.current = [];
     if (found.length) linkItems(found)(view.state, view.dispatch);
   }, []);
-  useImperativeHandle(handleRef, () => ({ applyBlock, applyList, insertTable, focus, linkBullets }),
-    [applyBlock, applyList, insertTable, focus, linkBullets]);
+  const appendHtml = useCallback((html: string) => {
+    const view = viewRef.current;
+    if (!view || !html.trim()) return;
+    const added = htmlToDoc(html);
+    if (isEmptyDoc(added)) return;
+    const { doc } = view.state;
+    // Read at the moment of writing, so what was typed meanwhile stays above it.
+    const tr = isEmptyDoc(doc)
+      ? view.state.tr.replaceWith(0, doc.content.size, added.content)
+      : view.state.tr.insert(doc.content.size, added.content);
+    view.dispatch(tr);
+  }, []);
+  const appendParagraph = useCallback((text: string) => {
+    const view = viewRef.current;
+    const trimmed = text.trim();
+    if (!view || !trimmed) return;
+    const { paragraph } = schema.nodes;
+    const tr = view.state.tr;
+    if (isEmptyDoc(view.state.doc)) {
+      tr.insertText(trimmed, 1, 1);
+    } else {
+      tr.insert(view.state.doc.content.size, paragraph.create(null, schema.text(trimmed)));
+    }
+    view.dispatch(tr.scrollIntoView());
+  }, []);
+  const getBlocks = useCallback((): NoteBlockSummary[] => {
+    const view = viewRef.current;
+    if (!view) return [];
+    return toBlockSummaries(extractEditableUnits(view.state.doc));
+  }, []);
+  const getText = useCallback((): string => {
+    const view = viewRef.current;
+    return view ? view.state.doc.textBetween(0, view.state.doc.content.size, '\n', ' ') : '';
+  }, []);
+  const setProposals = useCallback((proposals: NoteProposal[]): number => {
+    const view = viewRef.current;
+    if (!view) return 0;
+    const resolved = resolveProposalTargets(view.state.doc, proposals);
+    setProposalsState(view, { items: resolved, activeId: resolved[0]?.id ?? null });
+    if (resolved[0]) {
+      // Scroll the first highlighted proposal into view cleanly.
+      const el = view.dom.querySelector<HTMLElement>(`[data-proposal-id="${resolved[0].id}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return resolved.length;
+  }, []);
+  const clearProposals = useCallback(() => {
+    const view = viewRef.current;
+    if (view) setProposalsState(view, { items: [], activeId: null });
+  }, []);
+  const triggerCompletion = useCallback(() => {
+    const view = viewRef.current;
+    if (view) requestGhostNow(view);
+  }, [requestGhostNow]);
+
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      applyBlock,
+      applyList,
+      insertTable,
+      focus,
+      linkBullets,
+      appendHtml,
+      appendParagraph,
+      getBlocks,
+      getText,
+      setProposals,
+      clearProposals,
+      triggerCompletion,
+    }),
+    [
+      applyBlock,
+      applyList,
+      insertTable,
+      focus,
+      linkBullets,
+      appendHtml,
+      appendParagraph,
+      getBlocks,
+      getText,
+      setProposals,
+      clearProposals,
+      triggerCompletion,
+    ],
+  );
 
   const askUrl = useCallback(async (): Promise<string | null> => {
     const url = await appDialog.prompt(t('Link URL'), 'https://');
@@ -784,8 +1072,107 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       { id: 'center', group: 'Formatting', label: 'Align center', icon: <AlignCenter size={15} />, run: () => run(setAlign('center')) },
       { id: 'right', group: 'Formatting', label: 'Align right', icon: <AlignRight size={15} />, run: () => run(setAlign('right')) },
     ]),
+    ...(aiAssist ? [
+      ...(onStartVoice ? [{
+        id: 'ai:voice', group: 'AI Note', label: 'Voice minutes', hint: 'Transcribe speech and structure notes',
+        icon: <Mic size={15} />, keywords: 'voice mic audio record minutes speech 音声 議事 録音',
+        run: () => onStartVoice(),
+      }] : []),
+      ...(onRequestProposals ? [{
+        id: 'ai:propose', group: 'AI Note', label: 'Suggest refinements', hint: 'Pinpoint edits for dense lines',
+        icon: <Sparkles size={15} />, keywords: 'ai refine polish propose suggest 修正 提案 整理',
+        run: () => onRequestProposals(),
+      }] : []),
+      ...(onObjectize ? [{
+        id: 'ai:object', group: 'AI Note', label: 'Turn into Object', hint: 'Turn this Note into an Object and Elements',
+        icon: <ElementIcon size={15} />, keywords: 'object element plan objectize オブジェクト 計画',
+        run: () => onObjectize(),
+      }] : []),
+      {
+        id: 'ai:complete', group: 'AI Note', label: 'Complete this line', hint: 'Ghost-text suggestion (Tab)',
+        icon: <Sparkles size={15} />, keywords: 'tab complete ghost continue 補完 続き',
+        run: () => triggerCompletion(),
+      },
+    ] : []),
   ];
   const shownSlash = slash ? filterSlash(slashItems, slash.query, t) : [];
+
+  const selectProposal = useCallback((id: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const cur = proposalsKey.getState(view.state);
+    if (!cur) return;
+    setProposalsState(view, { items: cur.items, activeId: id });
+    const el = view.dom.querySelector<HTMLElement>(`[data-proposal-id="${id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
+  const acceptProposal = useCallback((id: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const cur = proposalsKey.getState(view.state);
+    const target = cur?.items.find((p) => p.id === id);
+    if (!cur || !target) return;
+    const remaining = cur.items.filter((p) => p.id !== id);
+    applyProposalToView(view, target);
+    // Re-anchor remaining proposals against the updated document.
+    const nextResolved = resolveProposalTargets(
+      view.state.doc,
+      remaining.map((p) => ({
+        id: p.id,
+        blockIndex: p.unit.index,
+        kind: p.kind,
+        originalText: p.originalText,
+        proposedText: p.proposedText,
+        proposedBlockType: p.proposedBlockType,
+        reason: p.reason,
+      })),
+    );
+    setProposalsState(view, { items: nextResolved, activeId: nextResolved[0]?.id ?? null });
+  }, []);
+
+  const dismissProposal = useCallback((id: string) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const cur = proposalsKey.getState(view.state);
+    if (!cur) return;
+    const idx = cur.items.findIndex((p) => p.id === id);
+    const remaining = cur.items.filter((p) => p.id !== id);
+    const nextActive = remaining[Math.min(Math.max(0, idx), remaining.length - 1)]?.id ?? null;
+    setProposalsState(view, { items: remaining, activeId: nextActive });
+  }, []);
+
+  const acceptAllProposals = useCallback(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    // Apply from bottom to top by document position so earlier positions never shift.
+    const cur = proposalsKey.getState(view.state);
+    if (!cur || !cur.items.length) return;
+    const ordered = [...cur.items].sort((a, b) => b.unit.nodePos - a.unit.nodePos);
+    for (const item of ordered) {
+      const fresh = resolveProposalTargets(view.state.doc, [{
+        id: item.id,
+        blockIndex: item.unit.index,
+        kind: item.kind,
+        originalText: item.originalText,
+        proposedText: item.proposedText,
+        proposedBlockType: item.proposedBlockType,
+        reason: item.reason,
+      }])[0];
+      if (fresh) applyProposalToView(view, fresh);
+    }
+    setProposalsState(view, { items: [], activeId: null });
+  }, []);
+
+  const applyPinpointEdit = useCallback((result: SelectionEditResult) => {
+    const view = viewRef.current;
+    const range = pinpointRangeRef.current;
+    pinpointRangeRef.current = null;
+    setPinpointEdit(null);
+    if (!view || !range) return;
+    applySelectionEditToView(view, range, result);
+    view.focus();
+  }, []);
 
   const closeSlash = useCallback(() => {
     const view = viewRef.current;
@@ -846,6 +1233,37 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
         <FloatingToolbar x={toolbar.x} y={toolbar.y} markdownOnly={compact}
           onMark={onMark} onAlign={(a) => run(setAlign(a))} onList={applyList}
           onBlock={(tag) => run(toggleBlock(tag))} onLink={() => { void toggleLink(); }} />
+      )}
+      {pinpointEdit && editable && (
+        <NotePinpointEdit
+          x={pinpointEdit.x}
+          y={pinpointEdit.y}
+          title={title}
+          selectedText={pinpointEdit.selectedText}
+          beforeContext={pinpointEdit.beforeContext}
+          afterContext={pinpointEdit.afterContext}
+          recentTranscript={recentTranscript}
+          language={locale}
+          onApply={applyPinpointEdit}
+          onClose={() => {
+            pinpointRangeRef.current = null;
+            setPinpointEdit(null);
+            viewRef.current?.focus();
+          }}
+        />
+      )}
+      {proposalsUi.items.length > 0 && editable && (
+        <NoteProposalCard
+          proposals={proposalsUi.items}
+          activeId={proposalsUi.activeId}
+          anchor={proposalsUi.anchor}
+          keyboardActive={!hasGhost && !slash && !pinpointEdit}
+          onSelect={selectProposal}
+          onAccept={acceptProposal}
+          onDismiss={dismissProposal}
+          onAcceptAll={acceptAllProposals}
+          onCloseAll={clearProposals}
+        />
       )}
       {tableMenu && editable && (
         <TableContextMenu x={tableMenu.x} y={tableMenu.y} canMerge={tableMenu.canMerge} canSplit={tableMenu.canSplit}
