@@ -271,6 +271,36 @@ export function NoteEditorStyles() {
           color: var(--muted-foreground);
           scroll-margin-bottom: 96px;
         }
+        /* A transcript: the words as spoken, kept above the section made
+           from them. Folded to its first line until the caret is in it. */
+        .note-editor pre.note-transcript {
+          position: relative;
+          margin: 0.25rem 0;
+          padding: 0 0 0 1.25rem;
+          background: transparent;
+          border-radius: 0;
+          font-family: inherit;
+          font-size: inherit;
+          color: var(--muted-foreground);
+          cursor: pointer;
+        }
+        .note-editor pre.note-transcript::before {
+          content: '›';
+          position: absolute;
+          left: 0.25rem;
+          top: 0;
+          transition: transform 120ms ease;
+        }
+        .note-editor pre.note-transcript:not(.is-open) {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .note-editor pre.note-transcript.is-open { cursor: text; }
+        .note-editor pre.note-transcript.is-open::before { transform: rotate(90deg); }
+        @media (prefers-reduced-motion: reduce) {
+          .note-editor pre.note-transcript::before { transition: none; }
+        }
         .note-editor .note-voice-interim {
           pointer-events: none;
           user-select: none;

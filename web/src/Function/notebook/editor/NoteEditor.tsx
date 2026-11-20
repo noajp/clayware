@@ -57,6 +57,7 @@ import {
   appendSpoken,
   beginVoice,
   endVoice,
+  placeVoiceFile,
   readMinutes,
   releaseSpoken,
   replaceMinutes,
@@ -153,7 +154,9 @@ export interface NoteVoiceHandle {
   release(): void;
   replaceSpoken(html: string, taken: string): VoiceReplaceOutcome;
   minutes(): VoiceMinutes | null;
-  replaceMinutes(html: string, read: string): VoiceReplaceOutcome;
+  replaceMinutes(html: string, key: string): VoiceReplaceOutcome;
+  /** Places a file from Artifacts above everything voice wrote. */
+  placeFile(fileId: string): void;
 }
 
 export interface NoteEditorHandle {
@@ -920,7 +923,9 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       release: () => withView(undefined, releaseSpoken),
       replaceSpoken: (html, taken) => withView<VoiceReplaceOutcome>('gone', (view) => replaceSpoken(view, html, taken)),
       minutes: () => withView(null, (view) => readMinutes(view.state)),
-      replaceMinutes: (html, read) => withView<VoiceReplaceOutcome>('gone', (view) => replaceMinutes(view, html, read)),
+      replaceMinutes: (html, key) => withView<VoiceReplaceOutcome>('gone', (view) => replaceMinutes(view, html, key)),
+      placeFile: (fileId) => withView(undefined, (view) =>
+        placeVoiceFile(view, code_block.create({ lang: EMBED_LANG }, schema.text(embedSource({ view: FILE_VIEW, id: fileId }))))),
     };
   }, []);
   const getBlocks = useCallback((): NoteBlockSummary[] => {

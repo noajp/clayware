@@ -8,6 +8,7 @@ import {
   appendSpoken,
   beginVoice,
   endVoice,
+  placeVoiceFile,
   readMinutes,
   reanchorVoiceRegion,
   replaceMinutes,
@@ -37,14 +38,15 @@ describe('voice minutes in the Note', () => {
     expect(textBeforeSpoken(view.state)).toBe('Agenda');
   });
 
-  it('replaces only the words it took, keeping what was spoken meanwhile', () => {
+  it('folds the words it took above the section made from them, keeping what was spoken meanwhile', () => {
     const view = makeView('<p>Agenda</p>');
     beginVoice(view);
     appendSpoken(view, 'we open the beta in december');
     const taken = takeSpoken(view)!;
     appendSpoken(view, 'pricing is still open');
     expect(replaceSpoken(view, '<h2>Launch</h2><ul><li>Beta opens in December</li></ul>', taken)).toBe('done');
-    expect(html(view)).toBe('<p>Agenda</p><h2>Launch</h2><ul><li>Beta opens in December</li></ul><p>pricing is still open</p>');
+    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="transcript">we open the beta in december</pre><h2>Launch</h2><ul><li>Beta opens in December</li></ul><p>pricing is still open</p>');
+    expect(textBeforeSpoken(view.state)).toBe('Agenda\nLaunch\nBeta opens in December');
     expect(spokenChars(view.state)).toBe('pricing is still open'.length);
     expect(readMinutes(view.state)?.html).toBe('<h2>Launch</h2><ul><li>Beta opens in December</li></ul>');
   });
@@ -61,7 +63,16 @@ describe('voice minutes in the Note', () => {
     expect(voiceKey.getState(view.state)?.cut).toBeNull();
   });
 
-  it('regroups the minutes and keeps the words still waiting below them', () => {
+  it('folds words nothing was made of, all the same', () => {
+    const view = makeView('<p></p>');
+    beginVoice(view);
+    appendSpoken(view, 'um, right');
+    expect(replaceSpoken(view, '', takeSpoken(view)!)).toBe('done');
+    expect(html(view)).toBe('<pre data-lang="transcript">um, right</pre><p></p>');
+    expect(readMinutes(view.state)).toBeNull();
+  });
+
+  it('regroups the sections under their transcripts and keeps the words still waiting', () => {
     const view = makeView('<p>Agenda</p>');
     beginVoice(view);
     appendSpoken(view, 'one');
@@ -71,8 +82,9 @@ describe('voice minutes in the Note', () => {
     appendSpoken(view, 'three');
     const minutes = readMinutes(view.state)!;
     expect(minutes.plain).toBe(true);
-    expect(replaceMinutes(view, '<h2>A and B</h2><p>one, two</p>', minutes.html)).toBe('done');
-    expect(html(view)).toBe('<p>Agenda</p><h2>A and B</h2><p>one, two</p><p>three</p>');
+    expect(minutes.html).toBe('<h2>A</h2><p>one</p><h2>B</h2><p>two</p>');
+    expect(replaceMinutes(view, '<h2>A and B</h2><p>one, two</p>', minutes.key)).toBe('done');
+    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="transcript">one</pre><pre data-lang="transcript">two</pre><h2>A and B</h2><p>one, two</p><p>three</p>');
     expect(spokenChars(view.state)).toBe(5);
   });
 
@@ -83,7 +95,7 @@ describe('voice minutes in the Note', () => {
     replaceSpoken(view, '<h2>A</h2><p>one</p>', takeSpoken(view)!);
     const minutes = readMinutes(view.state)!;
     view.dispatch(view.state.tr.insertText('X', 2));
-    expect(replaceMinutes(view, '<h2>Z</h2>', minutes.html)).toBe('changed');
+    expect(replaceMinutes(view, '<h2>Z</h2>', minutes.key)).toBe('changed');
     expect(html(view)).toContain('one');
   });
 
@@ -97,6 +109,18 @@ describe('voice minutes in the Note', () => {
     endVoice(view);
     expect(takeSpoken(view)).toBeNull();
     expect(html(view)).toBe('<p>typed above</p><p>Agenda</p><p>one</p><p>two</p>');
+  });
+
+  it('places the transcript file above what voice wrote, and replaces it when placed again', () => {
+    const view = makeView('<p>Agenda</p>');
+    beginVoice(view);
+    appendSpoken(view, 'one');
+    const file = (id: string) => schema.nodes.code_block.create({ lang: 'clayware' }, schema.text(`{"view":"file","id":"${id}"}`));
+    placeVoiceFile(view, file('a'));
+    appendSpoken(view, 'two');
+    placeVoiceFile(view, file('b'));
+    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="clayware">{"view":"file","id":"b"}</pre><p>one</p><p>two</p>');
+    expect(spokenChars(view.state)).toBe('one\ntwo'.length);
   });
 
   it('finds the region again after the whole document is laid down anew', () => {

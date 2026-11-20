@@ -324,7 +324,7 @@ export function shouldAutoStructure(args: {
 }
 
 /** The longest minutes sent to be regrouped in one go. */
-export const REGROUP_MAX_CHARS = 12000;
+const REGROUP_MAX_CHARS = 12000;
 
 /** Pure. Whether the minutes are due to be grouped again: three sections
  *  since the last time (two when recording has stopped), and enough written
@@ -339,6 +339,18 @@ export function shouldRegroup(args: {
   if (!args.plain) return false;
   if (args.minutesChars < 600 || args.minutesChars > REGROUP_MAX_CHARS) return false;
   return args.rounds >= (args.last ? 2 : 3);
+}
+
+/** Pure. Everything said, word for word, as the text of a file: one line per
+ *  stretch of speech, with the time it was said. */
+export function transcriptMarkdown(segments: TranscriptSegment[]): string {
+  const two = (n: number) => String(n).padStart(2, '0');
+  return segments
+    .map((s) => {
+      const at = new Date(s.timestamp);
+      return `[${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}] ${s.text.trim()}`;
+    })
+    .join('\n\n') + '\n';
 }
 
 /** Formats seconds as mm:ss for the voice timer. */

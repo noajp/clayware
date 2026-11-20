@@ -168,13 +168,14 @@ async function callClaudeTool<T>(args: {
 // ── Mode 1: Dynamic Voice → Structured Minutes ─────────────────────────────
 //
 // The Note holds the words as they were spoken. The answer is the section
-// that takes their place, and only theirs: the rest of the Note is read for
-// context and never rewritten, so nothing a person typed — and nothing the
-// model cannot write (links, images, tables, linked Elements) — is lost.
+// placed below them, where they stay folded as a transcript: the rest of the
+// Note is read for context and never rewritten, so nothing a person typed —
+// and nothing the model cannot write (links, images, tables, linked
+// Elements) — is lost.
 
 const STRUCTURE_TOOL = {
   name: "emit_minutes_section",
-  description: "Return the minutes section, as HTML, that takes the place of the newly spoken transcript in the note.",
+  description: "Return the minutes section, as HTML, that summarizes the newly spoken transcript and is placed below it in the note.",
   input_schema: {
     type: "object",
     properties: {
@@ -208,12 +209,12 @@ async function handleStructure(apiKey: string, spend: Spend, body: RequestBody) 
   }
 
   const system = `あなたはリアルタイム議事録の構造化アシスタントです。
-ノートには話された言葉がそのまま書かれています。その書き起こしを、話題を表す見出しで括った議事のセクションにまとめます。出力はノートの中で書き起こしと置き換わります。
+ノートには話された言葉がそのまま書かれています。その書き起こしを、話題を表す見出しで括った議事のセクションに要約します。書き起こしはノートに折りたたんで残り、出力はそのすぐ下に置かれます。
 
 ルール:
 - ${langInstruction(body.language)}
 - 出力は新しい書き起こしをまとめたセクションだけ。それより前のノートは参照用で、書き直したり繰り返したりしない
-- 書き起こしは出力に置き換わって消える。話された中身（結論・理由・数字・固有名詞・誰が何をするか）は落とさずに残す。フィラーだけで中身がないときに限り html を空文字にする
+- 言い回しは書き起こしに残るので、ここには要旨だけを書く。結論・理由・数字・固有名詞・誰が何をするかは落とさない。相づちやフィラーだけで中身がないときは html を空文字にする
 - 話題を短く言い表す <h2> で始め、その下に要点を箇条書きで置く。直前のノートの最後の見出しと同じ話題が続いているときは、見出しを繰り返さず箇条書きだけを返す
 - 話し言葉のフィラー（「えー」「あのー」「まあ」等）や言い直しは取り除き、要点だけを簡潔にまとめる
 - 決定事項はそれと分かる形で書き、アクションアイテムは必ずチェックリスト形式で書く: <ul data-checklist="true"><li data-checked="false">担当者: 内容（期限）</li></ul>
