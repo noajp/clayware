@@ -80,18 +80,22 @@ function ContextMenuSubTrigger({
 
 function ContextMenuSubContent({
   className,
+  sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.SubContent>) {
   return (
-    <ContextMenuPrimitive.SubContent
-      data-slot="context-menu-sub-content"
-      className={cn(
-        anchoredOverlayMotion,
-        "gloss-overlay text-popover-foreground z-50 min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-lg border p-1",
-        className
-      )}
-      {...props}
-    />
+    <ContextMenuPrimitive.Portal>
+      <ContextMenuPrimitive.SubContent
+        data-slot="context-menu-sub-content"
+        sideOffset={sideOffset}
+        className={cn(
+          anchoredOverlayMotion,
+          "gloss-overlay text-popover-foreground z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border p-1",
+          className
+        )}
+        {...props}
+      />
+    </ContextMenuPrimitive.Portal>
   )
 }
 
