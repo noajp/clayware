@@ -575,7 +575,8 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
           onNavigate?.({ objectId: null });
         }}
         // A Domain viewer reads; the add would only be refused.
-        onAdd={domainRole === 'viewer' ? undefined : openQuickAddDomain}
+        // Only show on work tabs (Elements / Board / Timeline / Calendar).
+        onAdd={domainRole === 'viewer' || effectiveViewMode === 'workers' ? undefined : openQuickAddDomain}
       />
       )}
 

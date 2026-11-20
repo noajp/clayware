@@ -420,30 +420,32 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
   const isEmptyObjectElements =
     !!selectedObject && effectiveActiveType === 'elements' && (selectedObject.elements ?? []).length === 0;
   const hideTabBarChrome = isEmptyDomain;
+  const isWorkViewTab = effectiveActiveType === 'elements' || effectiveActiveType === 'flow' || effectiveActiveType === 'gantt' || effectiveActiveType === 'calendar';
   const headerActions = viewOnly ? (
     <div className="ml-auto flex items-center gap-2 pr-2"><ViewOnlyBadge /></div>
   ) : selectedObject ? (
     <div className="ml-auto flex items-center gap-2">
-      {/* The overview is for reading the Object; Elements are added on its lists. */}
-      {!isEmptyObjectElements && effectiveActiveType !== 'overview' && (
-        <Button variant="ghost" size="sm" type="button" className="text-muted-foreground"
+      {/* Elements are added on work tabs (Elements / Board / Timeline / Calendar), never on Overview or Member. */}
+      {isWorkViewTab && !isEmptyObjectElements && (
+        <Button variant="primary" size="sm" type="button"
           onClick={() => window.dispatchEvent(new CustomEvent('clayware:quick-add-element'))}>
-          <Plus size={14} />{t('Add Element')}
+          <Plus size={14} />{t('New Element')}
         </Button>
       )}
     </div>
   ) : effectiveActiveType === 'note' ? (
     // The Note tab makes notebooks, not Objects.
     <div className="ml-auto flex items-center gap-2">
-      <Button variant="ghost" size="sm" type="button" className="text-muted-foreground"
+      <Button variant="primary" size="sm" type="button"
         onClick={() => window.dispatchEvent(new CustomEvent(NEW_DOMAIN_NOTEBOOK))}>
         <Plus size={14} />{t('New notebook')}
       </Button>
     </div>
-  ) : !isEmptyDomain ? (
+  ) : isWorkViewTab && !isEmptyDomain ? (
+    // Objects are added on Objects work tabs (List / Board / Timeline / Calendar), never on Domain Overview or Member.
     <div className="ml-auto flex items-center gap-2">
-      <Button variant="ghost" size="sm" type="button" className="text-muted-foreground" onClick={() => openCreate('object')}>
-        <Plus size={14} />{t('Add Object')}
+      <Button variant="primary" size="sm" type="button" onClick={() => openCreate('object')}>
+        <Plus size={14} />{t('New Object')}
       </Button>
     </div>
   ) : null;
@@ -500,6 +502,7 @@ export function DomainView({ navigation, onNavigate, onRefresh, activeDomainId, 
             if (!selectedObject && t.tab_type === 'overview') return;
             removeVisibleTab(t.tab_type);
           }}
+          canCloseTab={(tab) => tab.tab_type !== 'elements' && !onDomainPage && (!!selectedObject || tab.tab_type !== 'overview')}
           onTabCreate={(type) => ensureVisibleTab(type)}
           // The Domain's own page has its three tabs and no "+".
           createOptions={selectedObject ? OBJECT_CREATE_TAB_TYPES : onObjectsPage ? OBJECTS_PAGE_CREATE_TABS : NO_CREATE_TABS}

@@ -2,6 +2,7 @@
 
 import { inboxRowText, readableBody } from './inboxRow';
 import { Panel, PanelBody, PanelHeader } from '@/Function/shared/PanelLayout';
+import { cn } from '@/lib/utils';
 
 import { useMemo, useState } from 'react';
 import { Archive, Check, CheckCheck, Inbox, ListFilter, MoreHorizontal } from '@/ui/icons';
@@ -80,7 +81,7 @@ export function InboxList({ onNavigate, onViewChange, onOpen }: InboxListProps) 
                 {t('Waiting on you')}<span className="tabular-nums">{waiting.length}</span>
               </h3>
               <ul className="mt-1 space-y-0.5">
-                {waiting.map(n => <InboxRow key={n.id} notification={n} selected={inbox.selectedId === n.id} locale={locale} {...rowActions} />)}
+                {waiting.map(n => <InboxRow key={n.id} notification={n} selected={inbox.selectedId === n.id} locale={locale} actionRequired {...rowActions} />)}
               </ul>
               {rows.length > 0 && <h3 className="mt-3 px-2 text-[11px] font-medium text-muted-foreground">{t('Everything else')}</h3>}
             </>
@@ -95,10 +96,11 @@ export function InboxList({ onNavigate, onViewChange, onOpen }: InboxListProps) 
   );
 }
 
-function InboxRow({ notification: n, selected, locale, onSelect, onToggleRead, onArchive }: {
+function InboxRow({ notification: n, selected, locale, actionRequired, onSelect, onToggleRead, onArchive }: {
   notification: Notification;
   selected: boolean;
   locale: string;
+  actionRequired?: boolean;
   onSelect: (n: Notification) => void;
   onToggleRead: (n: Notification) => void;
   onArchive: (n: Notification) => void;
@@ -113,12 +115,16 @@ function InboxRow({ notification: n, selected, locale, onSelect, onToggleRead, o
   return (
     <ContextMenu>
     <ContextMenuTrigger asChild>
-    <li className={`group/row flex items-start gap-0.5 rounded-[7px] pr-1 transition-colors ${selected ? 'bg-sidebar-accent shadow-[inset_0_0_0_1px_var(--border-subtle)]' : 'hover:bg-sidebar-accent/55 focus-within:bg-sidebar-accent/55'}`}>
+    <li className={cn(
+      'group/row flex items-start gap-0.5 rounded-[7px] pr-1 transition-colors',
+      selected ? 'bg-sidebar-accent shadow-[inset_0_0_0_1px_var(--border-subtle)]' : 'hover:bg-sidebar-accent/55 focus-within:bg-sidebar-accent/55',
+      actionRequired && !selected && 'bg-[var(--accent-subtle)]/35',
+    )}>
       <button type="button" onClick={() => onSelect(n)} aria-current={selected ? 'true' : undefined}
         className="flex min-w-0 flex-1 items-start gap-2.5 rounded-[7px] py-2 pl-2 text-left focus-visible:bg-sidebar-accent">
         <span className="relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground" aria-hidden="true">
           {n.actor_name?.trim().slice(0, 2) || <Inbox size={14} />}
-          <span className="absolute -bottom-1 -right-1 rounded bg-card p-px text-[var(--text-secondary)]"><Icon size={10} /></span>
+          <span className={cn('absolute -bottom-1 -right-1 rounded-full bg-card p-0.5', meta.color)}><Icon size={10} /></span>
         </span>
         {/* What the notification is about leads; who sent it and what kind
             it is follow, small — a list of seven "Status" rows says nothing. */}

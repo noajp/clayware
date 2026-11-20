@@ -11,7 +11,15 @@
 //
 // Pure: the list component loads the open tickets and renders the split.
 
-interface InboxEntry { kind: string; question_ticket_id?: string | null }
+interface InboxEntry { kind: string; question_ticket_id?: string | null; is_read?: boolean }
+
+/** Notification kinds that explicitly ask the user for a decision or review
+ *  while unread (approvals, invitations, scheduled reviews). */
+const ACTION_REQUIRED_KINDS: ReadonlySet<string> = new Set([
+  'approval_requested',
+  'invite',
+  'review_due',
+]);
 
 /** The tickets the Inbox's question notifications point at, once each. */
 export function questionTicketIdsOf(notifications: readonly InboxEntry[]): string[] {
@@ -23,9 +31,9 @@ export function questionTicketIdsOf(notifications: readonly InboxEntry[]): strin
 }
 
 /** The Inbox in two groups, each in the order it came in: what waits on
- *  the person (questions whose ticket is still open), then everything
- *  else. While the open tickets are not known yet, nothing is claimed
- *  to be waiting. */
+ *  the person (questions whose ticket is still open, plus unread approvals,
+ *  invitations, and review requests), then everything else. While the open
+ *  tickets are not known yet, open questions are not claimed to be waiting. */
 export function splitInbox<N extends InboxEntry>(
   notifications: readonly N[],
   openTicketIds: ReadonlySet<string> | null,
@@ -33,8 +41,9 @@ export function splitInbox<N extends InboxEntry>(
   const waiting: N[] = [];
   const rest: N[] = [];
   for (const n of notifications) {
-    const open = n.kind === 'question' && !!n.question_ticket_id && !!openTicketIds?.has(n.question_ticket_id);
-    (open ? waiting : rest).push(n);
+    const openQuestion = n.kind === 'question' && !!n.question_ticket_id && !!openTicketIds?.has(n.question_ticket_id);
+    const pendingAction = ACTION_REQUIRED_KINDS.has(n.kind) && !n.is_read;
+    (openQuestion || pendingAction ? waiting : rest).push(n);
   }
   return { waiting, rest };
 }

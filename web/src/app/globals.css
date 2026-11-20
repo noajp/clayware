@@ -13,7 +13,7 @@
 
 :root {
   --control-action-radius: 6px;
-  --control-tab-radius: 6px;
+  --control-tab-radius: 9999px;
   --control-field-radius: 6px;
   /* ---- Accent (Blue — single accent) ---- */
   --accent-default: #3d5fae;

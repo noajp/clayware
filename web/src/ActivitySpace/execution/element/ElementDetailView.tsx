@@ -658,7 +658,20 @@ function ElementDetailBody({
           onOpenApproval={() => setApprovalSignal((n) => n + 1)}
           onDelegateToAi={() => setDelegateOpen(true)}
           extra={<SectionMenuItems page="element" sections={[{ id: 'element-artifacts', label: t('Artifacts') }]} />} />}
-        follow={{ kind: 'element', id: element.id }} />
+        follow={{ kind: 'element', id: element.id }}
+        actions={
+          <Button
+            variant={agentBusy ? 'secondary' : 'primary'}
+            size="sm"
+            type="button"
+            className={agentBusy ? 'rounded-full text-[var(--accent-text)]' : undefined}
+            onClick={() => setDelegateOpen(true)}
+            title={agentBusy ? t('AI is working on this Element') : t('Delegate to AI')}
+          >
+            <Bot size={14} className={agentBusy ? 'animate-pulse' : undefined} />
+            <span className="hidden sm:inline">{agentBusy ? t('AI working…') : t('Delegate to AI')}</span>
+          </Button>
+        } />
       {/* Handing the Element to an AI is a modal dialog, opened
           directly from the menu item (or ⌘K): focus is trapped by
           the dialog, so the menu's focus hand-back cannot close it

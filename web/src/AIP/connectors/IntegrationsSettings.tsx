@@ -104,15 +104,16 @@ export function ConnectorsSettings() {
   const [directoryQuery, setDirectoryQuery] = useState('');
   useEffect(() => { const id = setTimeout(() => setDirectoryQuery(q), 400); return () => clearTimeout(id); }, [q]);
 
-  // "Other ways to connect", and a draft the search asked for.
-  const [otherOpen, setOtherOpen] = useState(false);
+  // Top-level connector view tabs ('connected' | 'catalog' | 'other') and draft prefill.
+  const [activeSection, setActiveSection] = useState<'connected' | 'catalog' | 'other'>('connected');
   const [draftPrefill, setDraftPrefill] = useState<{ name: string; at: number } | null>(null);
   const draftRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (draftPrefill) draftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [draftPrefill]);
   const askAiFor = (name: string) => {
-    setOtherOpen(true);
+    setQuery('');
+    setActiveSection('other');
     setDraftPrefill({ name, at: Date.now() });
   };
 
@@ -258,28 +259,81 @@ export function ConnectorsSettings() {
             </section>
           )}
 
-          <section className="space-y-3">
-            <div>
-              <h2 className={`${FONT.lg} text-foreground`}>{t('Connected')}</h2>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">{t('Services this Space is connected to. Open one to see what AI may do with it.')}</p>
+          <div role="tablist" aria-label={t('Connectors sections')} className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              shape="tab"
+              role="tab"
+              aria-selected={activeSection === 'connected'}
+              variant={activeSection === 'connected' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveSection('connected')}
+            >
+              {t('Connected')}
+              {(connectedRows.length + siteLogins.length) > 0 && (
+                <span className="text-[11px] tabular-nums text-muted-foreground">{connectedRows.length + siteLogins.length}</span>
+              )}
+            </Button>
+            <Button
+              type="button"
+              shape="tab"
+              role="tab"
+              aria-selected={activeSection === 'catalog'}
+              variant={activeSection === 'catalog' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveSection('catalog')}
+            >
+              {t('Catalog')}
+            </Button>
+            <Button
+              type="button"
+              shape="tab"
+              role="tab"
+              aria-selected={activeSection === 'other'}
+              variant={activeSection === 'other' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveSection('other')}
+            >
+              {t('Other ways')}
+              {drafts.length > 0 && (
+                <span className="text-[11px] tabular-nums text-muted-foreground">{drafts.length}</span>
+              )}
+            </Button>
+          </div>
+
+          {activeSection === 'connected' && (
+            <div className="space-y-8">
+              <section className="space-y-3">
+                <div>
+                  <h2 className={`${FONT.lg} text-foreground`}>{t('Connected')}</h2>
+                  <p className="mt-0.5 text-[12px] text-muted-foreground">{t('Services this Space is connected to. Open one to see what AI may do with it.')}</p>
+                </div>
+                {error ? (
+                  <p className="text-[13px] text-[var(--status-danger)]">{t("Couldn't load integrations: {error}", { error: error.message })}</p>
+                ) : loading ? (
+                  <p className="text-[13px] text-muted-foreground">{t('Loading…')}</p>
+                ) : connectedRows.length === 0 ? (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-[13px] text-muted-foreground">{t('Nothing is connected to this Space yet.')}</p>
+                    {categories.length > 0 && (
+                      <Button type="button" variant="primary" size="sm" onClick={() => setActiveSection('catalog')}>
+                        {t('Browse catalog')}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {connectedRows.map(connectionCard)}
+                  </div>
+                )}
+              </section>
+
+              <SiteCredentialsSection credentials={siteLogins} loading={siteLoginsQuery.loading} error={siteLoginsQuery.error}
+                isOwner={isOwner} ownerKnown={ownerRole !== null} onOpen={setSiteLoginOpened} />
             </div>
-            {error ? (
-              <p className="text-[13px] text-[var(--status-danger)]">{t("Couldn't load integrations: {error}", { error: error.message })}</p>
-            ) : loading ? (
-              <p className="text-[13px] text-muted-foreground">{t('Loading…')}</p>
-            ) : connectedRows.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">{t('Nothing is connected to this Space yet.')}</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {connectedRows.map(connectionCard)}
-              </div>
-            )}
-          </section>
+          )}
 
-          <SiteCredentialsSection credentials={siteLogins} loading={siteLoginsQuery.loading} error={siteLoginsQuery.error}
-            isOwner={isOwner} ownerKnown={ownerRole !== null} onOpen={setSiteLoginOpened} />
-
-          {categories.length > 0 && (
+          {activeSection === 'catalog' && categories.length > 0 && (
             <section className="space-y-5">
               <h2 className={`${FONT.lg} text-foreground`}>{t('Add a service')}</h2>
               {categories.map((group) => (
@@ -292,71 +346,64 @@ export function ConnectorsSettings() {
               ))}
             </section>
           )}
+
+          {activeSection === 'other' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className={`${FONT.lg} text-foreground`}>{t('Other ways to connect')}</h2>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">
+                  {t('Your own API or MCP server, a website login, the public directory, and connections the AI drafts for you.')}
+                </p>
+              </div>
+              {(customPresets.length > 0 || isOwner) && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {customPresets.map((preset) => presetCard({ preset, state: 'ready' }))}
+                  {isOwner && <WebsiteSignInCard onOpen={() => setSiteLoginOpened('new')} />}
+                </div>
+              )}
+
+              {drafts.length > 0 && (
+                <section className="space-y-3">
+                  <h2 className={`${FONT.lg} text-foreground`}>{t('Drafted connections')}</h2>
+                  <div>
+                    {drafts.map((d) => (
+                      <button key={d.id} type="button" onClick={() => setOpenedDraftId(d.id)}
+                        className="-mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-medium text-foreground">{d.name}</div>
+                          <div className="truncate text-[12px] text-muted-foreground">{d.endpoint ?? t('No definition yet')}</div>
+                        </div>
+                        <span className={cn('inline-flex shrink-0 items-center text-[11px]',
+                          d.status === 'awaiting_review' ? 'text-[var(--status-warning)]' : d.status === 'active' ? 'text-[var(--status-success)]' : 'text-muted-foreground')}>
+                          {t(DRAFT_STATUS_LABELS[d.status])}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <RegistrySection connectedEndpoints={connectedEndpoints} canAdd={isOwner} onAdd={addFromRegistry} />
+
+              {spaceId && (
+                <div ref={draftRef} className="scroll-mt-6">
+                  <DraftCreateSection
+                    key={draftPrefill?.at ?? 0}
+                    initialName={draftPrefill?.name ?? ''}
+                    spaceId={spaceId}
+                    integrations={integrations}
+                    drafts={drafts}
+                    onCreated={(draft) => { void draftsQuery.refetch(); setOpenedDraftId(draft.id); }}
+                    onOpenDraft={(draft) => setOpenedDraftId(draft.id)}
+                  />
+                </div>
+              )}
+
+              {spaceId && <ApprovalModePointerRow spaceId={spaceId} />}
+            </div>
+          )}
         </>
       )}
-
-      <section className="space-y-6 border-t border-[var(--border-default)] pt-6">
-        <button type="button" onClick={() => setOtherOpen((v) => !v)} aria-expanded={otherOpen}
-          className="-mx-2 flex w-[calc(100%+16px)] items-start gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
-          <ChevronRight size={14} aria-hidden="true" className={cn('mt-1 shrink-0 text-muted-foreground transition-transform', otherOpen && 'rotate-90')} />
-          <span className="min-w-0">
-            <span className={`block ${FONT.lg} text-foreground`}>{t('Other ways to connect')}</span>
-            <span className="mt-0.5 block text-[12px] text-muted-foreground">
-              {t('Your own API or MCP server, a website login, the public directory, and connections the AI drafts for you.')}
-            </span>
-          </span>
-        </button>
-
-        {otherOpen && (
-          <div className="space-y-8">
-            {(customPresets.length > 0 || isOwner) && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {customPresets.map((preset) => presetCard({ preset, state: 'ready' }))}
-                {isOwner && <WebsiteSignInCard onOpen={() => setSiteLoginOpened('new')} />}
-              </div>
-            )}
-
-            {drafts.length > 0 && (
-              <section className="space-y-3">
-                <h2 className={`${FONT.lg} text-foreground`}>{t('Drafted connections')}</h2>
-                <div>
-                  {drafts.map((d) => (
-                    <button key={d.id} type="button" onClick={() => setOpenedDraftId(d.id)}
-                      className="-mx-2 flex w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-medium text-foreground">{d.name}</div>
-                        <div className="truncate text-[12px] text-muted-foreground">{d.endpoint ?? t('No definition yet')}</div>
-                      </div>
-                      <span className={cn('inline-flex shrink-0 items-center text-[11px]',
-                        d.status === 'awaiting_review' ? 'text-[var(--status-warning)]' : d.status === 'active' ? 'text-[var(--status-success)]' : 'text-muted-foreground')}>
-                        {t(DRAFT_STATUS_LABELS[d.status])}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <RegistrySection connectedEndpoints={connectedEndpoints} canAdd={isOwner} onAdd={addFromRegistry} />
-
-            {spaceId && (
-              <div ref={draftRef} className="scroll-mt-6">
-                <DraftCreateSection
-                  key={draftPrefill?.at ?? 0}
-                  initialName={draftPrefill?.name ?? ''}
-                  spaceId={spaceId}
-                  integrations={integrations}
-                  drafts={drafts}
-                  onCreated={(draft) => { void draftsQuery.refetch(); setOpenedDraftId(draft.id); }}
-                  onOpenDraft={(draft) => setOpenedDraftId(draft.id)}
-                />
-              </div>
-            )}
-
-            {spaceId && <ApprovalModePointerRow spaceId={spaceId} />}
-          </div>
-        )}
-      </section>
 
       {siteLoginOpened && spaceId && (
         <SiteCredentialDialog

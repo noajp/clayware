@@ -3,7 +3,8 @@
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { PanelLeft } from '@/ui/icons';
+import { PanelLeft, Sparkles } from '@/ui/icons';
+import { Button } from '@/ui/button';
 import { useDomains, type ElementWithDetails } from '@/hooks/useSupabase';
 import {
   NoteEditor,
@@ -60,6 +61,8 @@ export function PageView({
   linkedObjectId,
   onTitleChange,
   onContentChange,
+  onObjectize,
+  objectizing,
   activeDomainId,
   onElementsCreated,
   filesPaneOpen,
@@ -135,6 +138,18 @@ export function PageView({
         </div>
         <div className="flex items-center gap-2">
           <PresenceStack viewers={viewers} />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            shape="tab"
+            disabled={objectizing}
+            onClick={onObjectize}
+            title={t('Turn this Note into an Object and Elements')}
+          >
+            <Sparkles size={13} />
+            <span className="hidden sm:inline">{objectizing ? t('Drafting…') : t('Turn into Object')}</span>
+          </Button>
         </div>
       </div>
       <div className="flex-1 overflow-auto">

@@ -6,7 +6,11 @@ import React, { useState, useMemo, useRef, useEffect, useCallback, type ReactNod
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 import type { ClaywareObjectWithChildren, Phase, ObjectMilestone } from '@/types/database';
 import { updateElement } from '@/hooks/useSupabase';
-import { CalendarDays, ChevronDown, X, ZoomIn, ZoomOut } from '@/ui/icons';
+import { CalendarDays, ChevronDown, Flag, Plus, X, ZoomIn, ZoomOut } from '@/ui/icons';
+import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
+import { DateField } from '@/Function/shared/date/DateControl';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, MenuCheck } from '@/ui/dropdown-menu';
 import { ObjectIcon } from '@/Frame/icons';
 import { statusColor, statusLabel, statusTint } from '@/shared/designTokens';
@@ -72,6 +76,8 @@ interface GanttViewProps {
   onLinkKindChange?: (link: GanttLink, kind: DependencyKind) => void;
   /** Present when the viewer may remove one, from the mark on its line. */
   onLinkRemove?: (link: GanttLink) => void;
+  /** Present when the viewer may add a milestone directly from the timeline toolbar. */
+  onAddMilestone?: (input: { label: string; date: string }) => Promise<void> | void;
 }
 
 export interface GanttLink {
@@ -256,6 +262,7 @@ export function GanttView({
   onLinkCreate: onLinkCreateProp,
   onLinkRemove: onLinkRemoveProp,
   onLinkKindChange: onLinkKindChangeProp,
+  onAddMilestone,
 }: GanttViewProps) {
   const ROW_H = ROW_SCALE[rowScale].row;
   const BAR_H = ROW_SCALE[rowScale].bar;
@@ -344,6 +351,10 @@ export function GanttView({
   );
   const [zoom, setZoom] = useState<ZoomLevel>(defaultZoom);
   const [zoomScale, setZoomScale] = useState(1);
+  const [milestoneOpen, setMilestoneOpen] = useState(false);
+  const [milestoneLabel, setMilestoneLabel] = useState('');
+  const [milestoneDate, setMilestoneDate] = useState<string>(() => fmtDateOnly(new Date()));
+  const [savingMilestone, setSavingMilestone] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   // Set on a mouseup that moved the bar, so the click that follows the drag
@@ -687,6 +698,69 @@ export function GanttView({
         <CalendarDays size={13} className="text-muted-foreground" />
         {t('Today')}
       </button>
+      {onAddMilestone && (
+        <>
+          <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
+          <Popover open={milestoneOpen} onOpenChange={(open) => {
+            setMilestoneOpen(open);
+            if (open) {
+              setMilestoneLabel('');
+              setMilestoneDate(fmtDateOnly(new Date()));
+            }
+          }}>
+            <PopoverTrigger asChild>
+              <button type="button" title={t('Add milestone')}
+                className="inline-flex h-6 items-center gap-1 rounded px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted">
+                <Flag size={12} className="text-muted-foreground" />
+                <span>{t('Milestone')}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[260px] p-3">
+              <form
+                className="space-y-2.5"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const trimmed = milestoneLabel.trim();
+                  if (!trimmed || !milestoneDate || savingMilestone) return;
+                  setSavingMilestone(true);
+                  try {
+                    await onAddMilestone({ label: trimmed, date: milestoneDate });
+                    setMilestoneOpen(false);
+                  } finally {
+                    setSavingMilestone(false);
+                  }
+                }}
+              >
+                <div className="text-[12px] font-medium text-foreground">{t('New milestone')}</div>
+                <Input
+                  value={milestoneLabel}
+                  onChange={(e) => setMilestoneLabel(e.target.value)}
+                  placeholder={t('Milestone name')}
+                  aria-label={t('Milestone name')}
+                  className="h-8 text-[12.5px]"
+                  autoFocus
+                />
+                <DateField
+                  value={milestoneDate}
+                  onChange={(next) => setMilestoneDate(next ?? fmtDateOnly(new Date()))}
+                  placeholder="Milestone date"
+                  clearable={false}
+                  variant="secondary"
+                  block
+                />
+                <div className="flex justify-end gap-1.5 pt-1">
+                  <Button type="button" variant="ghost" size="xs" onClick={() => setMilestoneOpen(false)}>
+                    {t('Cancel')}
+                  </Button>
+                  <Button type="submit" variant="primary" size="xs" disabled={!milestoneLabel.trim() || !milestoneDate || savingMilestone}>
+                    <Plus size={12} />{t('Add')}
+                  </Button>
+                </div>
+              </form>
+            </PopoverContent>
+          </Popover>
+        </>
+      )}
     </div>
   );
 
@@ -1038,7 +1112,7 @@ export function GanttView({
                     return (
                       <div key={element.id}>
                         <div
-                          className="absolute cursor-crosshair hover:bg-muted/20 transition-colors"
+                          className="group/lane absolute cursor-crosshair hover:bg-muted/25 transition-colors"
                           style={{ left: 0, width: timelineWidth, top, height: ROW_H }}
                           title={t('Drag to schedule')}
                           onMouseDown={(e) => {
@@ -1047,7 +1121,13 @@ export function GanttView({
                             const day = Math.max(0, Math.min(totalDays - 1, Math.floor((e.clientX - rect.left) / pxPerDay)));
                             setCreating({ elementId: element.id, anchorDay: day, currentDay: day, laneLeft: rect.left });
                           }}
-                        />
+                        >
+                          {!isCreatingThis && (
+                            <span className="sticky left-3 inline-flex h-full items-center text-[11px] text-muted-foreground opacity-0 transition-opacity group-hover/lane:opacity-100 pointer-events-none select-none">
+                              {t('Drag to schedule')}
+                            </span>
+                          )}
+                        </div>
                         {isCreatingThis && (
                           <div
                             className="absolute rounded-md border-2 border-dashed pointer-events-none z-10"
@@ -1290,7 +1370,7 @@ export function GanttView({
                       <button key={end} type="button" title={t('Drag to add dependency')} aria-label={t('Drag to add dependency')}
                         // Only while its bar is under the pointer: at rest the
                         // handles would sit on the very lines they draw.
-                        className={`absolute z-20 size-3 cursor-crosshair rounded-full border border-[var(--accent-default)] bg-card transition-opacity hover:opacity-100 ${hoveredBar === element.id ? 'opacity-70' : 'opacity-0'}`}
+                        className={`absolute z-20 size-3 cursor-crosshair rounded-full border-2 border-[var(--accent-default)] bg-card transition-[opacity,transform,background-color] hover:scale-125 hover:bg-[var(--accent-default)] hover:opacity-100 ${hoveredBar === element.id ? 'opacity-90' : 'opacity-0'}`}
                         style={{ left: end === 'start' ? barPos.left - 20 : barPos.left + barWidth + 8, top: barTopOf(top) + (BAR_H - 12) / 2 }}
                         onMouseDown={(e) => {
                           e.preventDefault(); e.stopPropagation();
