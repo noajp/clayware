@@ -2,14 +2,15 @@
 
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Tag } from '@/ui/icons';
 
 // =============================================================
 // EntityChip & TagBadge — distinct visual grammar for Objects vs Tags.
 //
 // - EntityChip (Object / Domain / Entity reference): borderless icon + text,
 //   quiet and scan-friendly so titles & status remain the visual lead.
-// - TagBadge (Labels / Tags): low-saturation dot + concise text on a quiet
-//   surface, never loud rounded-full bordered capsules.
+// - TagBadge (Labels / Tags): the label's coloured Tag mark (the same mark
+//   as the Element page's Label island) + its text in an outlined pill.
 // =============================================================
 
 export function EntityChip({
@@ -58,7 +59,7 @@ export function TagBadge({
   className,
 }: {
   label: ReactNode;
-  /** CSS color string for the subtle leading dot (e.g. from labelColor()). */
+  /** CSS color string for the leading Tag mark (e.g. from labelColor()). */
   color: string;
   title?: string;
   trailing?: ReactNode;
@@ -68,15 +69,11 @@ export function TagBadge({
     <span
       title={title ?? (typeof label === 'string' ? label : undefined)}
       className={cn(
-        'inline-flex h-[20px] max-w-[140px] shrink-0 items-center gap-1.5 rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11.5px] font-normal text-[var(--text-secondary)]',
+        'inline-flex h-[22px] max-w-[140px] shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] px-2 text-[12px] font-normal text-[var(--text-secondary)]',
         className,
       )}
     >
-      <span
-        aria-hidden="true"
-        className="size-1.5 shrink-0 rounded-full opacity-85"
-        style={{ backgroundColor: color }}
-      />
+      <Tag aria-hidden size={10} className="shrink-0" style={{ color }} />
       <span className="truncate">{label}</span>
       {trailing}
     </span>

@@ -250,7 +250,7 @@ export const ElementRow = memo(function ElementRow({
           {!!el.labels?.length && <span className="flex items-center gap-1" title={el.labels.join(', ')}>
             {labelsShown.shown.map(label => <LabelChip key={label} label={label} />)}
             {labelsShown.more > 0 && (
-              <span className="inline-flex h-[20px] shrink-0 items-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11.5px] font-normal tabular-nums text-[var(--text-secondary)]"
+              <span className="inline-flex h-[22px] shrink-0 items-center rounded-full border border-[var(--border-default)] px-2 text-[12px] font-normal tabular-nums text-[var(--text-secondary)]"
                 aria-label={t('{n} more labels', { n: labelsShown.more })}>+{labelsShown.more}</span>
             )}
           </span>}
