@@ -72,7 +72,9 @@ export function VoiceMinutesDock({
   const [manualInput, setManualInput] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const isListening = status === 'listening';
+  const isStarting = status === 'starting';
+  // Asked to listen counts as listening for the controls: it can be paused or stopped.
+  const isListening = status === 'listening' || isStarting;
   const isPaused = status === 'paused';
   const latestText = interimText || segments[segments.length - 1]?.text || '';
 
@@ -81,6 +83,10 @@ export function VoiceMinutesDock({
       ? t('Microphone access was denied. Allow microphone permission in your browser settings.')
       : error === 'no-microphone'
         ? t('No microphone was detected.')
+        : error === 'not-started'
+          ? t('The microphone has not started. Allow microphone access for this site in the browser, then press Record again.')
+        : error === 'start-failed'
+          ? t('Listening could not start. Press Record to try again.')
         : error === 'unsupported'
           ? t('Live voice recognition is not supported in this browser. You can still paste transcript lines below.')
           : error;
@@ -190,7 +196,9 @@ export function VoiceMinutesDock({
             <span
               className={[
                 'inline-block size-2 shrink-0 rounded-full',
-                isListening
+                isStarting
+                  ? 'bg-muted-foreground/50'
+                  : isListening
                   ? 'animate-pulse bg-[var(--status-danger)]'
                   : structuring
                     ? 'animate-pulse bg-[var(--accent-default)]'
@@ -212,6 +220,8 @@ export function VoiceMinutesDock({
                 <span className={interimText ? 'text-muted-foreground' : 'text-foreground/90'}>
                   {latestText}
                 </span>
+              ) : isStarting ? (
+                <span className="text-muted-foreground">{t('Waiting for the microphone…')}</span>
               ) : isListening ? (
                 <span className="text-muted-foreground">{t('Listening… speak naturally')}</span>
               ) : isPaused ? (
