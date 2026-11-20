@@ -5,7 +5,6 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ChevronLeft, MoreHorizontal, Trash2 } from '@/ui/icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
-import { appDialog } from '@/Function/shared/appDialogStore';
 import { OptionMenu } from '@/Function/shared/OptionMenu';
 import { Switch } from '@/Function/settings/SettingsControls';
 import { useI18n } from '@/Function/i18n/I18nProvider';

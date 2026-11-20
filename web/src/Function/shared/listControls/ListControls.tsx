@@ -3,7 +3,6 @@
 import { Switch } from '@/Function/settings/SettingsControls';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Check,
   ChevronRight,
   ChevronDown,
   Plus,

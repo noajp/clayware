@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AiGraph, Check, CheckCheck, Code, Copy, FileText, Globe, Loader2, Pencil, Plus, RotateCcw, Search, Trash2, Wrench, X } from '@/ui/icons';
+import { AiGraph, Check, CheckCheck, Code, Copy, FileText, Globe, Pencil, Plus, RotateCcw, Search, Trash2, Wrench, X } from '@/ui/icons';
 import { formatAge } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { MarkdownLite } from '@/Function/shared/MarkdownLite';
@@ -79,11 +79,11 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
         </span>
         <span>{t('Athena')}</span>
       </div>
-      {events.length > 0 && <ToolSteps events={events} live={streaming} answered={!!message.content} />}
-      {message.content
-        ? <Answer content={message.content} chartColors={message.chartColors} settled={settled}
-            writing={streaming && !message.done} onChartColors={settled ? onChartColors : undefined} />
-        : streaming && events.length === 0 && <Working label="Thinking" since={message.at} />}
+      <ToolSteps events={events} live={streaming} answered={!!message.content} />
+      {message.content && (
+        <Answer content={message.content} chartColors={message.chartColors} settled={settled}
+          writing={streaming && !message.done} onChartColors={settled ? onChartColors : undefined} />
+      )}
       {message.approvals?.map((a) => (
         <ApprovalCard key={a.inputHash} approval={a} canRemember={canRememberApproval}
           onDecide={onDecideApproval ? (approve, opts) => onDecideApproval(a, approve, opts) : undefined} />

@@ -24,11 +24,14 @@ export function HeartbeatInboxCard({ runId, title, body }: {
           <span>{t('Agent')}</span>
         </div>
         <h1 className="text-[20px] font-semibold tracking-[-0.015em] text-foreground">{title}</h1>
-        {body && (
-          <div className="mt-4 text-[13.5px] leading-relaxed text-foreground/95">
-            <MarkdownLite text={readableBody(body, t)} />
-          </div>
-        )}
+        {body && (() => {
+          const readable = readableBody(body, t);
+          return readable ? (
+            <div className="mt-4 text-[13.5px] leading-relaxed text-foreground/95">
+              <MarkdownLite text={readable} />
+            </div>
+          ) : null;
+        })()}
         <p className="mt-4 border-t border-[var(--border-subtle)] pt-3 text-[12px] text-muted-foreground">
           {t('This digest came from a heartbeat wake. Each item is decided on its own screen; the wake only speaks.')}
         </p>

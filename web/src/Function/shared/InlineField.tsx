@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 // Uniform 32px height (h-8) and 13px text across all inputs & selects.
 // =============================================================
 
-export const INLINE_FIELD_CLASS = [
+const INLINE_FIELD_CLASS = [
   'w-full rounded-[var(--control-field-radius)]',
   'bg-[var(--surface-muted)] border border-[var(--border-subtle)]',
   'hover:border-[var(--border-default)] focus:bg-[var(--accent-subtle)]',
@@ -20,25 +20,27 @@ export const INLINE_FIELD_CLASS = [
   'disabled:cursor-not-allowed disabled:opacity-50',
 ].join(' ');
 
-export const INLINE_INPUT_CLASS = `${INLINE_FIELD_CLASS} h-8 px-2.5`;
-export const INLINE_SELECT_CLASS = `${INLINE_FIELD_CLASS} h-8 px-2.5`;
-export const INLINE_TEXTAREA_CLASS = `${INLINE_FIELD_CLASS} px-2.5 py-2 leading-[1.45] resize-y`;
+const INLINE_INPUT_CLASS = `${INLINE_FIELD_CLASS} h-8 px-2.5`;
+const INLINE_SELECT_CLASS = `${INLINE_FIELD_CLASS} h-8 px-2.5`;
+const INLINE_TEXTAREA_CLASS = `${INLINE_FIELD_CLASS} px-2.5 py-2 leading-[1.45] resize-y`;
 
 export function InlineField({
   label,
+  htmlFor,
   hint,
   error,
   children,
   className,
 }: {
   label: React.ReactNode;
+  htmlFor?: string;
   hint?: React.ReactNode;
   error?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <label className={cn('block space-y-1.5', className)}>
+    <label htmlFor={htmlFor} className={cn('block space-y-1.5', className)}>
       <span className="block text-[12px] font-medium text-[var(--text-tertiary)]">
         {label}
       </span>

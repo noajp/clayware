@@ -294,7 +294,6 @@ function PreferencesPanel() {
             />
           </div>
         </SettingRow>
-        />
       </SettingsIsland>
     </div>
   );

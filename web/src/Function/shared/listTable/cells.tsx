@@ -9,7 +9,7 @@ import { ActivitySignal } from '@/Function/shared/element/ActivitySignal';
 import { Button } from '@/ui/button';
 import { useCallback, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { DateRange } from 'react-day-picker';
-import { Plus, Check, ChevronLeft, ChevronRight, Search, Tag, X } from '@/ui/icons';
+import { Plus, ChevronLeft, ChevronRight, Search, X } from '@/ui/icons';
 import { TypeMark, useTypeIcons } from '@/Function/shared/elementTypeIcon';
 import type { ClaywareObjectWithChildren, ElementWithDetails, Worker } from '@/hooks/useSupabase';
 import { addElementAssignee, removeElementAssignee, fetchAssignableWorkers, useWorkerById, noticeAssignmentFailed } from '@/hooks/useSupabase';
@@ -38,7 +38,7 @@ import { completionOf } from '@/Function/shared/completion';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fieldDisplayLabel } from '@/Function/property/fieldModel';
 import { EntityChip, TagBadge } from '@/Function/shared/EntityChip';
-import { PRIORITY, statusLabel } from '@/shared/designTokens';
+import { PRIORITY } from '@/shared/designTokens';
 
 const PRIORITY_LABELS: Record<string, string> = Object.fromEntries(Object.entries(PRIORITY).map(([key, value]) => [key, value.label]));
 

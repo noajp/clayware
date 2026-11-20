@@ -7,7 +7,6 @@ import { SendIcon } from '@/Function/shared/SendIcon';
 import { useEffect, useRef, useState } from 'react';
 import { AiGraph, AlertCircle, CornerDownRight, X, Maximize2, Minimize2, Paperclip, Plus, Square } from '@/ui/icons';
 import { SidebarReveal } from '@/Function/shared/SidebarReveal';
-import { SendIcon } from '@/Function/shared/SendIcon';
 import { buildCopilotContext, type CopilotAttachment, type CopilotContext, type CopilotSubject } from './useClaywareCopilot';
 import { useStrategies } from '@/hooks/strategyData';
 import { CopilotMessageView, AttachmentChips } from './CopilotMessages';

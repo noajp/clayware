@@ -205,7 +205,6 @@ const SURFACE_MESSAGES: Record<string, Row> = {
   'Collapse': ['折りたたむ', '접기', 'Réduire', 'Contraer'],
 
   // ── Shell / Inbox / Controls ──────────────────────────────────
-  'Display': ['表示', '표시', 'Affichage', 'Vista'],
   'Mark as read': ['既読にする', '읽음으로 표시', 'Marquer comme lu', 'Marcar como leído'],
   'Mark as unread': ['未読にする', '읽지 않음으로 표시', 'Marquer comme non lu', 'Marcar como no leído'],
   'New Element': ['新規 Element', '새 Element', 'Nouvel Element', 'Nuevo Element'],

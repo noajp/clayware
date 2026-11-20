@@ -2,9 +2,8 @@
 
 import { Dialog, DialogContent, DialogTitle } from '@/ui/dialog';
 import { PageHeader } from '@/Function/shared/PageHeader';
-import { appDialog } from '@/Function/shared/appDialogStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, CirclePlay, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from '@/ui/icons';
+import { ChevronDown, CirclePlay, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from '@/ui/icons';
 import { isCommitEnter, useEscapeLayer } from '@/Function/shared/keyboard';
 import { NavPhaseIcon } from '@/Frame/sidebar/NavIcons';
 import { EmptyState } from '@/Function/shared/EmptyState';

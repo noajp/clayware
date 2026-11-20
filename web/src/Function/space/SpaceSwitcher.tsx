@@ -3,7 +3,7 @@
 import { appDialog } from '@/Function/shared/appDialogStore';
 
 import { useState } from 'react';
-import { Check, Plus, Trash2, Settings, Users, ChevronRight, ChevronsUpDown, LogOut, ArrowLeft } from '@/ui/icons';
+import { Plus, Trash2, Settings, Users, ChevronRight, ChevronsUpDown, LogOut, ArrowLeft } from '@/ui/icons';
 import { Popover, PopoverTrigger, PopoverContent } from '@/ui/popover';
 import {
   useActivitySpaces,

@@ -101,7 +101,12 @@ function ObjectCreatedCard({ entity }: { entity: CreatedEntity }) {
         <span className="min-w-0 truncate text-[13px] text-foreground">{object?.name ?? entity.title}</span>
         <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
           <span>{t('Object')}</span>
-          {object?.prefix && <span className="tabular-nums">· {object.prefix}</span>}
+          {object?.prefix && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="tabular-nums">{object.prefix}</span>
+            </>
+          )}
           {gone && <span>· {t('Deleted')}</span>}
         </span>
       </span>
