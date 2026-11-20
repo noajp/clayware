@@ -56,8 +56,8 @@ async function invokeNoteAi<T>(body: Record<string, unknown>): Promise<T> {
   return result;
 }
 
-/** Turns newly spoken transcript into structured minutes HTML to add at the end
- *  of the Note. The Note's text is context only: the answer never rewrites it. */
+/** Turns words written as spoken into a titled section of minutes, as HTML
+ *  that takes their place. The Note above them is context only. */
 export async function structureVoiceMinutes(args: {
   title: string;
   existingText: string;
@@ -78,6 +78,21 @@ export async function structureVoiceMinutes(args: {
     suggestedTitle: res.suggestedTitle ?? null,
     summaryNote: res.summaryNote ?? '',
   };
+}
+
+/** Groups the minutes written so far again: sections on one topic under one
+ *  heading, said once. The answer takes the place of those minutes. */
+export async function regroupVoiceMinutes(args: {
+  title: string;
+  minutesHtml: string;
+  language: string;
+}): Promise<{ html: string }> {
+  const res = await invokeNoteAi<{ html?: string }>({
+    mode: 'structure',
+    regroup: true,
+    ...args,
+  });
+  return { html: res.html ?? '' };
 }
 
 /** Fast inline ghost-text Tab completion at the caret. */

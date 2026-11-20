@@ -5,7 +5,7 @@ import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelLeft, X } from '@/ui/icons';
 import { useDomains, type ElementWithDetails } from '@/hooks/useSupabase';
-import { proposeNoteRefinements, structureVoiceMinutes } from '@/hooks/noteAi';
+import { proposeNoteRefinements, regroupVoiceMinutes, structureVoiceMinutes } from '@/hooks/noteAi';
 import {
   NoteEditor,
   type NoteEditorHandle,
@@ -14,9 +14,10 @@ import {
 import {
   computeTranscriptDelta,
   shouldAutoStructure,
+  shouldRegroup,
   type DensityReport,
 } from '@/Function/notebook/noteAiModel';
-import { useVoiceCapture, type VoiceLanguage } from '@/Function/notebook/voice/useVoiceCapture';
+import { spokenLanguage, useVoiceCapture } from '@/Function/notebook/voice/useVoiceCapture';
 import { VoiceMinutesDock } from '@/Function/notebook/voice/VoiceMinutesDock';
 import type { SaveHow } from '@/Function/notebook/noteContentStore';
 import { BulletExtractDialog } from './BulletExtractDialog';
@@ -88,8 +89,7 @@ export function PageView({
 
   // Voice minutes and the Note's AI. Each AI call is one the person asked for:
   // /voice, /ai, /complete and ⌘J in the editor. The header carries no AI button.
-  const initialVoiceLang: VoiceLanguage = locale === 'en' ? 'en-US' : 'ja-JP';
-  const voice = useVoiceCapture(initialVoiceLang);
+  const voice = useVoiceCapture(spokenLanguage(locale === 'en' ? 'en-US' : 'ja-JP'));
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [autoStructure, setAutoStructure] = useState(true);
   const [structuring, setStructuring] = useState(false);
@@ -102,9 +102,12 @@ export function PageView({
   });
   const [aiNotice, setAiNotice] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [processedCount, setProcessedCount] = useState(0);
+  // Characters written as spoken and not yet organized.
+  const [pendingChars, setPendingChars] = useState(0);
 
-  const lastProcessedCountRef = useRef(0);
+  const writtenCountRef = useRef(0);
+  // Sections organized since the minutes were last regrouped.
+  const roundsRef = useRef(0);
   const lastStructuredAtRef = useRef(0);
   const structuringRef = useRef(false);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,10 +128,7 @@ export function PageView({
     };
   }, []);
 
-  const { fullText, unprocessedChars } = useMemo(
-    () => computeTranscriptDelta(voice.segments, processedCount),
-    [voice.segments, processedCount],
-  );
+  const fullText = useMemo(() => computeTranscriptDelta(voice.segments, 0).fullText, [voice.segments]);
 
   // Elements created from a Note land in the linked Object's Domain (when
   // a link is set) and otherwise fall back to the active Domain.
@@ -168,67 +168,96 @@ export function PageView({
     setBulletCtx(info);
   }, []);
 
-  // Raw non-AI mode: when auto-structure is turned off, each finalized spoken
-  // segment appends straight into the Note so voice capture works without AI.
+  // Words reach the Note as they are spoken, with or without AI.
   useEffect(() => {
-    if (autoStructure) return;
-    if (voice.segments.length <= lastProcessedCountRef.current) return;
-    const nextSegments = voice.segments.slice(lastProcessedCountRef.current);
-    lastProcessedCountRef.current = voice.segments.length;
-    setProcessedCount(voice.segments.length);
-    for (const seg of nextSegments) {
-      editorRef.current?.appendParagraph(seg.text);
-    }
-  }, [autoStructure, voice.segments]);
+    if (voice.segments.length < writtenCountRef.current) writtenCountRef.current = voice.segments.length;
+    if (!voiceOpen || voice.segments.length === writtenCountRef.current) return;
+    const spoken = voice.segments.slice(writtenCountRef.current);
+    writtenCountRef.current = voice.segments.length;
+    for (const seg of spoken) editorRef.current?.voice.append(seg.text);
+    setPendingChars(editorRef.current?.voice.pendingChars() ?? 0);
+  }, [voiceOpen, voice.segments]);
 
-  const runStructure = useCallback(async () => {
-    if (structuringRef.current) return;
-    const { deltaText: delta, fullText: full } = computeTranscriptDelta(
-      voice.segments,
-      lastProcessedCountRef.current,
-    );
-    // Only what has not been written yet: organizing the same words twice would add them twice.
-    if (!delta) return;
+  // What is being said now shows below them until it settles.
+  useEffect(() => {
+    editorRef.current?.voice.interim(voiceOpen ? voice.interimText : '');
+  }, [voiceOpen, voice.interimText]);
+
+  // Once several sections have gathered they are grouped again, shorter.
+  const runRegroup = useCallback(async (last: boolean) => {
+    const editor = editorRef.current;
+    const minutes = editor?.voice.minutes();
+    if (!editor || !minutes) return;
+    if (!shouldRegroup({ rounds: roundsRef.current, minutesChars: minutes.chars, plain: minutes.plain, last })) return;
+    roundsRef.current = 0;
+    try {
+      const res = await regroupVoiceMinutes({
+        title: draftTitle.trim(),
+        minutesHtml: minutes.html,
+        language: voice.language,
+      });
+      if (editor.voice.replaceMinutes(res.html, minutes.html) === 'done') {
+        showNotice(t('Minutes regrouped · ⌘Z to undo'));
+      }
+    } catch {
+      // The minutes stay as they are; the next round tries again.
+      showNotice(t('The minutes could not be regrouped. They stay as they are.'));
+    }
+  }, [voice.language, draftTitle, showNotice, t]);
+
+  const runStructure = useCallback(async (last = false) => {
+    const editor = editorRef.current;
+    if (!editor || structuringRef.current) return;
+    // The words as written in the Note, with whatever was corrected by hand.
+    const taken = editor.voice.take();
+    if (!taken) {
+      if (last) {
+        structuringRef.current = true;
+        setStructuring(true);
+        try { await runRegroup(true); } finally { structuringRef.current = false; setStructuring(false); }
+      }
+      return;
+    }
 
     structuringRef.current = true;
     setStructuring(true);
     setAiError(null);
-    const snapshotCount = voice.segments.length;
     try {
       const currentTitle = draftTitle.trim();
       const res = await structureVoiceMinutes({
         title: currentTitle,
-        existingText: editorRef.current?.getText() ?? '',
-        transcriptDelta: delta,
-        fullTranscript: full,
+        existingText: editor.voice.context(),
+        transcriptDelta: taken,
+        fullTranscript: '',
         language: voice.language,
       });
-      // Added at the end: the Note as written, and whatever was typed meanwhile, stays.
-      if (res.html) {
-        editorRef.current?.appendHtml(res.html);
-      }
-      if (res.suggestedTitle && !currentTitle) {
-        setDraftTitle(res.suggestedTitle);
-        onTitleChange(res.suggestedTitle);
-      }
-      lastProcessedCountRef.current = snapshotCount;
-      setProcessedCount(snapshotCount);
       lastStructuredAtRef.current = Date.now();
-      showNotice(
-        res.summaryNote
-          ? `${res.summaryNote} · ${t('⌘Z to undo')}`
-          : t('Minutes updated · ⌘Z to undo'),
-      );
+      // Only the words it was made from are replaced; the rest of the Note stays.
+      if (editor.voice.replaceSpoken(res.html, taken) === 'done') {
+        roundsRef.current += 1;
+        if (res.suggestedTitle && !currentTitle) {
+          setDraftTitle(res.suggestedTitle);
+          onTitleChange(res.suggestedTitle);
+        }
+        showNotice(
+          res.summaryNote
+            ? `${res.summaryNote} · ${t('⌘Z to undo')}`
+            : t('Minutes updated · ⌘Z to undo'),
+        );
+        await runRegroup(last);
+      }
     } catch (err) {
-      // Without AI (no plan, budget spent, offline) the words still reach the
-      // Note: auto-organize turns off and they are written as spoken.
+      // Without AI (no plan, budget spent, offline) the words stay in the Note
+      // as spoken, and auto-organize turns off.
+      editor.voice.release();
       setAiError(formatError(err));
       setAutoStructure(false);
     } finally {
       structuringRef.current = false;
       setStructuring(false);
+      setPendingChars(editor.voice.pendingChars());
     }
-  }, [voice.segments, voice.language, draftTitle, onTitleChange, showNotice, t]);
+  }, [voice.language, draftTitle, onTitleChange, showNotice, runRegroup, t]);
 
   // Automatic background structuring while speaking once enough speech builds up.
   useEffect(() => {
@@ -236,14 +265,12 @@ export function PageView({
     if (voice.status !== 'listening' && voice.status !== 'paused') return;
     const id = setInterval(() => {
       if (structuringRef.current) return;
-      const { unprocessedChars: pendingChars } = computeTranscriptDelta(
-        voice.segments,
-        lastProcessedCountRef.current,
-      );
+      const chars = editorRef.current?.voice.pendingChars() ?? 0;
+      setPendingChars(chars);
       const now = Date.now();
       if (
         shouldAutoStructure({
-          unprocessedChars: pendingChars,
+          unprocessedChars: chars,
           msSinceLastSpeech: voice.lastSpeechAt ? now - voice.lastSpeechAt : 0,
           msSinceLastStructure: now - lastStructuredAtRef.current,
         })
@@ -252,9 +279,14 @@ export function PageView({
       }
     }, 2000);
     return () => clearInterval(id);
-  }, [voiceOpen, autoStructure, voice.status, voice.segments, voice.lastSpeechAt, runStructure]);
+  }, [voiceOpen, autoStructure, voice.status, voice.lastSpeechAt, runStructure]);
 
   const handleOpenVoice = useCallback(() => {
+    // What was said before the panel opened is not written again.
+    writtenCountRef.current = voice.segments.length;
+    roundsRef.current = 0;
+    editorRef.current?.voice.begin();
+    setPendingChars(0);
     setVoiceOpen(true);
     setAiError(null);
     if (voice.supported && voice.status === 'idle') {
@@ -264,13 +296,12 @@ export function PageView({
 
   const handleStopVoice = useCallback(() => {
     voice.stop();
-    if (autoStructure && voice.segments.length > lastProcessedCountRef.current) {
-      void runStructure();
-    }
+    if (autoStructure) void runStructure(true);
   }, [voice, autoStructure, runStructure]);
 
   const handleCloseVoice = useCallback(() => {
     voice.stop();
+    editorRef.current?.voice.end();
     setVoiceOpen(false);
   }, [voice]);
 
@@ -403,11 +434,10 @@ export function PageView({
         <VoiceMinutesDock
           supported={voice.supported}
           status={voice.status}
-          language={voice.language}
           segments={voice.segments}
           interimText={voice.interimText}
           elapsedSec={voice.elapsedSec}
-          unprocessedChars={unprocessedChars}
+          unprocessedChars={pendingChars}
           autoStructure={autoStructure}
           structuring={structuring}
           notice={aiNotice}
@@ -417,7 +447,6 @@ export function PageView({
           onResume={voice.resume}
           onStop={handleStopVoice}
           onClose={handleCloseVoice}
-          onSetLanguage={voice.setLanguage}
           onToggleAutoStructure={() => setAutoStructure((v) => !v)}
           onStructureNow={() => { void runStructure(); }}
           onAppendManualText={voice.appendManualText}

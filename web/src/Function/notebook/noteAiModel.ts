@@ -308,10 +308,9 @@ export function computeTranscriptDelta(
   return { deltaText, fullText, unprocessedChars };
 }
 
-/** Decides when to trigger an automatic background structuring pass during live
- *  voice capture:
- *   - once >= 110 new chars have accumulated (enough for a coherent thought), OR
- *   - once >= 45 new chars have sat idle for >= 10s (natural topic pause). */
+/** Pure. Whether the words written as spoken are due to be organized into a
+ *  section: enough for a topic to have taken shape, or a shorter run followed
+ *  by a pause. Never sooner than 8s after the last round. */
 export function shouldAutoStructure(args: {
   unprocessedChars: number;
   msSinceLastSpeech: number;
@@ -319,9 +318,27 @@ export function shouldAutoStructure(args: {
 }): boolean {
   if (args.unprocessedChars <= 0) return false;
   if (args.msSinceLastStructure < 8000) return false;
-  if (args.unprocessedChars >= 110) return true;
-  if (args.unprocessedChars >= 45 && args.msSinceLastSpeech >= 9000) return true;
+  if (args.unprocessedChars >= 240) return true;
+  if (args.unprocessedChars >= 60 && args.msSinceLastSpeech >= 10000) return true;
   return false;
+}
+
+/** The longest minutes sent to be regrouped in one go. */
+export const REGROUP_MAX_CHARS = 12000;
+
+/** Pure. Whether the minutes are due to be grouped again: three sections
+ *  since the last time (two when recording has stopped), and enough written
+ *  for regrouping to shorten anything. Minutes that hold more than text are
+ *  left as they are. */
+export function shouldRegroup(args: {
+  rounds: number;
+  minutesChars: number;
+  plain: boolean;
+  last: boolean;
+}): boolean {
+  if (!args.plain) return false;
+  if (args.minutesChars < 600 || args.minutesChars > REGROUP_MAX_CHARS) return false;
+  return args.rounds >= (args.last ? 2 : 3);
 }
 
 /** Formats seconds as mm:ss for the voice timer. */

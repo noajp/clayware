@@ -49,6 +49,8 @@ interface RequestBody {
   existingText?: string;
   transcriptDelta?: string;
   fullTranscript?: string;
+  regroup?: boolean;
+  minutesHtml?: string;
   // complete
   prefix?: string;
   suffix?: string;
@@ -165,21 +167,21 @@ async function callClaudeTool<T>(args: {
 
 // ── Mode 1: Dynamic Voice → Structured Minutes ─────────────────────────────
 //
-// The answer is only what to add at the end of the Note. The Note itself is
-// read for context and never rewritten, so nothing a person typed while the
-// model was thinking — and nothing the model cannot write (links, images,
-// tables, linked Elements) — can be lost to a structuring pass.
+// The Note holds the words as they were spoken. The answer is the section
+// that takes their place, and only theirs: the rest of the Note is read for
+// context and never rewritten, so nothing a person typed — and nothing the
+// model cannot write (links, images, tables, linked Elements) — is lost.
 
 const STRUCTURE_TOOL = {
-  name: "emit_minutes_to_append",
-  description: "Return structured minutes HTML for the newly spoken transcript, to append at the end of the note.",
+  name: "emit_minutes_section",
+  description: "Return the minutes section, as HTML, that takes the place of the newly spoken transcript in the note.",
   input_schema: {
     type: "object",
     properties: {
       html: {
         type: "string",
         description:
-          "Clean semantic HTML for the NEW content only, using ONLY h2, h3, p, ul, ol, li, blockquote, strong, em, code, and checklist ul[data-checklist='true'] > li[data-checked='false']. No <html>/<body>/<script>/<style>. Empty string when the new transcript adds nothing worth noting.",
+          "Clean semantic HTML for the NEW content only, using ONLY h2, h3, p, ul, ol, li, blockquote, strong, em, code, and checklist ul[data-checklist='true'] > li[data-checked='false']. No <html>/<body>/<script>/<style>. Empty string only when the transcript is nothing but filler.",
       },
       suggestedTitle: {
         type: "string",
@@ -206,13 +208,13 @@ async function handleStructure(apiKey: string, spend: Spend, body: RequestBody) 
   }
 
   const system = `あなたはリアルタイム議事録の構造化アシスタントです。
-新しく話された書き起こしを、ノートの末尾に追記する構造化ブロックにまとめます。
+ノートには話された言葉がそのまま書かれています。その書き起こしを、話題を表す見出しで括った議事のセクションにまとめます。出力はノートの中で書き起こしと置き換わります。
 
 ルール:
 - ${langInstruction(body.language)}
-- 出力はノートの末尾に追記する新しい内容だけ。既存ノートは参照用で、書き直したり繰り返したりしない
-- 既存ノートにすでに書かれている内容は出力しない。新しい書き起こしに記録すべき内容がなければ html は空文字にする
-- 既存ノートの最後の見出しと同じ話題が続いているときは、見出しを繰り返さず箇条書きだけを返す。話題が変わったら <h2> で始める
+- 出力は新しい書き起こしをまとめたセクションだけ。それより前のノートは参照用で、書き直したり繰り返したりしない
+- 書き起こしは出力に置き換わって消える。話された中身（結論・理由・数字・固有名詞・誰が何をするか）は落とさずに残す。フィラーだけで中身がないときに限り html を空文字にする
+- 話題を短く言い表す <h2> で始め、その下に要点を箇条書きで置く。直前のノートの最後の見出しと同じ話題が続いているときは、見出しを繰り返さず箇条書きだけを返す
 - 話し言葉のフィラー（「えー」「あのー」「まあ」等）や言い直しは取り除き、要点だけを簡潔にまとめる
 - 決定事項はそれと分かる形で書き、アクションアイテムは必ずチェックリスト形式で書く: <ul data-checklist="true"><li data-checked="false">担当者: 内容（期限）</li></ul>
 - 使用してよい HTML タグは <h2> <h3> <p> <ul> <ol> <li> <blockquote> <strong> <em> <code> のみ。<h1> や <div> <span> <style> は使わない
@@ -220,8 +222,8 @@ async function handleStructure(apiKey: string, spend: Spend, body: RequestBody) 
 
   const userPrompt = [
     `現在のタイトル: ${title || "(無題)"}`,
-    existingText ? `\n既存ノートの末尾（参照用。出力に含めない）:\n${existingText}` : "\n既存ノート: (空)",
-    `\n新しく話された書き起こし（これを構造化する）:\n${transcriptDelta}`,
+    existingText ? `\nここまでのノートの末尾（参照用。出力に含めない）:\n${existingText}` : "\nここまでのノート: (空)",
+    `\n新しく話された書き起こし（これをセクションにまとめる）:\n${transcriptDelta}`,
     fullTranscript && fullTranscript !== transcriptDelta
       ? `\nこれまでの書き起こしの末尾（文脈参照用）:\n${fullTranscript}`
       : "",
@@ -248,6 +250,61 @@ async function handleStructure(apiKey: string, spend: Spend, body: RequestBody) 
     suggestedTitle: typeof output.suggestedTitle === "string" && output.suggestedTitle.trim() ? output.suggestedTitle.trim() : null,
     summaryNote: typeof output.summaryNote === "string" ? output.summaryNote.trim() : "",
   });
+}
+
+// Regrouping: the sections written so far, grouped again and said once.
+
+const REGROUP_TOOL = {
+  name: "emit_regrouped_minutes",
+  description: "Return the minutes regrouped and condensed, as HTML that takes the place of the minutes given.",
+  input_schema: {
+    type: "object",
+    properties: {
+      html: {
+        type: "string",
+        description:
+          "Clean semantic HTML for the whole regrouped minutes, using ONLY h2, h3, p, ul, ol, li, blockquote, strong, em, code, and checklist ul[data-checklist='true'] > li[data-checked]. No <html>/<body>/<script>/<style>.",
+      },
+    },
+    required: ["html"],
+  },
+};
+
+async function handleRegroup(apiKey: string, spend: Spend, body: RequestBody) {
+  const title = clampText(body.title, 200).trim();
+  const minutesHtml = typeof body.minutesHtml === "string" ? body.minutesHtml.trim() : "";
+  if (!minutesHtml) return jsonResponse({ error: "minutesHtml is required" }, 400);
+  // Cut short it would come back with its end missing, and that would be what is kept.
+  if (minutesHtml.length > 40000) return jsonResponse({ html: "" });
+
+  const system = `あなたは会議の議事を整える編集者です。
+ここまでに話題ごとに書かれた議事のセクションを受け取り、全体を括り直して短くします。出力はノートの中で元の議事と置き換わります。
+
+ルール:
+- ${langInstruction(body.language)}
+- 同じ話題や近い話題のセクションは一つの <h2> の下にまとめる。必要なら <h3> で小分けにする。話題の順番は話された流れを保つ
+- 同じことの繰り返しは一度だけ書く。細かい経過は端折り、結論・理由・数字・固有名詞・未決の論点は残す
+- 決定事項はそれと分かる形で残す
+- チェックリスト（<ul data-checklist="true"><li data-checked="...">）の項目は一つも落とさず、data-checked の値も変えない。同じ項目が重なっているときだけ一つにする
+- 元の議事にない事実や固有名詞を足さない
+- 使用してよい HTML タグは <h2> <h3> <p> <ul> <ol> <li> <blockquote> <strong> <em> <code> のみ。<h1> や <div> <span> <style> は使わない`;
+
+  const userPrompt = [
+    `ノートのタイトル: ${title || "(無題)"}`,
+    `\nここまでの議事（HTML。これを括り直す）:\n${minutesHtml}`,
+  ].join("\n");
+
+  const output = await callClaudeTool<{ html?: string }>({
+    apiKey,
+    spend,
+    model: SMART_MODEL,
+    maxTokens: 8192,
+    system,
+    userPrompt,
+    tool: REGROUP_TOOL,
+  });
+
+  return jsonResponse({ html: typeof output.html === "string" ? output.html.trim() : "" });
 }
 
 // ── Mode 2: Inline Ghost-Text Tab Completion ───────────────────────────────
@@ -595,7 +652,11 @@ Deno.serve(async (req: Request) => {
 
     const spend: Spend = { model: mode === "complete" ? FAST_MODEL : SMART_MODEL, usd: 0 };
     try {
-      if (mode === "structure") return await handleStructure(anthropicKey, spend, body);
+      if (mode === "structure") {
+        return body.regroup
+          ? await handleRegroup(anthropicKey, spend, body)
+          : await handleStructure(anthropicKey, spend, body);
+      }
       if (mode === "complete") return await handleComplete(anthropicKey, spend, body);
       if (mode === "propose") return await handlePropose(anthropicKey, spend, body);
       return await handleEdit(anthropicKey, spend, body);

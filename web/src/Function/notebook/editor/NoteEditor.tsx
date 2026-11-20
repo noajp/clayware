@@ -53,6 +53,22 @@ import {
   applyProposalToView, applySelectionEditToView, ghostCompletionPlugin, ghostKey,
   pinpointProposalsPlugin, proposalsKey, setGhostCompletion, setProposalsState,
 } from '../pm/aiAssist';
+import {
+  appendSpoken,
+  beginVoice,
+  endVoice,
+  readMinutes,
+  releaseSpoken,
+  replaceMinutes,
+  replaceSpoken,
+  setVoiceInterim,
+  spokenChars,
+  takeSpoken,
+  textBeforeSpoken,
+  voiceRegionPlugin,
+  type VoiceMinutes,
+  type VoiceReplaceOutcome,
+} from '../pm/voiceRegion';
 import { DrawnBlocks, DrawnRegistry, drawnNodeView } from '../pm/drawn';
 import { ChecklistMarks, MarkRegistry, checklistMarks, type LineMark } from '../pm/marks';
 import {
@@ -121,6 +137,25 @@ export interface BulletContextInfo {
 }
 
 /** Imperative handle so the page around the editor can drive it. */
+export interface NoteVoiceHandle {
+  begin(): void;
+  end(): void;
+  /** Writes words as they were spoken. */
+  append(text: string): void;
+  /** Shows what is being said now, below what is written. */
+  interim(text: string): void;
+  /** Characters written as spoken and not yet organized. */
+  pendingChars(): number;
+  /** The Note above the words as spoken. */
+  context(): string;
+  /** Takes the words as spoken to be organized; null when there are none. */
+  take(): string | null;
+  release(): void;
+  replaceSpoken(html: string, taken: string): VoiceReplaceOutcome;
+  minutes(): VoiceMinutes | null;
+  replaceMinutes(html: string, read: string): VoiceReplaceOutcome;
+}
+
 export interface NoteEditorHandle {
   applyBlock(tag: BlockTag): void;
   applyList(kind: ListKind): void;
@@ -128,15 +163,11 @@ export interface NoteEditorHandle {
   focus(): void;
   /** Links lines just turned into Elements to them, then saves. */
   linkBullets(entries: { li: HTMLLIElement; elementId: string }[]): void;
-  /** Adds blocks to the end of the Note as one undoable step. What is already
-   *  written is left as it is, so typing meanwhile is never overwritten. */
-  appendHtml(html: string): void;
-  /** Appends a plain-text paragraph to the end of the note (for non-AI voice mode). */
-  appendParagraph(text: string): void;
+  /** Voice minutes: the words spoken are written as lines, then replaced by
+   *  the sections made from them. Only what voice wrote is ever rewritten. */
+  voice: NoteVoiceHandle;
   /** Returns current editable text units for pinpoint AI proposals. */
   getBlocks(): NoteBlockSummary[];
-  /** The Note as plain text, as context for what is added next. */
-  getText(): string;
   /** Highlights pinpoint block-level proposals directly in the editor; returns matched count. */
   setProposals(proposals: NoteProposal[]): number;
   /** Clears all active pinpoint proposals. */
@@ -744,6 +775,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const common = (undo: Command, redo: Command): Plugin[] => [
       slashTrigger((key) => slashKeyRef.current(key)),
       ghostCompletionPlugin(),
+      voiceRegionPlugin(),
       pinpointProposalsPlugin((id) => {
         const v = viewRef.current;
         if (!v) return;
@@ -872,39 +904,29 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     offeredRef.current = [];
     if (found.length) linkItems(found)(view.state, view.dispatch);
   }, []);
-  const appendHtml = useCallback((html: string) => {
-    const view = viewRef.current;
-    if (!view || !html.trim()) return;
-    const added = htmlToDoc(html);
-    if (isEmptyDoc(added)) return;
-    const { doc } = view.state;
-    // Read at the moment of writing, so what was typed meanwhile stays above it.
-    const tr = isEmptyDoc(doc)
-      ? view.state.tr.replaceWith(0, doc.content.size, added.content)
-      : view.state.tr.insert(doc.content.size, added.content);
-    view.dispatch(tr);
-  }, []);
-  const appendParagraph = useCallback((text: string) => {
-    const view = viewRef.current;
-    const trimmed = text.trim();
-    if (!view || !trimmed) return;
-    const { paragraph } = schema.nodes;
-    const tr = view.state.tr;
-    if (isEmptyDoc(view.state.doc)) {
-      tr.insertText(trimmed, 1, 1);
-    } else {
-      tr.insert(view.state.doc.content.size, paragraph.create(null, schema.text(trimmed)));
-    }
-    view.dispatch(tr.scrollIntoView());
+  const voice = useMemo<NoteVoiceHandle>(() => {
+    const withView = <T,>(none: T, run: (view: EditorView) => T): T => {
+      const view = viewRef.current;
+      return view ? run(view) : none;
+    };
+    return {
+      begin: () => withView(undefined, beginVoice),
+      end: () => withView(undefined, endVoice),
+      append: (text) => withView(undefined, (view) => appendSpoken(view, text)),
+      interim: (text) => withView(undefined, (view) => setVoiceInterim(view, text)),
+      pendingChars: () => withView(0, (view) => spokenChars(view.state)),
+      context: () => withView('', (view) => textBeforeSpoken(view.state)),
+      take: () => withView(null, takeSpoken),
+      release: () => withView(undefined, releaseSpoken),
+      replaceSpoken: (html, taken) => withView<VoiceReplaceOutcome>('gone', (view) => replaceSpoken(view, html, taken)),
+      minutes: () => withView(null, (view) => readMinutes(view.state)),
+      replaceMinutes: (html, read) => withView<VoiceReplaceOutcome>('gone', (view) => replaceMinutes(view, html, read)),
+    };
   }, []);
   const getBlocks = useCallback((): NoteBlockSummary[] => {
     const view = viewRef.current;
     if (!view) return [];
     return toBlockSummaries(extractEditableUnits(view.state.doc));
-  }, []);
-  const getText = useCallback((): string => {
-    const view = viewRef.current;
-    return view ? view.state.doc.textBetween(0, view.state.doc.content.size, '\n', ' ') : '';
   }, []);
   const setProposals = useCallback((proposals: NoteProposal[]): number => {
     const view = viewRef.current;
@@ -935,10 +957,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       insertTable,
       focus,
       linkBullets,
-      appendHtml,
-      appendParagraph,
+      voice,
       getBlocks,
-      getText,
       setProposals,
       clearProposals,
       triggerCompletion,
@@ -949,10 +969,8 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
       insertTable,
       focus,
       linkBullets,
-      appendHtml,
-      appendParagraph,
+      voice,
       getBlocks,
-      getText,
       setProposals,
       clearProposals,
       triggerCompletion,
