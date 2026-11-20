@@ -23,7 +23,7 @@ import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
-import { ArrowLeft, Compass, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
+import { ArrowLeft, Compass, Plus, Bot, Settings, Users, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
 import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { domainHasObjectsMessage, useDomainRole, type DomainRole } from '@/hooks/domainData';
@@ -455,18 +455,6 @@ export function AppSidebar({
             <SettingsSidebarPanel />
           ) : (
           <>
-          {/* Quick command / search launcher (Linear / Raycast pattern). */}
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
-            aria-label={t('Search')}
-            className="mb-2.5 flex h-[30px] w-full items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-well)] px-2 text-[12.5px] text-muted-foreground transition-colors hover:border-[var(--border-default)] hover:bg-sidebar-accent/70 hover:text-foreground"
-          >
-            <Search size={13} className="shrink-0 opacity-75" />
-            <span className="min-w-0 flex-1 truncate text-left">{t('Search')}</span>
-            <kbd className="kbd-key">⌘K</kbd>
-          </button>
-
           {section === 'home' && <>
           {/* Home: the person's own rows, in their order (drag a row to
               move it). */}

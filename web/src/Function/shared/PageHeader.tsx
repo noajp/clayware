@@ -50,7 +50,6 @@ export function PageHeader({
   const resolvedCrumbs: IslandCrumb[] = crumbs ?? (
     title !== undefined ? [{ id: 'title', label: title, icon }] : []
   );
-  const hasLeftRightDivider = Boolean(controls && (primaryAction || more));
 
   return (
     <header className={`gloss-bar flex h-12 flex-shrink-0 items-center gap-1.5 bg-card pl-6 pr-3 ${className}`}>
@@ -94,9 +93,6 @@ export function PageHeader({
       {(controls || primaryAction || more) && (
         <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5 pl-3">
           {controls && <div className="flex items-center gap-1">{controls}</div>}
-          {hasLeftRightDivider && (
-            <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-[var(--border-subtle)]" />
-          )}
           {primaryAction}
           {more}
         </div>

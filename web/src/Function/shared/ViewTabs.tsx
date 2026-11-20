@@ -18,7 +18,7 @@ export function ViewTabs<T extends string>({ tabs, active, onSelect, label, acti
 }) {
   const { t } = useI18n();
   return (
-    <div role="tablist" aria-label={label} className="flex shrink-0 items-center gap-1 border-b border-[var(--gloss-rim)] bg-transparent py-1.5 pl-6 pr-4">
+    <div role="tablist" aria-label={label} className="flex shrink-0 items-center gap-1.5 bg-transparent py-2 pl-[19px] pr-4">
       {tabs.map((v) => {
         const Icon = v.icon;
         const isActive = active === v.id;
