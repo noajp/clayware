@@ -479,6 +479,7 @@ export function PageView({
           structuring={structuring}
           notice={aiNotice}
           error={aiError || voice.error}
+          silence={voice.silence}
           onStart={voice.start}
           onPause={voice.pause}
           onResume={voice.resume}

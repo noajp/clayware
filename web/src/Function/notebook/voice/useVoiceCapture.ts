@@ -35,6 +35,8 @@ interface SpeechRecognitionLike {
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
+  onaudiostart: (() => void) | null;
+  onsoundstart: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -58,6 +60,13 @@ export type VoiceStatus = 'idle' | 'starting' | 'listening' | 'paused' | 'error'
 /** How long listening may take to begin before the person is told it has not. */
 const START_WAIT_MS = 6000;
 
+/** How long listening may go on with no words before the person is told why. */
+const SILENCE_WAIT_MS = 10000;
+
+/** Why no words have come: nothing reaches the microphone, or sound does and
+ *  the browser's speech service gives nothing back for it. */
+export type VoiceSilence = 'no-audio' | 'no-sound' | 'no-words';
+
 /** Pure but for the browser. The language to listen in. The language the
  *  screen is shown in says little about the one a person speaks, so it is
  *  read from the browser's languages: the first that is not English when there
@@ -78,6 +87,8 @@ export interface VoiceCaptureState {
   elapsedSec: number;
   lastSpeechAt: number;
   error: string | null;
+  /** Listening, and no words yet: what the browser has and has not heard. */
+  silence: VoiceSilence | null;
   start: () => void;
   pause: () => void;
   resume: () => void;
@@ -102,6 +113,10 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
   const seqRef = useRef(0);
   const interimRef = useRef('');
   const startWaitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [silence, setSilence] = useState<VoiceSilence | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the browser has reported since listening began.
+  const heardRef = useRef({ audio: false, sound: false, words: false });
   // Counts each request to listen, so one that is overtaken does not start late.
   const askRef = useRef(0);
 
@@ -131,6 +146,11 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       clearTimeout(startWaitRef.current);
       startWaitRef.current = null;
     }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    setSilence(null);
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     if (rec) {
@@ -138,6 +158,8 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       rec.onerror = null;
       rec.onend = null;
       rec.onstart = null;
+      rec.onaudiostart = null;
+      rec.onsoundstart = null;
       try {
         rec.stop();
       } catch {
@@ -163,6 +185,8 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       old.onerror = null;
       old.onend = null;
       old.onstart = null;
+      old.onaudiostart = null;
+      old.onsoundstart = null;
       try {
         old.abort();
       } catch {
@@ -184,7 +208,18 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       }
       setError(null);
       setStatus('listening');
+      // Listening that brings no words says nothing by itself: after a
+      // while the person is told how far the sound got.
+      if (!heardRef.current.words && !silenceTimerRef.current) {
+        silenceTimerRef.current = setTimeout(() => {
+          silenceTimerRef.current = null;
+          const heard = heardRef.current;
+          if (!heard.words) setSilence(!heard.audio ? 'no-audio' : !heard.sound ? 'no-sound' : 'no-words');
+        }, SILENCE_WAIT_MS);
+      }
     };
+    rec.onaudiostart = () => { heardRef.current.audio = true; };
+    rec.onsoundstart = () => { heardRef.current.sound = true; };
 
     rec.onresult = (event) => {
       let interim = '';
@@ -203,6 +238,10 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
         }
       }
 
+      if (finals.length > 0 || interim) {
+        heardRef.current.words = true;
+        setSilence(null);
+      }
       interimRef.current = interim;
       setInterimText(interim);
       if (finals.length > 0 || interim) {
@@ -268,6 +307,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
   const start = useCallback(() => {
     setError(null);
     setStatus('starting');
+    heardRef.current = { audio: false, sound: false, words: false };
     const ask = (askRef.current += 1);
     const media = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
     if (!media?.getUserMedia) {
@@ -348,6 +388,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
     elapsedSec,
     lastSpeechAt,
     error,
+    silence,
     start,
     pause,
     resume,
