@@ -119,7 +119,7 @@ export function VoiceMinutesDock({
                 <button
                   type="button"
                   onClick={copyTranscript}
-                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground"
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground"
                 >
                   {copied ? <Check size={11} /> : <Copy size={11} />}
                   {copied ? t('Copied') : t('Copy')}
