@@ -261,7 +261,7 @@ const COMPLETE_TOOL = {
       completion: {
         type: "string",
         description:
-          "Plain text continuation to insert directly at the caret (0-90 chars). Return empty string if no natural completion helps.",
+          "Plain text continuation to insert directly at the caret (0-90 chars), including a leading space when a new word starts right after a word. Return empty string if no natural completion helps.",
       },
     },
     required: ["completion"],
@@ -286,6 +286,7 @@ async function handleComplete(apiKey: string, spend: Spend, body: RequestBody) {
 - ${langInstruction(body.language)}
 - カーソル位置（<CARET>）の直後にそのまま繋げられるプレーンテキストだけを返す
 - カーソル直前の文字（prefix の末尾）は絶対に繰り返さない
+- 返す文字列は <CARET> の位置にそのまま挿入される。直前が単語の終わり（英数字や句読点で、空白ではない）で、続きが新しい単語から始まるときは、先頭に半角スペースを 1 つ入れる。単語の途中から続けるとき、直前が空白のとき、日本語の文中では入れない
 - 1 文または 1 箇条書き項目以内（最大 60〜90 文字程度）で簡潔にする。複数行や Markdown 記号（#, -, * 等）は書かない
 - 直近の音声書き起こしがある場合は、会話で出た具体的な決定・数字・担当者・未記入の要点を優先して補完する
 - すでに行が完結している・不自然な補完になりそうな場合は空文字 "" を返す
