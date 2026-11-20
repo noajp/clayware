@@ -16,7 +16,7 @@ import {
 } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { formatElapsed, type TranscriptSegment } from '../noteAiModel';
-import type { VoiceStatus } from './useVoiceCapture';
+import type { VoiceSilence, VoiceStatus } from './useVoiceCapture';
 
 interface VoiceMinutesDockProps {
   supported: boolean;
@@ -29,6 +29,7 @@ interface VoiceMinutesDockProps {
   structuring: boolean;
   notice: string | null;
   error: string | null;
+  silence: VoiceSilence | null;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -58,6 +59,7 @@ export function VoiceMinutesDock({
   structuring,
   notice,
   error,
+  silence,
   onStart,
   onPause,
   onResume,
@@ -90,6 +92,16 @@ export function VoiceMinutesDock({
         : error === 'unsupported'
           ? t('Live voice recognition is not supported in this browser. You can still paste transcript lines below.')
           : error;
+
+  // Listening with no words: how far the sound got, and what to do about it.
+  const silenceMessage =
+    silence === 'no-audio'
+      ? t('The microphone is not sending any audio. Check that the right microphone is chosen in the browser and is not muted.')
+      : silence === 'no-sound'
+        ? t('No sound is reaching the microphone. Check that it is not muted and that the right one is chosen.')
+        : silence === 'no-words'
+          ? t('Sound is reaching the microphone, but this browser is returning no words. Speech recognition works in Chrome and Edge; you can also paste the transcript below.')
+          : null;
 
   const copyTranscript = () => {
     const text = segments.map((s) => `[${formatTime(s.timestamp)}] ${s.text}`).join('\n');
@@ -179,10 +191,10 @@ export function VoiceMinutesDock({
         )}
 
         {/* Notice / error strip */}
-        {(errorMessage || notice) && (
+        {(errorMessage || silenceMessage || notice) && (
           <div className="border-b border-border/60 px-3 py-1.5 text-[11.5px] [overflow-wrap:anywhere]">
-            {errorMessage ? (
-              <span className="text-[var(--status-danger-text)]">{errorMessage}</span>
+            {errorMessage || silenceMessage ? (
+              <span className="text-[var(--status-danger-text)]">{errorMessage || silenceMessage}</span>
             ) : (
               <span className="text-muted-foreground">{notice}</span>
             )}
