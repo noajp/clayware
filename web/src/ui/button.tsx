@@ -134,11 +134,15 @@ function Button({
       data-size={size}
       data-shape={shape}
       className={cn(buttonVariants({ variant, size, align: resolvedAlign, shape, multiline, className }),
-        // Sharp Linear-style view tabs: inactive tabs sit clean and borderless
-        // until hovered; the selected tab lifts with a crisp ground and subtle rim.
+        // Capsule / terminal-shaped (端子型) primary & danger CTAs — flat, zero bevel.
+        (variant === 'primary' || variant === 'danger') && !/(^|\s)rounded-/.test(className ?? '') && 'rounded-full',
+        (variant === 'primary' || variant === 'danger') && !size?.startsWith('icon-') && !/(^|\s)px-/.test(className ?? '') && 'px-3.5',
+        // Flat capsule view tabs under headers: borderless at rest, matte fill when selected.
+        appearance === 'control' && shape === 'tab' && !size?.startsWith('icon-') && !/(^|\s)px-/.test(className ?? '') && 'px-3',
         appearance === 'control' && shape === 'tab' && variant === 'ghost' && 'border-transparent hover:border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]',
         appearance === 'control' && shape === 'tab' && variant === 'secondary' && 'bg-[var(--surface-strong)] border-transparent hover:border-transparent text-[var(--text-primary)] hover:bg-[var(--surface-strong)]',
-        appearance !== 'control' && 'rounded-[var(--control-tab-radius)] border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
+        appearance !== 'control' && shape !== 'tab' && 'rounded-[var(--control-action-radius)] border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
+        appearance !== 'control' && shape === 'tab' && 'border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
         appearance === 'inline' && variant === 'ghost' && 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-normal'
       )}
       {...props}

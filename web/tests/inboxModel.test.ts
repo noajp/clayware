@@ -37,4 +37,17 @@ describe('splitInbox', () => {
   it('a question without a ticket never waits', () => {
     expect(splitInbox([n('x', 'question', null)], new Set(['t1'])).waiting).toEqual([]);
   });
+
+  it('groups unread approval requests, invitations, and review requests under waiting', () => {
+    const items = [
+      n('a', 'approval_requested', null, false),
+      n('b', 'approval_requested', null, true),
+      n('c', 'invite', null, false),
+      n('d', 'review_due', null, false),
+      n('e', 'comment', null, false),
+    ];
+    const { waiting, rest } = splitInbox(items, new Set());
+    expect(waiting.map((x) => x.id)).toEqual(['a', 'c', 'd']);
+    expect(rest.map((x) => x.id)).toEqual(['b', 'e']);
+  });
 });

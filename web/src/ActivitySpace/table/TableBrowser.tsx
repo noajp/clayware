@@ -2,7 +2,7 @@
 
 import { formatError } from '@/Function/shared/formatError';
 import { useMemo } from 'react';
-import { FolderInput } from '@/ui/icons';
+import { FolderInput, Plus } from '@/ui/icons';
 import { Button } from '@/ui/button';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
@@ -25,12 +25,13 @@ type Browse = NonNullable<NavigationState['tableBrowse']>;
  * its Folders (each opening onto its Tables) and its Tables. A row opens
  * its Table; its menu moves it into one of its Domain's folders or out.
  */
-export function TableBrowser({ tables, browse, onBrowse, onOpenTable, onRefresh }: {
+export function TableBrowser({ tables, browse, onBrowse, onOpenTable, onRefresh, onCreateTable }: {
   tables: DataTableWithRowCount[];
   browse: Browse;
   onBrowse: (next: Browse) => void;
   onOpenTable: (id: string) => void;
   onRefresh: () => void;
+  onCreateTable?: () => void;
 }) {
   const { t } = useI18n();
   const domainId = browse.domainId ?? null;
@@ -48,6 +49,11 @@ export function TableBrowser({ tables, browse, onBrowse, onOpenTable, onRefresh 
   const path = (...rest: IslandCrumb[]): IslandCrumb[] => [{ id: 'domain', label: domainName, onClick: () => onBrowse({ domainId }) }, ...rest];
   const openFolder = (id: string) => onBrowse({ domainId, folderId: id });
   const newFolder = <NewFolderButton app="tables" domainId={domainId} onOpen={openFolder} />;
+  const newTable = onCreateTable ? (
+    <Button variant="primary" size="sm" type="button" onClick={onCreateTable}>
+      <Plus size={14} />{t('New Table')}
+    </Button>
+  ) : null;
 
   const rows = (list: DataTableWithRowCount[]) => list.map((tb) => (
     <div key={tb.id} className="group/table flex h-9 items-center gap-3 rounded-md px-[18px] hover:bg-foreground/[0.05]">
@@ -78,14 +84,19 @@ export function TableBrowser({ tables, browse, onBrowse, onOpenTable, onRefresh 
         <span className="w-6 shrink-0" />
       </IslandColumns>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-1">
-        {list.length ? rows(list) : <p className="px-[18px] py-6 text-[13px] text-muted-foreground">{empty}</p>}
+        {list.length ? rows(list) : (
+          <div className="flex flex-col items-start gap-3 px-[18px] py-6">
+            <p className="text-[13px] text-muted-foreground">{empty}</p>
+            {newTable}
+          </div>
+        )}
       </div>
     </MainIsland>
   );
 
-  if (!domainId) return listPage([{ id: 'all', label: t('All Tables') }], [...tables].sort((a, b) => b.updated_at.localeCompare(a.updated_at)), t('No Tables yet.'));
+  if (!domainId) return listPage([{ id: 'all', label: t('All Tables') }], [...tables].sort((a, b) => b.updated_at.localeCompare(a.updated_at)), t('No Tables yet.'), newTable);
   if (folder) {
-    return listPage(path({ id: 'folders', label: t('Folders'), onClick: () => onBrowse({ domainId, view: 'folders' }) }, { id: 'folder', label: folder.name }), tables.filter((tb) => tb.folder_id === folder.id), t('No Tables in this folder. Move one here from its menu.'));
+    return listPage(path({ id: 'folders', label: t('Folders'), onClick: () => onBrowse({ domainId, view: 'folders' }) }, { id: 'folder', label: folder.name }), tables.filter((tb) => tb.folder_id === folder.id), t('No Tables in this folder. Move one here from its menu.'), newTable);
   }
   if (browse.view === 'folders') {
     return (
@@ -94,11 +105,11 @@ export function TableBrowser({ tables, browse, onBrowse, onOpenTable, onRefresh 
       </MainIsland>
     );
   }
-  if (browse.view === 'tables') return listPage(path({ id: 'tables', label: t('Tables') }), recent, t('No Tables in this Domain yet.'));
+  if (browse.view === 'tables') return listPage(path({ id: 'tables', label: t('Tables') }), recent, t('No Tables in this Domain yet.'), newTable);
 
   // A Domain's home: its folders, then its Tables touched last.
   return (
-    <MainIsland crumbs={[{ id: 'domain', label: domainName }]} actions={newFolder}>
+    <MainIsland crumbs={[{ id: 'domain', label: domainName }]} actions={<div className="flex items-center gap-1.5">{newFolder}{newTable}</div>}>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="px-3 pb-8 pt-5">
           <div className="px-[18px]"><button type="button" onClick={() => onBrowse({ domainId, view: 'folders' })} className="text-[13px] font-medium text-foreground hover:underline">{t('Folders')}</button></div>

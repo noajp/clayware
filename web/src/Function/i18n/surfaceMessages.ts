@@ -261,6 +261,20 @@ const SURFACE_MESSAGES: Record<string, Row> = {
   'Only invited members can find and access.': ['招待されたメンバーだけが見つけて開けます。', '초대된 멤버만 찾고 열 수 있습니다.', 'Seuls les membres invités peuvent le trouver et l’ouvrir.', 'Solo los miembros invitados pueden encontrarlo y abrirlo.'],
   'Failed to create Domain': ['Domain を作成できませんでした', 'Domain을 만들지 못했습니다', 'Impossible de créer le Domain', 'No se pudo crear el Domain'],
   'Creating…': ['作成中…', '만드는 중…', 'Création…', 'Creando…'],
+
+  // ── Discoverability & Navigation polish ───────────────────────
+  'Connectors sections': ['コネクターのセクション', '커넥터 섹션', 'Sections des connecteurs', 'Secciones de conectores'],
+  'Other ways': ['その他の方法', '기타 방법', 'Autres méthodes', 'Otras formas'],
+  'Browse catalog': ['カタログを見る', '카탈로그 보기', 'Parcourir le catalogue', 'Explorar catálogo'],
+  'Actions': ['操作', '작업', 'Actions', 'Acciones'],
+  'Notebook actions': ['ノートブックの操作', '노트북 작업', 'Actions du carnet', 'Acciones del cuaderno'],
+  'Turn this Note into an Object and Elements': ['このノートから Object と Element を作成', '이 노트로 Object와 Element 만들기', 'Transformer cette note en Object et Elements', 'Convertir esta nota en Object y Elements'],
+  'Turn into Object': ['Object 化', 'Object로 변환', 'Convertir en Object', 'Convertir en Object'],
+  'AI is working on this Element': ['AI がこの Element を作業中です', 'AI가 이 Element를 작업 중입니다', 'L’IA travaille sur cet Element', 'La IA está trabajando en este Element'],
+  'Delegate to AI': ['AI に委ねる', 'AI에 위임', 'Déléguer à l’IA', 'Delegar a la IA'],
+  'AI working…': ['AI 作業中…', 'AI 작업 중…', 'IA en cours…', 'IA trabajando…'],
+  'New milestone': ['新しいマイルストーン', '새 마일스톤', 'Nouveau jalon', 'Nuevo hito'],
+  '{elements} Elements across {objects} Objects': ['{objects} 件の Object に {elements} 件の Element', '{objects}개 Object에 {elements}개 Element', '{elements} Elements répartis sur {objects} Objects', '{elements} Elements en {objects} Objects'],
 };
 
 const column = (index: 0 | 1 | 2 | 3) => Object.fromEntries(Object.entries(SURFACE_MESSAGES).map(([key, row]) => [key, row[index]]));

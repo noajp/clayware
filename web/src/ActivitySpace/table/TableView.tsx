@@ -120,7 +120,7 @@ function TableSurface({ activeTableId, onSelectTable, browse, onBrowse }: TableV
         ) : listError ? null : tables.length === 0 ? (
           <TablesEmptyState onCreate={() => setNewOpen(true)} />
         ) : (
-          <TableBrowser tables={tables} browse={browse} onBrowse={onBrowse} onOpenTable={(id) => onSelectTable(id)} onRefresh={refetch} />
+          <TableBrowser tables={tables} browse={browse} onBrowse={onBrowse} onOpenTable={(id) => onSelectTable(id)} onRefresh={refetch} onCreateTable={() => setNewOpen(true)} />
         )}
       </div>
       {newOpen && <NewTableDialog onClose={() => setNewOpen(false)} onSaved={(id) => {

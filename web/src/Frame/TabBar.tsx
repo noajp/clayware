@@ -4,7 +4,7 @@ import { DndContext, PointerSensor, KeyboardSensor, useSensor, useSensors, close
 import { SortableContext, useSortable, horizontalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { constrainTabDrag } from './tabDrag';
-import { Plus, List, Calendar, Users, BarChart3, GanttChart, ClipboardList, Trash2, FileText, Columns3 } from '@/ui/icons';
+import { Plus, List, Calendar, Users, BarChart3, GanttChart, ClipboardList, Trash2, FileText, Columns3, X } from '@/ui/icons';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/ui/context-menu';
@@ -30,6 +30,9 @@ interface TabBarProps {
   /** The "+" menu's name for a type, when the host names it its own way
    *  (the list is Objects on a Domain, Elements on an Object). */
   createTitle?: (type: ObjectTabType) => string;
+  /** Optional predicate overriding whether a tab can be closed. Defaults to
+   *  `tab.tab_type !== 'elements'`. */
+  canCloseTab?: (tab: ObjectTab) => boolean;
 }
 
 // Single source of truth for ObjectTabType display metadata — the tab icon
@@ -62,7 +65,7 @@ const CREATE_TAB_ORDER: ObjectTabType[] = [
   'overview', 'elements', 'flow', 'gantt', 'calendar', 'workers',
 ];
 
-export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate, rightSlot, createOptions, createTitle, onTabReorder }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate, rightSlot, createOptions, createTitle, onTabReorder, canCloseTab }: TabBarProps) {
   const { t } = useI18n();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   // A tab already in the strip is not offered again.
@@ -91,8 +94,11 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
           <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
             <div className="min-w-0 overflow-x-auto">
               <div className="flex w-max items-center gap-1">
-              {tabs.map(tab => <SortableViewTab key={tab.id} tab={tab} active={tab.id === activeTabId}
-                sortable={!!onTabReorder} onSelect={() => onTabSelect(tab.id)} onClose={() => onTabClose(tab.id)} />)}
+              {tabs.map(tab => {
+                const closable = canCloseTab ? canCloseTab(tab) : tab.tab_type !== 'elements';
+                return <SortableViewTab key={tab.id} tab={tab} active={tab.id === activeTabId}
+                  sortable={!!onTabReorder} closable={closable} onSelect={() => onTabSelect(tab.id)} onClose={() => onTabClose(tab.id)} />;
+              })}
               </div>
             </div>
           </SortableContext>
@@ -134,26 +140,48 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
   );
 }
 
-function SortableViewTab({ tab, active, sortable, onSelect, onClose }: {
-  tab: ObjectTab; active: boolean; sortable: boolean; onSelect: () => void; onClose: () => void;
+function SortableViewTab({ tab, active, sortable, closable, onSelect, onClose }: {
+  tab: ObjectTab; active: boolean; sortable: boolean; closable: boolean; onSelect: () => void; onClose: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id, disabled: !sortable });
   const { t } = useI18n();
   const TabIcon = (OBJECT_TAB_META[tab.tab_type] ?? OBJECT_TAB_META.elements).Icon;
   // Right-click, or the keyboard's menu key (Shift+F10), opens the tab's menu.
+  // Active closable tabs also carry an inline close affordance so users do not
+  // have to discover right-click to remove a tab.
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Button ref={setNodeRef} type="button" shape="tab" variant={active ? 'secondary' : 'ghost'}
-          {...attributes} {...listeners} aria-pressed={active} onClick={onSelect}
+        <div
+          ref={setNodeRef}
           style={{ transform: CSS.Transform.toString(transform), transition }}
-          className={sortable ? `touch-none ${isDragging ? 'relative z-10 opacity-70' : ''}` : undefined}>
-          <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
-          {t(tab.title)}
-        </Button>
+          className={`relative inline-flex items-center ${sortable && isDragging ? 'z-10 opacity-70' : ''}`}
+        >
+          <Button type="button" shape="tab" variant={active ? 'secondary' : 'ghost'}
+            {...attributes} {...listeners} aria-pressed={active} onClick={onSelect}
+            className={[
+              sortable ? 'touch-none' : '',
+              closable && active ? 'pr-7' : '',
+            ].filter(Boolean).join(' ') || undefined}>
+            <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
+            {t(tab.title)}
+          </Button>
+          {closable && active && (
+            <button
+              type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              aria-label={t('Delete tab')}
+              title={t('Delete tab')}
+              className="absolute right-1.5 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="min-w-[160px]">
-        {tab.tab_type !== 'elements' ? (
+        {closable ? (
           <ContextMenuItem variant="destructive" onSelect={onClose} className="gap-2">
             <Trash2 size={14} />{t('Delete tab')}
           </ContextMenuItem>

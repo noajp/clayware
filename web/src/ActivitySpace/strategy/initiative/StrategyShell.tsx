@@ -26,7 +26,7 @@ import { IndexList, IndexRow } from '@/Function/shared/IndexList';
 import { DisclosureTriangle } from '@/Function/shared/DisclosureTriangle';
 import { InitiativeActionsButton, InitiativeMenu } from './InitiativeMenu';
 import { ContentRow, ContentRowAction } from '@/Function/shared/ContentRow';
-import { Button, ButtonAppearanceProvider } from '@/ui/button';
+import { Button } from '@/ui/button';
 import { EmptyState } from '@/Function/shared/EmptyState';
 import { QuickCreatePopup, quickCreatePillClass } from '@/Function/shared/QuickCreatePopup';
 import { Popover, PopoverTrigger } from '@/ui/popover';
@@ -249,12 +249,11 @@ export function StrategyShell({
       <IslandHeader crumbs={[
         ...(vision ? [{ id: vision.id, label: vision.name, onClick: onOpenVision ? () => onOpenVision(vision.id) : undefined }] : []),
         { id: 'initiatives', label: t('Portfolio') },
-      ]} actions={
-        <ButtonAppearanceProvider appearance="navigation">
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setNewOpen(true)}>
-            <Plus size={14} />{t('Add Portfolio')}</Button>
-        </ButtonAppearanceProvider>
-      } />
+      ]} actions={tree.length > 0 ? (
+        <Button variant="primary" size="sm" onClick={() => setNewOpen(true)}>
+          <Plus size={14} />{t('New Portfolio')}
+        </Button>
+      ) : undefined} />
 
       <div className="flex-1 overflow-hidden">
         {loading ? null : tree.length === 0 ? (

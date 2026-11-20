@@ -10,7 +10,7 @@ import type { ClaywareObjectWithChildren, ElementWithDetails, Worker } from '@/h
 import {
   createElement, addElementToObject, removeElementFromObject, updateElement, updateElements, restoreElementsField, deleteElement, deleteElements, noticeElementSaveFailed,
   fetchAllWorkers,
-  useObjectTabs, reorderObjectTabs, useDomains, useElementTemplates, usePhases, useObjectMilestones, createObjectTab, deleteObjectTab,
+  useObjectTabs, reorderObjectTabs, useDomains, useElementTemplates, usePhases, useObjectMilestones, createObjectMilestone, createObjectTab, deleteObjectTab,
   deleteObject, addDomainElementType, removeDomainElementType,
 } from '@/hooks/useSupabase';
 import type { ObjectTabType } from '@/types/database';
@@ -592,6 +592,9 @@ export function ObjectDetailView({ object, onNavigate, onRefresh, tabTypeOverrid
               onRefresh={onRefresh}
               phases={domainPhases}
               milestones={objectMilestones}
+              onAddMilestone={async ({ label, date }) => {
+                await createObjectMilestone({ object_id: object.id, label, date });
+              }}
               onElementOpen={(el) => setDetailElementId(el.id)}
             />
           </div>

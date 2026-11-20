@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from '@/ui/icons';
-import { Button } from '@/ui/button';
+import { MoreHorizontal, Pencil, Plus, Trash2 } from '@/ui/icons';
+import { Button, ButtonAppearanceProvider } from '@/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/ui/context-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { NavNoteIcon } from '@/Frame/sidebar/NavIcons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { appDialog } from '@/Function/shared/appDialogStore';
@@ -84,13 +85,14 @@ export function NotebookList({ onOpenBook, domainId }: {
       {/* The same table on both shelves, its headings shown even when empty. */}
       {(
         <table className="w-full table-fixed border-separate border-spacing-0 text-[13px]">
-          <colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 160 }} /></colgroup>
+          <colgroup><col /><col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 160 }} /><col style={{ width: 44 }} /></colgroup>
           <thead>
             <tr className="text-left text-[12px] text-muted-foreground">
               <th className="px-[30px] py-2.5 font-normal">{t('Name')}</th>
               <th className="px-3 py-2.5 font-normal">{t('Sections')}</th>
               <th className="px-3 py-2.5 font-normal">{t('Pages')}</th>
               <th className="px-3 py-2.5 font-normal">{t('Updated')}</th>
+              <th className="py-2.5 pr-4 font-normal" aria-label={t('Actions')} />
             </tr>
           </thead>
           <tbody>
@@ -100,7 +102,7 @@ export function NotebookList({ onOpenBook, domainId }: {
               return (
                 <ContextMenu key={book.id}>
                   <ContextMenuTrigger asChild disabled={!own}>
-                    <tr className="cursor-pointer transition-colors hover:bg-foreground/[0.04]" onClick={() => { if (renaming !== book.id) onOpenBook(book.id); }}>
+                    <tr className="group/nb cursor-pointer transition-colors hover:bg-foreground/[0.04]" onClick={() => { if (renaming !== book.id) onOpenBook(book.id); }}>
                       <td className="px-[30px] py-2.5">
                         <span className="flex min-w-0 items-center gap-3">
                           {/* The notebook's own icon; a click on it changes it (and does not open the notebook). */}
@@ -119,6 +121,30 @@ export function NotebookList({ onOpenBook, domainId }: {
                       <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{sections}</td>
                       <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{pages}</td>
                       <td className="px-3 py-2.5 text-muted-foreground">{when(changed)}</td>
+                      <td className="py-2.5 pr-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        {own && (
+                          <DropdownMenu>
+                            <ButtonAppearanceProvider appearance="navigation">
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  aria-label={t('Notebook actions')}
+                                  className="opacity-0 transition-opacity group-hover/nb:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                                >
+                                  <MoreHorizontal size={14} />
+                                </Button>
+                              </DropdownMenuTrigger>
+                            </ButtonAppearanceProvider>
+                            <DropdownMenuContent align="end" className="min-w-[180px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+                              <DropdownMenuItem onSelect={() => window.setTimeout(() => setRenaming(book.id), 0)}><Pencil /> {t('Rename')}</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem variant="destructive" onSelect={() => void removeBook(book, sections, pages)}><Trash2 /> {t('Delete notebook')}</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </td>
                     </tr>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="min-w-[180px]" onCloseAutoFocus={(e) => e.preventDefault()}>
@@ -143,7 +169,7 @@ export function NotebookList({ onOpenBook, domainId }: {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-card">
       <IslandHeader crumbs={[{ id: 'note', label: t('Note') }]} actions={
-        <Button variant="ghost" size="sm" onClick={() => void addBook()}><Plus size={14} />{t('New notebook')}</Button>
+        <Button variant="primary" size="sm" onClick={() => void addBook()}><Plus size={14} />{t('New notebook')}</Button>
       } />
       {table}
     </div>
