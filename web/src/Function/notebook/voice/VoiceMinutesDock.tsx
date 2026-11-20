@@ -10,7 +10,6 @@ import {
   Mic,
   Pause,
   Play,
-  Sparkles,
   Square,
   X,
 } from '@/ui/icons';
@@ -25,7 +24,6 @@ interface VoiceMinutesDockProps {
   interimText: string;
   elapsedSec: number;
   unprocessedChars: number;
-  autoStructure: boolean;
   structuring: boolean;
   notice: string | null;
   error: string | null;
@@ -35,7 +33,6 @@ interface VoiceMinutesDockProps {
   onResume: () => void;
   onStop: () => void;
   onClose: () => void;
-  onToggleAutoStructure: () => void;
   onStructureNow: () => void;
   onAppendManualText: (text: string) => void;
 }
@@ -55,7 +52,6 @@ export function VoiceMinutesDock({
   interimText,
   elapsedSec,
   unprocessedChars,
-  autoStructure,
   structuring,
   notice,
   error,
@@ -65,7 +61,6 @@ export function VoiceMinutesDock({
   onResume,
   onStop,
   onClose,
-  onToggleAutoStructure,
   onStructureNow,
   onAppendManualText,
 }: VoiceMinutesDockProps) {
@@ -297,23 +292,6 @@ export function VoiceMinutesDock({
                 )}
               </>
             )}
-
-            {/* Auto-structure toggle */}
-            <button
-              type="button"
-              onClick={onToggleAutoStructure}
-              aria-pressed={autoStructure}
-              title={t('Automatically organize spoken notes into structured minutes')}
-              className={[
-                'inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] transition-colors',
-                autoStructure
-                  ? 'bg-[var(--accent-subtle)] text-[var(--accent-text)] font-medium'
-                  : 'text-muted-foreground hover:bg-[var(--surface-strong)] hover:text-foreground',
-              ].join(' ')}
-            >
-              <Sparkles size={11} />
-              <span className="hidden sm:inline">{t('Auto-structure')}</span>
-            </button>
 
             {/* Structure now */}
             <button
