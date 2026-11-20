@@ -2,21 +2,29 @@
 
 import { useExplorerData } from '@/Function/shared/ExplorerDataContext';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { PanelLeft, Sparkles } from '@/ui/icons';
-import { Button } from '@/ui/button';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelLeft, X } from '@/ui/icons';
 import { useDomains, type ElementWithDetails } from '@/hooks/useSupabase';
+import { proposeNoteRefinements, structureVoiceMinutes } from '@/hooks/noteAi';
 import {
   NoteEditor,
   type NoteEditorHandle,
   type BulletContextInfo,
 } from '@/Function/notebook/editor/NoteEditor';
+import {
+  computeTranscriptDelta,
+  shouldAutoStructure,
+  type DensityReport,
+} from '@/Function/notebook/noteAiModel';
+import { useVoiceCapture, type VoiceLanguage } from '@/Function/notebook/voice/useVoiceCapture';
+import { VoiceMinutesDock } from '@/Function/notebook/voice/VoiceMinutesDock';
 import type { SaveHow } from '@/Function/notebook/noteContentStore';
 import { BulletExtractDialog } from './BulletExtractDialog';
 import { useI18n, translate } from '@/Function/i18n/I18nProvider';
 import { PresenceStack } from '@/Function/shared/PresenceStack';
 import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { useNotePresence } from '@/hooks/usePresence';
+import { formatError } from '@/Function/shared/formatError';
 
 interface PageViewProps {
   fileId: string;
@@ -68,23 +76,62 @@ export function PageView({
   filesPaneOpen,
   onToggleFilesPane,
 }: PageViewProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const explorerData = useExplorerData();
-  // onObjectize / objectizing / onLinkedObjectChange are still on the props
-  // (the host keeps wiring them) but currently have no UI trigger — the
-  // header strip that exposed Obj化 / Note↔Object link was removed. Left in
-  // place so re-adding an entry point is a one-liner.
+  // onLinkedObjectChange is still on the props (the host keeps wiring it)
+  // but has no trigger here.
   const [draftTitle, setDraftTitle] = useState(
     isPlaceholderTitle(title.trim()) ? '' : title,
   );
   const [bulletCtx, setBulletCtx] = useState<BulletContextInfo | null>(null);
   const editorRef = useRef<NoteEditorHandle | null>(null);
 
+  // Voice minutes and the Note's AI. Each AI call is one the person asked for:
+  // /voice, /ai, /complete and ⌘J in the editor. The header carries no AI button.
+  const initialVoiceLang: VoiceLanguage = locale === 'en' ? 'en-US' : 'ja-JP';
+  const voice = useVoiceCapture(initialVoiceLang);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [autoStructure, setAutoStructure] = useState(true);
+  const [structuring, setStructuring] = useState(false);
+  const [proposing, setProposing] = useState(false);
+  const [density, setDensity] = useState<DensityReport>({
+    isDense: false,
+    totalChars: 0,
+    longBlockCount: 0,
+    unitCount: 0,
+  });
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [processedCount, setProcessedCount] = useState(0);
+
+  const lastProcessedCountRef = useRef(0);
+  const lastStructuredAtRef = useRef(0);
+  const structuringRef = useRef(false);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotice = useCallback((msg: string) => {
+    setAiError(null);
+    setAiNotice(msg);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => {
+      noticeTimerRef.current = null;
+      setAiNotice(null);
+    }, 4500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
+
+  const { fullText, unprocessedChars } = useMemo(
+    () => computeTranscriptDelta(voice.segments, processedCount),
+    [voice.segments, processedCount],
+  );
+
   // Elements created from a Note land in the linked Object's Domain (when
-  // a link is set) and otherwise fall back to the active Domain. The
-  // legacy "default to Individual Domain" branch was dropped when the
-  // Individual Domain pattern was removed in favour of the sidebar's
-  // "My Elements" entry.
+  // a link is set) and otherwise fall back to the active Domain.
   useDomains(); // keep the cache warm; the result isn't needed here anymore
   const allObjects = explorerData?.objects ?? [];
   const linkedObject = useMemo(() => {
@@ -121,6 +168,145 @@ export function PageView({
     setBulletCtx(info);
   }, []);
 
+  // Raw non-AI mode: when auto-structure is turned off, each finalized spoken
+  // segment appends straight into the Note so voice capture works without AI.
+  useEffect(() => {
+    if (autoStructure) return;
+    if (voice.segments.length <= lastProcessedCountRef.current) return;
+    const nextSegments = voice.segments.slice(lastProcessedCountRef.current);
+    lastProcessedCountRef.current = voice.segments.length;
+    setProcessedCount(voice.segments.length);
+    for (const seg of nextSegments) {
+      editorRef.current?.appendParagraph(seg.text);
+    }
+  }, [autoStructure, voice.segments]);
+
+  const runStructure = useCallback(async () => {
+    if (structuringRef.current) return;
+    const { deltaText: delta, fullText: full } = computeTranscriptDelta(
+      voice.segments,
+      lastProcessedCountRef.current,
+    );
+    // Only what has not been written yet: organizing the same words twice would add them twice.
+    if (!delta) return;
+
+    structuringRef.current = true;
+    setStructuring(true);
+    setAiError(null);
+    const snapshotCount = voice.segments.length;
+    try {
+      const currentTitle = draftTitle.trim();
+      const res = await structureVoiceMinutes({
+        title: currentTitle,
+        existingText: editorRef.current?.getText() ?? '',
+        transcriptDelta: delta,
+        fullTranscript: full,
+        language: voice.language,
+      });
+      // Added at the end: the Note as written, and whatever was typed meanwhile, stays.
+      if (res.html) {
+        editorRef.current?.appendHtml(res.html);
+      }
+      if (res.suggestedTitle && !currentTitle) {
+        setDraftTitle(res.suggestedTitle);
+        onTitleChange(res.suggestedTitle);
+      }
+      lastProcessedCountRef.current = snapshotCount;
+      setProcessedCount(snapshotCount);
+      lastStructuredAtRef.current = Date.now();
+      showNotice(
+        res.summaryNote
+          ? `${res.summaryNote} · ${t('⌘Z to undo')}`
+          : t('Minutes updated · ⌘Z to undo'),
+      );
+    } catch (err) {
+      // Without AI (no plan, budget spent, offline) the words still reach the
+      // Note: auto-organize turns off and they are written as spoken.
+      setAiError(formatError(err));
+      setAutoStructure(false);
+    } finally {
+      structuringRef.current = false;
+      setStructuring(false);
+    }
+  }, [voice.segments, voice.language, draftTitle, onTitleChange, showNotice, t]);
+
+  // Automatic background structuring while speaking once enough speech builds up.
+  useEffect(() => {
+    if (!voiceOpen || !autoStructure) return;
+    if (voice.status !== 'listening' && voice.status !== 'paused') return;
+    const id = setInterval(() => {
+      if (structuringRef.current) return;
+      const { unprocessedChars: pendingChars } = computeTranscriptDelta(
+        voice.segments,
+        lastProcessedCountRef.current,
+      );
+      const now = Date.now();
+      if (
+        shouldAutoStructure({
+          unprocessedChars: pendingChars,
+          msSinceLastSpeech: voice.lastSpeechAt ? now - voice.lastSpeechAt : 0,
+          msSinceLastStructure: now - lastStructuredAtRef.current,
+        })
+      ) {
+        void runStructure();
+      }
+    }, 2000);
+    return () => clearInterval(id);
+  }, [voiceOpen, autoStructure, voice.status, voice.segments, voice.lastSpeechAt, runStructure]);
+
+  const handleOpenVoice = useCallback(() => {
+    setVoiceOpen(true);
+    setAiError(null);
+    if (voice.supported && voice.status === 'idle') {
+      voice.start();
+    }
+  }, [voice]);
+
+  const handleStopVoice = useCallback(() => {
+    voice.stop();
+    if (autoStructure && voice.segments.length > lastProcessedCountRef.current) {
+      void runStructure();
+    }
+  }, [voice, autoStructure, runStructure]);
+
+  const handleCloseVoice = useCallback(() => {
+    voice.stop();
+    setVoiceOpen(false);
+  }, [voice]);
+
+  const handleRequestProposals = useCallback(async () => {
+    if (proposing) return;
+    const blocks = editorRef.current?.getBlocks() ?? [];
+    if (!blocks.length) {
+      showNotice(t('Write or dictate some notes before requesting refinements.'));
+      return;
+    }
+    setProposing(true);
+    setAiError(null);
+    if (noticeTimerRef.current) { clearTimeout(noticeTimerRef.current); noticeTimerRef.current = null; }
+    setAiNotice(t('Looking for lines to refine…'));
+    try {
+      const proposals = await proposeNoteRefinements({
+        title: draftTitle.trim(),
+        blocks,
+        recentTranscript: fullText,
+        language: locale,
+        focus: density.isDense ? 'dense' : 'all',
+      });
+      const matched = editorRef.current?.setProposals(proposals) ?? 0;
+      if (matched === 0) {
+        showNotice(t('This note already looks crisp — no pinpoint edits needed.'));
+      } else {
+        setAiNotice(null);
+      }
+    } catch (err) {
+      setAiNotice(null);
+      setAiError(formatError(err));
+    } finally {
+      setProposing(false);
+    }
+  }, [proposing, draftTitle, fullText, locale, density.isDense, showNotice, t]);
+
   return (
     <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--card)]">
       {/* Quiet 48px floating corner controls aligned with every page header. */}
@@ -136,24 +322,35 @@ export function PageView({
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <PresenceStack viewers={viewers} />
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            shape="tab"
-            disabled={objectizing}
-            onClick={onObjectize}
-            title={t('Turn this Note into an Object and Elements')}
-          >
-            <Sparkles size={13} />
-            <span className="hidden sm:inline">{objectizing ? t('Drafting…') : t('Turn into Object')}</span>
-          </Button>
-        </div>
+        <PresenceStack viewers={viewers} />
       </div>
+
+      {/* Transient AI notice / error pill when Voice Dock is closed */}
+      {(objectizing || (!voiceOpen && (aiNotice || aiError))) && (
+        <div className="pointer-events-none absolute inset-x-0 top-12 z-10 flex justify-center px-4">
+          <div
+            className={[
+              'pointer-events-auto inline-flex max-w-md items-center gap-2 rounded-full border px-3 py-1 text-[12px] shadow-[var(--shadow-1)]',
+              aiError
+                ? 'border-[var(--status-danger)]/30 bg-[var(--status-danger-subtle)] text-[var(--status-danger-text)]'
+                : 'border-border bg-[var(--surface-overlay)] text-foreground',
+            ].join(' ')}
+          >
+            <span className="truncate">{aiError || aiNotice || t('Drafting…')}</span>
+            <button
+              type="button"
+              onClick={() => { setAiNotice(null); setAiError(null); }}
+              aria-label={t('Close')}
+              className="inline-flex size-4 shrink-0 items-center justify-center rounded-full opacity-70 hover:opacity-100"
+            >
+              <X size={11} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
-        <div className="max-w-3xl mx-auto px-8 pt-16 pb-24">
+        <div className={`max-w-3xl mx-auto px-8 pt-16 ${voiceOpen ? 'pb-36' : 'pb-24'}`}>
           {icon && (
             <div className="text-5xl mb-3 leading-none select-none">{icon}</div>
           )}
@@ -191,9 +388,41 @@ export function PageView({
             onChange={onContentChange}
             onBulletContextMenu={handleBulletContextMenu}
             elementsById={elementsById}
+            aiAssist
+            title={draftTitle}
+            recentTranscript={fullText}
+            onStartVoice={handleOpenVoice}
+            onRequestProposals={() => { void handleRequestProposals(); }}
+            onObjectize={objectizing ? undefined : onObjectize}
+            onDensityChange={setDensity}
           />
         </div>
       </div>
+
+      {voiceOpen && (
+        <VoiceMinutesDock
+          supported={voice.supported}
+          status={voice.status}
+          language={voice.language}
+          segments={voice.segments}
+          interimText={voice.interimText}
+          elapsedSec={voice.elapsedSec}
+          unprocessedChars={unprocessedChars}
+          autoStructure={autoStructure}
+          structuring={structuring}
+          notice={aiNotice}
+          error={aiError || voice.error}
+          onStart={voice.start}
+          onPause={voice.pause}
+          onResume={voice.resume}
+          onStop={handleStopVoice}
+          onClose={handleCloseVoice}
+          onSetLanguage={voice.setLanguage}
+          onToggleAutoStructure={() => setAutoStructure((v) => !v)}
+          onStructureNow={() => { void runStructure(); }}
+          onAppendManualText={voice.appendManualText}
+        />
+      )}
 
       {bulletCtx && (
         <BulletExtractDialog
