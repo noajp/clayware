@@ -410,8 +410,9 @@ function DateRangeCellPopover({
   );
 }
 
-// Label chip — low-saturation colour dot + concise label (TagBadge),
-// visually distinct from borderless Object references (EntityChip).
+// Label chip — the label's coloured Tag mark + its text in an outlined pill
+// (TagBadge). The colour comes from the Domain colour catalogue (picked
+// colour, else an auto colour derived from the name).
 export function LabelChip({ label }: { label: string }) {
   useLabelColors(); // re-render when a colour is picked / the catalogue loads
   return <TagBadge label={label} color={labelColor(label)} />;
