@@ -34,6 +34,7 @@ interface SpeechRecognitionLike {
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -50,7 +51,12 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export type VoiceStatus = 'idle' | 'listening' | 'paused' | 'error';
+/** 'starting' is asked to listen and not yet hearing: the browser is still
+ *  waiting for the microphone (its permission, or the device itself). */
+export type VoiceStatus = 'idle' | 'starting' | 'listening' | 'paused' | 'error';
+
+/** How long listening may take to begin before the person is told it has not. */
+const START_WAIT_MS = 6000;
 
 /** Pure but for the browser. The language to listen in. The language the
  *  screen is shown in says little about the one a person speaks, so it is
@@ -95,6 +101,9 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
   const restartEngineRef = useRef<() => void>(() => {});
   const seqRef = useRef(0);
   const interimRef = useRef('');
+  const startWaitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Counts each request to listen, so one that is overtaken does not start late.
+  const askRef = useRef(0);
 
   // Words still unsettled when listening ends (a pause, a stop, the browser's
   // own restart every minute or so) never come back settled: they are kept
@@ -113,9 +122,14 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
 
   const stopEngine = useCallback(() => {
     shouldKeepListeningRef.current = false;
+    askRef.current += 1;
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
+    }
+    if (startWaitRef.current) {
+      clearTimeout(startWaitRef.current);
+      startWaitRef.current = null;
     }
     const rec = recognitionRef.current;
     recognitionRef.current = null;
@@ -123,6 +137,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       rec.onresult = null;
       rec.onerror = null;
       rec.onend = null;
+      rec.onstart = null;
       try {
         rec.stop();
       } catch {
@@ -147,6 +162,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       old.onresult = null;
       old.onerror = null;
       old.onend = null;
+      old.onstart = null;
       try {
         old.abort();
       } catch {
@@ -158,6 +174,17 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = language;
+
+    // Listening has begun only when the browser says so: until then it may be
+    // waiting on a permission prompt nobody has answered, with no error at all.
+    rec.onstart = () => {
+      if (startWaitRef.current) {
+        clearTimeout(startWaitRef.current);
+        startWaitRef.current = null;
+      }
+      setError(null);
+      setStatus('listening');
+    };
 
     rec.onresult = (event) => {
       let interim = '';
@@ -217,19 +244,48 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
 
     recognitionRef.current = rec;
     shouldKeepListeningRef.current = true;
-    setError(null);
     try {
       rec.start();
-      setStatus('listening');
     } catch {
       setStatus('error');
       setError('start-failed');
+      return;
     }
+    if (startWaitRef.current) clearTimeout(startWaitRef.current);
+    startWaitRef.current = setTimeout(() => {
+      startWaitRef.current = null;
+      if (recognitionRef.current !== rec) return;
+      // Still waiting: said so, with Record there to try again. If the
+      // browser begins after all, listening takes over from here.
+      setError('not-started');
+      setStatus((now) => (now === 'starting' ? 'error' : now));
+    }, START_WAIT_MS);
   }, [language, settleInterim]);
 
+  // The microphone is asked for outright first: that brings up the browser's
+  // prompt where it can be seen, and says plainly when it is refused or there
+  // is none, which listening alone leaves unsaid.
   const start = useCallback(() => {
     setError(null);
-    startEngine();
+    setStatus('starting');
+    const ask = (askRef.current += 1);
+    const media = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
+    if (!media?.getUserMedia) {
+      startEngine();
+      return;
+    }
+    media.getUserMedia({ audio: true }).then(
+      (stream) => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (askRef.current === ask) startEngine();
+      },
+      (err: unknown) => {
+        if (askRef.current !== ask) return;
+        const name = err instanceof Error ? err.name : '';
+        setStatus('error');
+        setError(name === 'NotFoundError' || name === 'OverconstrainedError' ? 'no-microphone' : name === 'NotAllowedError' || name === 'SecurityError' ? 'permission-denied' : 'start-failed');
+      },
+    );
   }, [startEngine]);
 
   const pause = useCallback(() => {
@@ -237,10 +293,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
     setStatus('paused');
   }, [stopEngine]);
 
-  const resume = useCallback(() => {
-    setError(null);
-    startEngine();
-  }, [startEngine]);
+  const resume = start;
 
   const stop = useCallback(() => {
     stopEngine();
