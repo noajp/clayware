@@ -94,6 +94,22 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restartEngineRef = useRef<() => void>(() => {});
   const seqRef = useRef(0);
+  const interimRef = useRef('');
+
+  // Words still unsettled when listening ends (a pause, a stop, the browser's
+  // own restart every minute or so) never come back settled: they are kept
+  // as they stand, not dropped.
+  const settleInterim = useCallback(() => {
+    const text = interimRef.current.trim();
+    interimRef.current = '';
+    setInterimText('');
+    if (!text) return;
+    const now = Date.now();
+    seqRef.current += 1;
+    const id = `seg-${now}-${seqRef.current}`;
+    setSegments((prev) => [...prev, { id, text, timestamp: now }]);
+    setLastSpeechAt(now);
+  }, []);
 
   const stopEngine = useCallback(() => {
     shouldKeepListeningRef.current = false;
@@ -113,8 +129,8 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
         // Ignore already-stopped errors
       }
     }
-    setInterimText('');
-  }, []);
+    settleInterim();
+  }, [settleInterim]);
 
   const startEngine = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
@@ -160,6 +176,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
         }
       }
 
+      interimRef.current = interim;
       setInterimText(interim);
       if (finals.length > 0 || interim) {
         setLastSpeechAt(now);
@@ -188,7 +205,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
     };
 
     rec.onend = () => {
-      setInterimText('');
+      settleInterim();
       if (!shouldKeepListeningRef.current) return;
       // Browsers stop continuous recognition after ~60s of silence/audio;
       // restart seamlessly so long meetings never drop out.
@@ -208,7 +225,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
       setStatus('error');
       setError('start-failed');
     }
-  }, [language]);
+  }, [language, settleInterim]);
 
   const start = useCallback(() => {
     setError(null);
@@ -232,6 +249,7 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
 
   const clear = useCallback(() => {
     setSegments([]);
+    interimRef.current = '';
     setInterimText('');
     setElapsedSec(0);
     setLastSpeechAt(0);

@@ -15,6 +15,7 @@ import {
   computeTranscriptDelta,
   shouldAutoStructure,
   shouldRegroup,
+  transcriptMarkdown,
   type DensityReport,
 } from '@/Function/notebook/noteAiModel';
 import { spokenLanguage, useVoiceCapture } from '@/Function/notebook/voice/useVoiceCapture';
@@ -26,6 +27,9 @@ import { PresenceStack } from '@/Function/shared/PresenceStack';
 import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { useNotePresence } from '@/hooks/usePresence';
 import { formatError } from '@/Function/shared/formatError';
+import { formatDateTime } from '@/Function/shared/dateUtils';
+import { getActiveSpaceId } from '@/Function/space/activeSpaceStore';
+import { uploadToArtifacts } from '@/hooks/artifactData';
 
 interface PageViewProps {
   fileId: string;
@@ -106,6 +110,10 @@ export function PageView({
   const [pendingChars, setPendingChars] = useState(0);
 
   const writtenCountRef = useRef(0);
+  // Where this recording starts among the words heard, and how many of them
+  // the transcript file already holds.
+  const sessionStartRef = useRef(0);
+  const filedCountRef = useRef(0);
   // Sections organized since the minutes were last regrouped.
   const roundsRef = useRef(0);
   const lastStructuredAtRef = useRef(0);
@@ -196,7 +204,7 @@ export function PageView({
         minutesHtml: minutes.html,
         language: voice.language,
       });
-      if (editor.voice.replaceMinutes(res.html, minutes.html) === 'done') {
+      if (editor.voice.replaceMinutes(res.html, minutes.key) === 'done') {
         showNotice(t('Minutes regrouped · ⌘Z to undo'));
       }
     } catch {
@@ -284,6 +292,8 @@ export function PageView({
   const handleOpenVoice = useCallback(() => {
     // What was said before the panel opened is not written again.
     writtenCountRef.current = voice.segments.length;
+    sessionStartRef.current = voice.segments.length;
+    filedCountRef.current = voice.segments.length;
     roundsRef.current = 0;
     editorRef.current?.voice.begin();
     setPendingChars(0);
@@ -294,10 +304,37 @@ export function PageView({
     }
   }, [voice]);
 
+  // Stopping asks for the last round and the transcript's file. Both wait for
+  // the words still unsettled when listening ended to be written.
+  const [stopped, setStopped] = useState(0);
   const handleStopVoice = useCallback(() => {
     voice.stop();
-    if (autoStructure) void runStructure(true);
-  }, [voice, autoStructure, runStructure]);
+    setStopped((n) => n + 1);
+  }, [voice]);
+
+  const finishedRef = useRef(0);
+  useEffect(() => {
+    if (!stopped || finishedRef.current === stopped || !voiceOpen) return;
+    if (writtenCountRef.current !== voice.segments.length) return;
+    finishedRef.current = stopped;
+    const editor = editorRef.current;
+    const spoken = voice.segments.slice(sessionStartRef.current);
+    const spaceId = getActiveSpaceId();
+    void (async () => {
+      if (autoStructure) await runStructure(true);
+      // Everything said, word for word, kept in Artifacts and placed above the minutes.
+      if (!editor || !spaceId || voice.segments.length === filedCountRef.current || !spoken.length) return;
+      filedCountRef.current = voice.segments.length;
+      try {
+        const name = `${draftTitle.trim() || t('Voice minutes')} — ${t('Transcript')} ${formatDateTime(new Date(spoken[0].timestamp))}.md`;
+        const file = new File([transcriptMarkdown(spoken)], name.replace(/[\\/:]/g, '-'), { type: 'text/markdown' });
+        const saved = await uploadToArtifacts(spaceId, file);
+        editor.voice.placeFile(saved.id);
+      } catch (err) {
+        setAiError(formatError(err));
+      }
+    })();
+  }, [stopped, voiceOpen, voice.segments, autoStructure, runStructure, draftTitle, t]);
 
   const handleCloseVoice = useCallback(() => {
     voice.stop();

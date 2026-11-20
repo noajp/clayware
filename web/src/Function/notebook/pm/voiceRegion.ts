@@ -1,4 +1,4 @@
-import type { Node as PMNode } from 'prosemirror-model';
+import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type EditorState, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { ySyncPluginKey } from 'y-prosemirror';
@@ -6,9 +6,17 @@ import { schema } from './schema';
 import { docToHtml, htmlToDoc, isEmptyDoc } from './html';
 
 // Voice minutes inside the Note. Words are written as they are spoken; once
-// enough have gathered they are replaced by a titled section, and once enough
-// sections have gathered those are regrouped. The part of the Note this may
-// rewrite is the part it wrote: everything else is left as it is.
+// enough have gathered they are folded into a transcript block with the
+// section made from them below it, and once enough sections have gathered
+// those are regrouped under the transcripts they came from. The part of the
+// Note this may rewrite is the part it wrote: everything else is left as it is.
+
+/** A transcript: a code block of this language, so it is plain text to save
+ *  and to read, drawn folded to its first line until the caret is in it. */
+const TRANSCRIPT_LANG = 'transcript';
+
+const isTranscript = (node: PMNode) =>
+  node.type === schema.nodes.code_block && node.attrs.lang === TRANSCRIPT_LANG;
 
 /** Boundaries between top-level blocks. The minutes are [start, mid), the
  *  words as spoken are [mid, end). `cut` is where the words being organized
@@ -20,6 +28,8 @@ export interface VoiceRegion {
   cut: number | null;
   /** What is being said now, not yet settled. Shown, never written. */
   interim: string;
+  /** The block just above the region is the transcript's file, placed by voice. */
+  filed?: boolean;
 }
 
 export type VoiceReplaceOutcome = 'done' | 'changed' | 'gone';
@@ -46,7 +56,7 @@ function ordered(region: VoiceRegion): VoiceRegion {
 }
 
 /** Pure. The region after a change typed here. */
-export function mapVoiceRegion(region: VoiceRegion, tr: Transaction): VoiceRegion {
+function mapVoiceRegion(region: VoiceRegion, tr: Transaction): VoiceRegion {
   const doc = tr.doc;
   return ordered({
     ...region,
@@ -134,8 +144,16 @@ export function voiceRegionPlugin(): Plugin<VoiceRegion | null> {
     props: {
       decorations(state: EditorState) {
         const region = voiceKey.getState(state);
-        if (!region) return null;
         const decos: Decoration[] = [];
+        // A transcript shows its first line; all of it while the caret is in it.
+        const $from = state.selection.$from;
+        const caretIn = $from.depth > 0 ? $from.before(1) : -1;
+        state.doc.forEach((node, pos) => {
+          if (isTranscript(node)) {
+            decos.push(Decoration.node(pos, pos + node.nodeSize, { class: pos === caretIn ? 'note-transcript is-open' : 'note-transcript' }));
+          }
+        });
+        if (!region) return decos.length ? DecorationSet.create(state.doc, decos) : null;
         // The words as spoken read a step back until they are organized.
         state.doc.nodesBetween(region.mid, region.end, (node, pos) => {
           if (pos >= region.mid && pos + node.nodeSize <= region.end) {
@@ -224,10 +242,18 @@ export function spokenChars(state: EditorState): number {
   return region ? textOf(state.doc, region.mid, region.end).length : 0;
 }
 
-/** The Note up to the words as spoken: what the next section continues from. */
+/** The Note up to the words as spoken, without the transcripts: what the
+ *  next section continues from. */
 export function textBeforeSpoken(state: EditorState): string {
   const region = voiceKey.getState(state);
-  return region ? textOf(state.doc, 0, region.mid) : '';
+  if (!region) return '';
+  const lines: string[] = [];
+  state.doc.nodesBetween(0, region.mid, (node, pos) => {
+    // The transcripts are what the sections were made from, not what comes next.
+    if (pos + node.nodeSize <= region.mid && !isTranscript(node) && node.textContent.trim()) lines.push(node.textContent.trim());
+    return false;
+  });
+  return lines.join('\n');
 }
 
 /** Takes the words as spoken to be organized. What is spoken from now on
@@ -247,8 +273,8 @@ export function releaseSpoken(view: EditorView): void {
   if (region && region.cut !== null) view.dispatch(view.state.tr.setMeta(voiceKey, { ...region, cut: null }));
 }
 
-/** Puts the organized section where the words it was made from are. Words
- *  edited since they were taken are left alone ('changed'). */
+/** Folds the words taken into a transcript and puts the section made from
+ *  them below it. Words edited since they were taken are left alone ('changed'). */
 export function replaceSpoken(view: EditorView, html: string, taken: string): VoiceReplaceOutcome {
   const { state } = view;
   const region = voiceKey.getState(state);
@@ -258,15 +284,16 @@ export function replaceSpoken(view: EditorView, html: string, taken: string): Vo
     releaseSpoken(view);
     return 'changed';
   }
+  // The words stay, folded, above what was made of them; with nothing made
+  // of them they are folded all the same.
   const added = html.trim() ? htmlToDoc(html) : null;
-  if (!added || isEmptyDoc(added)) {
-    // Nothing to make of them: they stay as written.
-    view.dispatch(state.tr.setMeta(voiceKey, { ...region, mid: cut, cut: null }));
-    return 'done';
-  }
-  const tr = state.tr.replaceWith(mid, cut, added.content);
-  const grew = added.content.size - (cut - mid);
-  tr.setMeta(voiceKey, { ...region, mid: mid + added.content.size, end: region.end + grew, cut: null });
+  const transcript = schema.nodes.code_block.create({ lang: TRANSCRIPT_LANG }, schema.text(taken));
+  const section = added && !isEmptyDoc(added)
+    ? Fragment.from(transcript).append(added.content)
+    : Fragment.from(transcript);
+  const tr = state.tr.replaceWith(mid, cut, section);
+  const grew = section.size - (cut - mid);
+  tr.setMeta(voiceKey, { ...region, mid: mid + section.size, end: region.end + grew, cut: null });
   view.dispatch(tr);
   return 'done';
 }
@@ -274,40 +301,61 @@ export function replaceSpoken(view: EditorView, html: string, taken: string): Vo
 const PLAIN = new Set(['paragraph', 'heading', 'blockquote', 'bullet_list', 'ordered_list', 'list_item', 'text', 'hard_break']);
 
 export interface VoiceMinutes {
+  /** The sections, without the transcripts between them. */
   html: string;
   chars: number;
   /** Text and lists only. Lines made into Elements, tables and drawings would
    *  not survive being written again, so minutes that hold one are kept. */
   plain: boolean;
+  /** The whole of it as read, to tell whether it changed since. */
+  key: string;
+}
+
+function minutesParts(state: EditorState, region: VoiceRegion) {
+  const transcripts: PMNode[] = [];
+  const sections: PMNode[] = [];
+  state.doc.nodesBetween(region.start, region.mid, (node, pos) => {
+    if (pos >= region.start && pos + node.nodeSize <= region.mid) (isTranscript(node) ? transcripts : sections).push(node);
+    return false;
+  });
+  return { transcripts, sections };
 }
 
 /** The minutes written so far. */
 export function readMinutes(state: EditorState): VoiceMinutes | null {
   const region = voiceKey.getState(state);
   if (!region || region.mid <= region.start) return null;
-  const { doc } = state;
+  const { sections } = minutesParts(state, region);
+  if (!sections.length) return null;
   let plain = true;
-  doc.nodesBetween(region.start, region.mid, (node) => {
-    if (!PLAIN.has(node.type.name) || (node.type === schema.nodes.list_item && node.attrs.elementId)) plain = false;
-    return plain;
-  });
-  const part = schema.nodes.doc.create(null, doc.slice(region.start, region.mid).content);
-  return { html: docToHtml(part), chars: textOf(doc, region.start, region.mid).length, plain };
+  let chars = 0;
+  for (const section of sections) {
+    chars += section.textContent.length;
+    section.descendants((node) => {
+      if (!PLAIN.has(node.type.name) || (node.type === schema.nodes.list_item && node.attrs.elementId)) plain = false;
+      return plain;
+    });
+    if (!PLAIN.has(section.type.name)) plain = false;
+  }
+  const whole = schema.nodes.doc.create(null, state.doc.slice(region.start, region.mid).content);
+  return { html: docToHtml(schema.nodes.doc.create(null, sections)), chars, plain, key: docToHtml(whole) };
 }
 
-/** Puts the regrouped minutes where the minutes are. Minutes edited since
- *  they were read are left alone ('changed'). */
-export function replaceMinutes(view: EditorView, html: string, read: string): VoiceReplaceOutcome {
+/** Puts the regrouped minutes where the minutes are, under the transcripts
+ *  they came from, each still its own block. Minutes edited since they were
+ *  read are left alone ('changed'). */
+export function replaceMinutes(view: EditorView, html: string, key: string): VoiceReplaceOutcome {
   const { state } = view;
   const region = voiceKey.getState(state);
   const now = readMinutes(state);
   if (!region || !now) return 'gone';
-  if (now.html !== read || !now.plain) return 'changed';
+  if (now.key !== key || !now.plain) return 'changed';
   const added = html.trim() ? htmlToDoc(html) : null;
   if (!added || isEmptyDoc(added)) return 'gone';
   const { start, mid } = region;
-  const tr = state.tr.replaceWith(start, mid, added.content);
-  const grew = added.content.size - (mid - start);
+  const regrouped = Fragment.from(minutesParts(state, region).transcripts).append(added.content);
+  const tr = state.tr.replaceWith(start, mid, regrouped);
+  const grew = regrouped.size - (mid - start);
   tr.setMeta(voiceKey, {
     ...region,
     mid: mid + grew,
@@ -316,4 +364,25 @@ export function replaceMinutes(view: EditorView, html: string, read: string): Vo
   });
   view.dispatch(tr);
   return 'done';
+}
+
+/** Places the transcript's file just above everything voice wrote. Placed
+ *  again, it takes the place of the one placed before. */
+export function placeVoiceFile(view: EditorView, file: PMNode): void {
+  const { state } = view;
+  const region = voiceKey.getState(state);
+  if (!region) return;
+  const before = state.doc.resolve(region.start).nodeBefore;
+  const from = region.filed && before && before.type === schema.nodes.code_block ? region.start - before.nodeSize : region.start;
+  const tr = state.tr.replaceWith(from, region.start, file);
+  const grew = file.nodeSize - (region.start - from);
+  tr.setMeta(voiceKey, {
+    ...region,
+    filed: true,
+    start: region.start + grew,
+    mid: region.mid + grew,
+    end: region.end + grew,
+    cut: region.cut === null ? null : region.cut + grew,
+  });
+  view.dispatch(tr);
 }

@@ -113,6 +113,7 @@ const DOCUMENTS_MESSAGES: Record<string, Row> = {
   'Dismiss all proposals': ['すべての提案を閉じる', '모든 제안 닫기', 'Fermer toutes les propositions', 'Cerrar todas las propuestas'],
   'Apply all': ['すべて適用', '모두 적용', 'Tout appliquer', 'Aplicar todo'],
   'Skip': ['スキップ', '건너뛰기', 'Ignorer', 'Omitir'],
+  'Transcript': ['文字起こし', '받아쓰기', 'Transcription', 'Transcripción'],
   'Raw transcript': ['音声の書き起こし', '음성 받아쓰기', 'Transcription brute', 'Transcripción sin editar'],
   'Spoken words appear here as you talk so nothing is missed.': ['話した言葉が、話したままここに残ります。', '말한 내용이 실시간으로 기록되어 놓치는 부분이 없습니다.', 'Les paroles s’affichent ici en direct pour ne rien manquer.', 'Lo que se habla aparece aquí en vivo para no perder nada.'],
   'Paste or type spoken notes to add to transcript…': ['会話メモを貼り付け・入力して追加…', '대화 메모를 붙여넣거나 입력해 추가…', 'Coller ou saisir des notes à ajouter…', 'Pega o escribe notas para añadir…'],
