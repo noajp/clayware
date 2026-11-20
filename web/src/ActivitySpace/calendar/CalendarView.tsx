@@ -3,10 +3,8 @@
 import { CalendarMonthPicker } from './CalendarPickers';
 import { toDateOnlyString as fmtDateOnly, dayNumberOf, shiftDateOnly, isSameDay, isOverdue as isDueDayPast } from '@/Function/shared/dateUtils';
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { CalendarPlus, ChevronLeft, ChevronRight, ChevronDown, Plus, X } from '@/ui/icons';
+import { CalendarPlus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X } from '@/ui/icons';
 import { Button, ButtonAppearanceProvider } from '@/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem } from '@/ui/dropdown-menu';
-import { MenuShell } from '@/Function/shared/menu';
 import { ObjectIcon } from '@/Function/shared/conceptIcons';
 import type { CalendarEvent } from '@/hooks/calendarEventData';
 import { useEscapeLayer } from '@/Function/shared/keyboard';
@@ -340,29 +338,52 @@ export function CalendarView({ elements: sourceElements, objects, onObjectClick,
           <Button size="xs" variant="ghost" onClick={() => setDragError(null)}>{t('Dismiss')}</Button>
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-[var(--border-subtle)] bg-card">
-        <Button size="sm" variant="secondary" onClick={goToToday}>{t('Today')}</Button>
-        <ButtonAppearanceProvider appearance="navigation">
-          <Button size="icon-sm" variant="ghost" onClick={goToPrevious} aria-label={t('Previous period')}><ChevronLeft size={16} /></Button>
-          <Button size="icon-sm" variant="ghost" onClick={goToNext} aria-label={t('Next period')}><ChevronRight size={16} /></Button>
-        </ButtonAppearanceProvider>
-        <h2 className="flex-1 min-w-0">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] bg-card px-4 py-2">
+        {/* Compact grouped date navigation (< | Today | >) */}
+        <div className="inline-flex items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5">
+          <ButtonAppearanceProvider appearance="navigation">
+            <Button size="icon-xs" variant="ghost" onClick={goToPrevious} aria-label={t('Previous period')}>
+              <ChevronLeft size={14} />
+            </Button>
+            <Button size="xs" variant="ghost" onClick={goToToday} className="px-2 font-medium text-foreground">
+              {t('Today')}
+            </Button>
+            <Button size="icon-xs" variant="ghost" onClick={goToNext} aria-label={t('Next period')}>
+              <ChevronRight size={14} />
+            </Button>
+          </ButtonAppearanceProvider>
+        </div>
+        <h2 className="min-w-0 flex-1">
           <CalendarMonthPicker title={headerTitle} value={currentDate} onPick={setCurrentDate} />
         </h2>
+        {/* 1-click segmented view switcher (Week | Month) */}
+        <div role="tablist" aria-label={t('Calendar view')} className="inline-flex items-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5">
+          {(['week', 'month'] as const).map((m) => {
+            const active = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setMode(m)}
+                className={`h-6 rounded-[4px] px-2.5 text-[12px] font-medium transition-colors ${
+                  active
+                    ? 'bg-card text-foreground shadow-[var(--shadow-card)]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t({ week: 'Week', month: 'Month' }[m])}
+              </button>
+            );
+          })}
+        </div>
         {onCreateEvent && (
-          <Button size="sm" variant="secondary" onClick={() => onCreateEvent({ date: fmtDateOnly(currentDate), startMinutes: null })}>
+          <Button size="sm" variant="primary" onClick={() => onCreateEvent({ date: fmtDateOnly(currentDate), startMinutes: null })}>
             <Plus size={13} />{t('New event')}
           </Button>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button size="sm" variant="secondary">{t({ week: 'Week', month: 'Month' }[mode])}<ChevronDown size={12} /></Button></DropdownMenuTrigger>
-          <MenuShell as="dropdown" align="end">
-            <DropdownMenuRadioGroup value={mode} onValueChange={value => setMode(value as CalendarMode)}>
-              <DropdownMenuRadioItem value="week">{t('Week')}</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="month">{t('Month')}</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </MenuShell>
-        </DropdownMenu>
+
       </div>
 
       {/* Calendar Grid */}
@@ -766,6 +787,7 @@ function TimeGridView({
 }: TimeGridViewProps) {
   const { t, locale } = useI18n();
   const [now, setNow] = useState(new Date());
+  const [allDayExpanded, setAllDayExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Tick the now-line every minute
@@ -878,25 +900,40 @@ function TimeGridView({
         })}
       </div>
 
-      {/* All-day row — the same bands as the month grid: an Element that
-          runs over several of the shown days is one band from its first to
-          its last, clipped to the range with a square edge where it
-          continues, stacked into lanes so bands never overlap. */}
+      {/* All-day row — collapsible beyond 4 lanes so heavy multi-day backlogs
+          never crush the hourly schedule grid underneath. */}
       {(() => {
+        const ALL_DAY_MAX_LANES = 4;
         const dayKeys = days.map(d => fmtDateOnly(d));
         const spans = layoutWeekSpans(elements.filter(el => !el.start_time && !el.due_time), dayKeys);
-        const lanes = spans.reduce((max, span) => Math.max(max, span.lane + 1), 0);
-        const height = Math.max(28, 4 + lanes * MONTH_LANE_HEIGHT + 4);
+        const totalLanes = spans.reduce((max, span) => Math.max(max, span.lane + 1), 0);
+        const canCollapse = totalLanes > ALL_DAY_MAX_LANES;
+        const shownLanes = canCollapse && !allDayExpanded ? ALL_DAY_MAX_LANES : totalLanes;
+        const visibleSpans = canCollapse && !allDayExpanded
+          ? spans.filter(span => span.lane < ALL_DAY_MAX_LANES)
+          : spans;
+        const hiddenCount = spans.length - visibleSpans.length;
+        const height = Math.max(28, 4 + shownLanes * MONTH_LANE_HEIGHT + 4);
         return (
           <div className="flex overflow-hidden [scrollbar-gutter:stable] border-b border-[var(--border-subtle)] bg-card">
-            <div className="w-14 flex-shrink-0 px-2 py-1.5 text-[10px] text-muted-foreground text-right">
-              {t('All day')}
+            <div className="flex w-14 flex-shrink-0 flex-col items-end justify-between px-1.5 py-1.5 text-[10px] text-muted-foreground">
+              <span>{t('All day')}</span>
+              {canCollapse && (
+                <button
+                  type="button"
+                  onClick={() => setAllDayExpanded((v) => !v)}
+                  title={allDayExpanded ? t('Collapse') : t('Show {n} more', { n: hiddenCount })}
+                  className="inline-flex items-center gap-0.5 rounded-[4px] bg-[var(--surface-muted)] px-1 py-0.5 text-[10px] font-medium tabular-nums text-foreground/80 transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground"
+                >
+                  {allDayExpanded ? <ChevronUp size={10} /> : <>+{hiddenCount}<ChevronDown size={10} /></>}
+                </button>
+              )}
             </div>
             <div className="relative flex flex-1 min-w-0" style={{ height }}>
-              {days.map((_, i) => (
-                <div key={i} className={`${colWidthClass} border-l border-[var(--border-subtle)]`} />
+              {days.map((d, i) => (
+                <div key={i} className={`${colWidthClass} border-l border-[var(--border-subtle)] ${isSameDay(d, today) ? 'bg-[var(--accent-subtle)]/20' : ''}`} />
               ))}
-              {spans.map(span => {
+              {visibleSpans.map(span => {
                 const el = span.entry;
                 const cs = getCardStyle(el);
                 const overdue = isOverdue(el);
@@ -913,9 +950,9 @@ function TimeGridView({
                       e.preventDefault();
                       onElementContextMenu(el);
                     }}
-                    className={`absolute text-left px-2 transition-colors hover:brightness-95 rounded-l-none ${
-                      span.continuesAfter ? 'rounded-r-none' : 'rounded-r-md'
-                    } ${cs.className} ${overdue ? 'ring-1 ring-[var(--status-danger)]/60' : ''} ${isDone ? 'opacity-70' : ''}`}
+                    className={`absolute text-left px-1.5 transition-colors hover:brightness-95 rounded-l-none ${
+                      span.continuesAfter ? 'rounded-r-none' : 'rounded-r-[5px]'
+                    } ${cs.className} ${overdue ? 'ring-1 ring-[var(--status-danger)]/55' : ''} ${isDone ? 'opacity-65' : ''}`}
                     style={{
                       ...cs.style,
                       ...(span.continuesBefore ? { borderLeft: 'none' } : {}),
@@ -926,10 +963,13 @@ function TimeGridView({
                     }}
                     title={el.title}
                   >
-                    <div className="flex h-full items-center min-w-0">
-                      <span
-                        className="text-[11px] font-medium leading-tight truncate flex-1"
-                      >
+                    <div className="flex h-full items-center gap-1.5 min-w-0">
+                      {!span.continuesBefore && (
+                        el.event
+                          ? <span className="size-1.5 shrink-0 rounded-full bg-current opacity-85" />
+                          : <ElementProgressMark status={(el.status || 'todo') as ElementStatus} size={11} />
+                      )}
+                      <span className="text-[11px] font-medium leading-tight truncate flex-1">
                         {el.title}
                       </span>
                     </div>
@@ -963,7 +1003,7 @@ function TimeGridView({
             return (
               <div
                 key={colIdx}
-                className={`${colWidthClass} relative border-l border-[var(--border-subtle)]`}
+                className={`${colWidthClass} relative border-l border-[var(--border-subtle)] ${isTodayCol ? 'bg-[var(--accent-subtle)]/15' : ''}`}
                 onMouseDown={onSlotClick ? (e) => {
                   // Only the empty grid: a press on a card is the card's.
                   if (e.button !== 0 || e.target !== e.currentTarget) return;
@@ -986,15 +1026,15 @@ function TimeGridView({
                 } : undefined}
                 onMouseLeave={onSlotClick ? () => setHoverSlot(null) : undefined}
               >
-                {/* Hour lines, and a dashed line at each half hour */}
+                {/* Hour lines, and a quiet dashed line at each half hour */}
                 {hours.map(h => (
                   <div key={h} className="pointer-events-none">
                     <div
-                      className="absolute left-0 right-0 border-t border-[var(--border-default)]"
+                      className="absolute left-0 right-0 border-t border-[var(--border-default)]/55"
                       style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT }}
                     />
                     <div
-                      className="absolute left-0 right-0 border-t border-dashed border-[var(--border-default)]"
+                      className="absolute left-0 right-0 border-t border-dashed border-[var(--border-subtle)]"
                       style={{ top: (h - GRID_START_HOUR) * HOUR_HEIGHT + HOUR_HEIGHT / 2 }}
                     />
                   </div>
@@ -1005,7 +1045,7 @@ function TimeGridView({
                   const { start, end } = pickRange(pick);
                   return (
                     <div
-                      className="pointer-events-none absolute left-0.5 right-0.5 z-20 rounded-sm border border-[var(--accent-default)] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] tabular-nums text-foreground"
+                      className="pointer-events-none absolute left-0.5 right-0.5 z-20 rounded-[5px] border border-[var(--accent-default)] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-foreground"
                       style={{ top: ((start - gridStartMin) / 60) * HOUR_HEIGHT, height: ((end - start) / 60) * HOUR_HEIGHT }}
                     >
                       {formatTimeShort(start)} – {formatTimeShort(end)}
@@ -1016,9 +1056,11 @@ function TimeGridView({
                 {/* The half hour under the pointer: where a click makes an event */}
                 {!pick && hoverSlot?.col === colIdx && (
                   <div
-                    className="pointer-events-none absolute left-0 right-0 rounded-sm border border-foreground/70"
+                    className="pointer-events-none absolute left-0.5 right-0.5 flex items-center rounded-[5px] border border-[var(--accent-default)]/55 bg-[var(--accent-subtle)]/40 px-1.5 text-[10px] font-medium tabular-nums text-[var(--accent-default)]"
                     style={{ top: ((hoverSlot.minutes - gridStartMin) / 60) * HOUR_HEIGHT, height: HOUR_HEIGHT / 2 }}
-                  />
+                  >
+                    {formatTimeShort(hoverSlot.minutes)}
+                  </div>
                 )}
 
                 {/* Now, on the days before and after today this week: dashed */}

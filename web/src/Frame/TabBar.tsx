@@ -74,7 +74,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
   };
 
   return (
-    <div className="flex items-center gap-1.5 py-2 pl-[19px] pr-4 bg-transparent">
+    <div className="flex items-center gap-1.5 border-b border-[var(--gloss-rim)] bg-transparent py-1.5 pl-6 pr-4">
       {/* Tabs — a quiet strip, folded into one menu when they do not fit */}
       <CollapsingTabs
         menuLabel={t('Views')}
@@ -90,7 +90,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
         }}>
           <SortableContext items={tabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
             <div className="min-w-0 overflow-x-auto">
-              <div className="flex w-max items-center gap-1.5">
+              <div className="flex w-max items-center gap-1">
               {tabs.map(tab => <SortableViewTab key={tab.id} tab={tab} active={tab.id === activeTabId}
                 sortable={!!onTabReorder} onSelect={() => onTabSelect(tab.id)} onClose={() => onTabClose(tab.id)} />)}
               </div>
@@ -116,7 +116,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
                 const OptionIcon = meta.Icon;
                 return (
                   <DropdownMenuItem key={type} onSelect={() => handleCreate(type)} className="gap-2 whitespace-nowrap">
-                    <span className="text-muted-foreground"><OptionIcon size={16} /></span>
+                    <span className="text-muted-foreground"><OptionIcon size={14} /></span>
                     {t(createTitle?.(type) ?? meta.title)}
                   </DropdownMenuItem>
                 );
@@ -129,6 +129,7 @@ export function TabBar({ tabs, activeTabId, onTabSelect, onTabClose, onTabCreate
 
       {rightSlot}
 
+
     </div>
   );
 }
@@ -138,6 +139,7 @@ function SortableViewTab({ tab, active, sortable, onSelect, onClose }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id, disabled: !sortable });
   const { t } = useI18n();
+  const TabIcon = (OBJECT_TAB_META[tab.tab_type] ?? OBJECT_TAB_META.elements).Icon;
   // Right-click, or the keyboard's menu key (Shift+F10), opens the tab's menu.
   return (
     <ContextMenu>
@@ -146,6 +148,7 @@ function SortableViewTab({ tab, active, sortable, onSelect, onClose }: {
           {...attributes} {...listeners} aria-pressed={active} onClick={onSelect}
           style={{ transform: CSS.Transform.toString(transform), transition }}
           className={sortable ? `touch-none ${isDragging ? 'relative z-10 opacity-70' : ''}` : undefined}>
+          <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
           {t(tab.title)}
         </Button>
       </ContextMenuTrigger>

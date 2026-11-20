@@ -140,7 +140,7 @@ export function ObjectDraftDialog({ brief, defaultDomainId, initialDraft, onDraf
           type="button"
           onClick={onClose}
           aria-label={t('Close')}
-          className="absolute right-3 top-3 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent rounded-full z-10"
+          className="absolute right-3 top-3 w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] rounded-full z-10"
         >
           <CloseIcon />
         </button>
@@ -202,7 +202,7 @@ export function ObjectDraftDialog({ brief, defaultDomainId, initialDraft, onDraf
                           key={d.id}
                           type="button"
                           onClick={() => { setDomainId(d.id); setDomainPickerOpen(false); }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-accent transition-colors ${
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] text-left hover:bg-[var(--surface-strong)] transition-colors ${
                             d.id === domainId ? 'bg-accent/50 text-foreground' : 'text-foreground/80'
                           }`}
                         >

@@ -23,7 +23,7 @@ import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
-import { ArrowLeft, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
+import { ArrowLeft, Compass, Plus, Bot, Settings, Users, Search, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
 import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { domainHasObjectsMessage, useDomainRole, type DomainRole } from '@/hooks/domainData';
@@ -410,7 +410,7 @@ export function AppSidebar({
             height as the main island's header (50px), so the Space name and
             the island's title sit on one line. */}
         <ButtonAppearanceProvider appearance="navigation">
-        <div className="flex h-[50px] shrink-0 items-center pl-1 pr-2">
+        <div className="flex h-12 shrink-0 items-center pl-1 pr-2">
           {activeView === 'settings' ? (
             <Button variant="ghost" size="sm" align="start" onClick={onCloseSettings} className="text-muted-foreground">
               <ArrowLeft size={14} />{t('Back')}
@@ -421,18 +421,20 @@ export function AppSidebar({
               <SpaceSwitcher onSettings={onOpenSettings} />
             </div>
             {onSearch && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon-xs"
                 type="button"
                 onClick={onSearch}
                 title={t('Discover Domains and Objects')}
                 aria-label={t('Discover')}
-                className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded text-muted-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground"
               >
-                <Search size={15} />
-              </button>
+                <Compass size={14} />
+              </Button>
             )}
             {createLabel && (
-              <Button variant="ghost" size="icon-xs" className="text-muted-foreground"
+              <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-foreground"
                 ref={createBtnRef}
                 type="button"
                 aria-haspopup={section === 'strategy' || railMode === 'tables' || railMode === 'notebook' || railMode === 'calendar' ? undefined : 'menu'}
@@ -441,26 +443,34 @@ export function AppSidebar({
                 title={t(createLabel)}
                 aria-label={t(createLabel)}
               >
-                <Plus size={16} />
+                <Plus size={15} />
               </Button>
             )}
           </div>
           )}
         </div>
-        {/* Pulled up so each mode's title (Workspace, Notebook …) sits just under
-            the main island's header line, level with where its content starts. */}
-        <nav className="-mt-4 flex-1 overflow-y-auto pb-3 pl-1 pr-2">
+        <nav className="flex-1 overflow-y-auto px-2 pb-3 pt-0.5">
 
           {activeView === 'settings' ? (
             <SettingsSidebarPanel />
           ) : (
           <>
-
+          {/* Quick command / search launcher (Linear / Raycast pattern). */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }))}
+            aria-label={t('Search')}
+            className="mb-2.5 flex h-[30px] w-full items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-well)] px-2 text-[12.5px] text-muted-foreground transition-colors hover:border-[var(--border-default)] hover:bg-sidebar-accent/70 hover:text-foreground"
+          >
+            <Search size={13} className="shrink-0 opacity-75" />
+            <span className="min-w-0 flex-1 truncate text-left">{t('Search')}</span>
+            <kbd className="kbd-key">⌘K</kbd>
+          </button>
 
           {section === 'home' && <>
           {/* Home: the person's own rows, in their order (drag a row to
               move it). */}
-          <div className="mt-5">
+          <div className="mt-3 space-y-0.5">
             {sidebarOrder.map((item) => {
               const row = (() => {
                 switch (item) {
@@ -632,7 +642,7 @@ export function AppSidebar({
             role="menu"
             aria-label={t(createLabel ?? 'Create new')}
             onKeyDown={onCreateMenuKey}
-            className="fixed w-52 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden"
+            className="gloss-overlay fixed z-50 w-60 overflow-hidden rounded-[10px] p-1 text-popover-foreground"
             style={{ top: createMenuPos.top, left: createMenuPos.left }}
           >
             {railMode === 'slides' ? (
@@ -1004,12 +1014,14 @@ function CreateMenuItem({ icon, label, desc, onClick, disabled = false }: {
       role="menuitem"
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-start gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-accent focus-visible:bg-accent transition-colors text-left disabled:opacity-50 disabled:hover:bg-transparent"
+      className="group/citem flex w-full items-center gap-2.5 rounded-[6px] px-2 py-1.5 text-left transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)] disabled:opacity-50 disabled:hover:bg-transparent"
     >
-      <span className="mt-0.5 w-4 flex items-center justify-center text-muted-foreground">{icon}</span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm text-foreground">{label}</span>
-        <span className="block text-[11px] text-muted-foreground truncate">{desc}</span>
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] text-muted-foreground transition-colors group-hover/citem:text-foreground">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium leading-tight text-foreground">{label}</span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{desc}</span>
       </span>
     </button>
   );

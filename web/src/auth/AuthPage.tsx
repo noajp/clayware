@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/ui/button';
+import { InlineField, InlineInput } from '@/Function/shared/InlineField';
 
 import { useId, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -98,25 +99,23 @@ export function AuthPage() {
             {t(mode === 'signin' ? 'Sign in to your Activity Space' : 'Get started with Clayware')}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === 'signup' && (
-              <div>
-                <label htmlFor={ids.name} className="block text-sm font-medium text-foreground mb-1.5">{t('Name')}</label>
-                <input
+              <InlineField label={t('Name')} htmlFor={ids.name}>
+                <InlineInput
                   id={ids.name}
                   autoComplete="name"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t('Your name')}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                  className="h-9"
                 />
-              </div>
+              </InlineField>
             )}
 
-            <div>
-              <label htmlFor={ids.email} className="block text-sm font-medium text-foreground mb-1.5">{t('Email')}</label>
-              <input
+            <InlineField label={t('Email')} htmlFor={ids.email}>
+              <InlineInput
                 id={ids.email}
                 autoComplete="email"
                 aria-describedby={error ? ids.error : undefined}
@@ -125,20 +124,20 @@ export function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                className="h-9"
               />
-            </div>
+            </InlineField>
 
-            <div>
-              <div className="flex items-baseline justify-between mb-1.5">
-                <label htmlFor={ids.password} className="block text-sm font-medium text-foreground">{t('Password')}</label>
+            <div className="space-y-1">
+              <div className="flex items-baseline justify-between">
+                <label htmlFor={ids.password} className="block text-[12px] font-medium text-foreground">{t('Password')}</label>
                 {mode === 'signin' && (
                   <button type="button" onClick={() => void sendReset()} className="text-[12px] text-muted-foreground hover:text-foreground hover:underline">
                     {t('Forgot password?')}
                   </button>
                 )}
               </div>
-              <input
+              <InlineInput
                 id={ids.password}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 aria-describedby={error ? ids.error : undefined}
@@ -148,7 +147,7 @@ export function AuthPage() {
                 placeholder={mode === 'signup' ? t('At least 6 characters') : undefined}
                 required
                 minLength={mode === 'signup' ? 6 : undefined}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
+                className="h-9"
               />
             </div>
 
@@ -156,8 +155,8 @@ export function AuthPage() {
               <p role="status" className="text-sm text-muted-foreground">{t('Reset email sent. Check your inbox.')}</p>
             )}
             {error && (
-              <div id={ids.error} role="alert" className="p-3 bg-[var(--status-danger-subtle)] dark:bg-[var(--status-danger)]/20 border border-[var(--status-danger)] dark:border-[var(--status-danger)] rounded-lg">
-                <p className="text-sm text-[var(--status-danger)] dark:text-[var(--status-danger)]">{error}</p>
+              <div id={ids.error} role="alert" className="rounded-md border border-[var(--status-danger)]/35 bg-[var(--status-danger-subtle)] px-3 py-2">
+                <p className="text-[12.5px] text-[var(--status-danger)]">{error}</p>
               </div>
             )}
 

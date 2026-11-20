@@ -35,11 +35,11 @@ const buttonVariants = cva(
   ].join(" "),
   {
     variants: {
-      shape: { action: CONTROL.actionRadius, tab: "rounded-full" },
+      shape: { action: CONTROL.actionRadius, tab: "rounded-[var(--control-tab-radius)]" },
       variant: {
         /** Accent ground. One primary action per button group. */
         primary:
-          "bg-[var(--accent-default)] text-white hover:bg-[var(--accent-hover)]",
+          "border-transparent hover:border-transparent bg-[var(--accent-default)] text-white shadow-[var(--shadow-primary-btn)] hover:bg-[var(--accent-hover)]",
         /** Neutral filled action, with the same fine border as every control. */
         secondary:
           "bg-[var(--surface-strong)] text-[var(--text-primary)] hover:bg-[var(--surface-overlay)]",
@@ -63,7 +63,7 @@ const buttonVariants = cva(
          * does.
          */
         danger:
-          "bg-[var(--status-danger-subtle)] text-[var(--status-danger)] hover:bg-[var(--status-danger)] hover:text-white",
+          "border-transparent hover:border-transparent bg-[var(--status-danger-subtle)] text-[var(--status-danger)] hover:bg-[var(--status-danger)] hover:text-white",
       },
       size: {
         xs: [CONTROL.height.xs, CONTROL.padX.xs, CONTROL.gap.xs, CONTROL.text.xs].join(" "),
@@ -134,21 +134,12 @@ function Button({
       data-size={size}
       data-shape={shape}
       className={cn(buttonVariants({ variant, size, align: resolvedAlign, shape, multiline, className }),
-        // A tab is a pill. The ones not chosen are outlined — each its own
-        // enclosed choice — the chosen one sits on a light fill with no line,
-        // and a hover shows that fill. An icon-only tab sits inside a group
-        // that is outlined already, so it keeps no line of its own.
-        appearance === 'control' && shape === 'tab' && 'border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
-        appearance === 'control' && shape === 'tab' && variant === 'ghost' && !String(size ?? '').startsWith('icon') && 'border-[var(--border-default)] hover:border-[var(--border-default)]',
-        appearance === 'control' && shape === 'tab' && variant === 'ghost' && 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]',
-        appearance === 'control' && shape === 'tab' && variant === 'secondary' && 'bg-[var(--surface-strong)] text-[var(--text-primary)] hover:bg-[var(--surface-strong)]',
+        // Sharp Linear-style view tabs: inactive tabs sit clean and borderless
+        // until hovered; the selected tab lifts with a crisp ground and subtle rim.
+        appearance === 'control' && shape === 'tab' && variant === 'ghost' && 'border-transparent hover:border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-strong)] hover:text-[var(--text-primary)]',
+        appearance === 'control' && shape === 'tab' && variant === 'secondary' && 'bg-[var(--surface-strong)] border-[var(--border-subtle)] hover:border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-strong)]',
         appearance !== 'control' && 'rounded-[var(--control-tab-radius)] border-transparent hover:border-transparent aria-pressed:border-transparent aria-selected:border-transparent',
-        appearance === 'inline' && variant === 'ghost' && 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-normal',
-        // The one decisive action (Create, Send, the empty state's verb, and
-        // its destructive twin Delete) is a pill, like the tabs and the
-        // quick-create property chips beside it.
-        // A caller that sets its own corners (a split button's halves) keeps them.
-        (variant === 'primary' || variant === 'danger') && !/(^|\s)rounded-/.test(className ?? '') && 'rounded-full'
+        appearance === 'inline' && variant === 'ghost' && 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] font-normal'
       )}
       {...props}
     >

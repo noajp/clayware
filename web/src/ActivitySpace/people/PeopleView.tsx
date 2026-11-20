@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Button } from '@/ui/button';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-import type { IslandCrumb } from '@/Function/shared/MainIsland';
+import { MainIsland, type IslandCrumb } from '@/Function/shared/MainIsland';
 import { membersBelow, unitPath } from '@/Function/team/orgUnits';
 import { useOrgUnits } from '@/hooks/orgUnitData';
 import { useTeamRoster } from '@/hooks/useTeamRoster';
@@ -41,10 +41,18 @@ export function PeopleView({ workerId, unitId, onNavigate, onViewChange }: {
   ];
 
   return (
-    <ElementDrilldown label="Team" onNavigate={onNavigate} onViewChange={onViewChange}>
-      {openElement => roster.error ? <div role="alert" className="flex items-center gap-2 px-4 py-3 text-sm text-destructive">
-        {t('Could not load the team.')} <Button size="xs" onClick={() => void roster.refresh()}>{t('Retry')}</Button>
-      </div> : roster.loading ? <p role="status" className="px-4 py-3 text-sm text-muted-foreground">{t('Loading team…')}</p> : (
+    <ElementDrilldown label={t('Team')} onNavigate={onNavigate} onViewChange={onViewChange}>
+      {openElement => roster.error ? (
+        <MainIsland crumbs={path}>
+          <div role="alert" className="flex items-center gap-2 px-6 py-4 text-[13px] text-[var(--status-danger)]">
+            {t('Could not load the team.')} <Button size="xs" variant="secondary" onClick={() => void roster.refresh()}>{t('Retry')}</Button>
+          </div>
+        </MainIsland>
+      ) : roster.loading ? (
+        <MainIsland crumbs={path}>
+          <p role="status" className="px-6 py-4 text-[13px] text-muted-foreground">{t('Loading team…')}</p>
+        </MainIsland>
+      ) : (
         <ResourceView
           title="Team"
           path={path}

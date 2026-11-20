@@ -2,7 +2,13 @@
 
 import { Switch } from '@/Function/settings/SettingsControls';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, ChevronDown, Plus, X, Search, CircleDashed, Flag, Tag, UserRound, Box, CalendarDays, Shapes, ArrowDownWideNarrow, ArrowUpNarrowWide, RotateCcw, Play } from '@/ui/icons';
+import {
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  X,
+  Search, CircleDashed, Flag, Tag, UserRound, Box, CalendarDays, Shapes, SlidersHorizontal, ArrowDownWideNarrow, ArrowUpNarrowWide, RotateCcw, Play,
+} from '@/ui/icons';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuItem,
   MenuCheck,
@@ -18,32 +24,13 @@ function FilterBarsIcon({ size = 14 }: { size?: number }) {
       viewBox="0 0 14 14"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.2"
+      strokeWidth="1.4"
       strokeLinecap="round"
       aria-hidden="true"
     >
-      <line x1="2"   y1="4"  x2="12"   y2="4"  />
-      <line x1="3.5" y1="7"  x2="10.5" y2="7"  />
-      <line x1="5"   y1="10" x2="9"    y2="10" />
-    </svg>
-  );
-}
-
-// 2 × 2 grid (4 cells) — square overall. Represents the Display /
-// Grouping affordance: items bucketed into quadrants.
-function Grid6Icon({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 14 14"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <rect x="1.5" y="1.5" width="5" height="5" rx="0.8" />
-      <rect x="7.5" y="1.5" width="5" height="5" rx="0.8" />
-      <rect x="1.5" y="7.5" width="5" height="5" rx="0.8" />
-      <rect x="7.5" y="7.5" width="5" height="5" rx="0.8" />
+      <line x1="2"   y1="3.75" x2="12"   y2="3.75" />
+      <line x1="3.5" y1="7"    x2="10.5" y2="7"    />
+      <line x1="5"   y1="10.25" x2="9"   y2="10.25" />
     </svg>
   );
 }
@@ -215,23 +202,23 @@ export function ListControls({
     <div className="flex items-center gap-1.5">
       {/* Filter */}
       <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-        {/* Toolbar icons are navigation, not commands: borderless, lit by
-            background on hover and while active. Only the triggers — the
-            panels they open keep their own controls' outlines. */}
+        {/* Linear-style labeled Filter trigger: icon + crisp label on sm+,
+            tinted when a filter is active so active state is unmistakable. */}
         <ButtonAppearanceProvider appearance="navigation">
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="sm"
             aria-pressed={filterActive}
-            className={`relative ${filterActive ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]' : ''}`}
+            className={`relative ${filterActive ? 'bg-[var(--accent-subtle)] text-[var(--accent-default)] hover:bg-[var(--accent-subtle)]' : 'text-muted-foreground hover:text-foreground'}`}
             title={t('Filter')}
             aria-label={t('Filter')}
           >
             <FilterBarsIcon size={CONTROL.icon.sm} />
+            <span className="hidden sm:inline">{t('Filter')}</span>
             {filterActive && (
-              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="size-1.5 rounded-full bg-[var(--accent-default)]" />
             )}
           </Button>
         </PopoverTrigger>
@@ -256,11 +243,13 @@ export function ListControls({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="sm"
+            className={displayOpen ? 'bg-[var(--surface-strong)] text-foreground' : 'text-muted-foreground hover:text-foreground'}
             title={t('Display options')}
             aria-label={t('Display options')}
           >
-            <Grid6Icon size={CONTROL.icon.sm} />
+            <SlidersHorizontal size={13} />
+            <span className="hidden sm:inline">{t('Display')}</span>
           </Button>
         </PopoverTrigger>
         </ButtonAppearanceProvider>

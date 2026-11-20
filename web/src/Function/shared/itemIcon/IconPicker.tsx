@@ -155,7 +155,7 @@ function IconGrid({ query, value, onPick }: { query: string; value: ItemLook; on
 
   const cell = (key: string, icon: string, title: string, glyph: ReactNode) => (
     <button key={key} type="button" title={title} aria-label={title} onClick={() => onPick(icon)}
-      className={`flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground ${value.icon === icon ? 'bg-accent' : ''}`}
+      className={`flex size-8 items-center justify-center rounded-[6px] text-muted-foreground hover:bg-[var(--surface-strong)] hover:text-foreground ${value.icon === icon ? 'bg-[var(--surface-strong)] text-foreground' : ''}`}
       style={tone ? { color: tone } : undefined}>
       {glyph}
     </button>
@@ -191,7 +191,7 @@ function EmojiGrid({ query, onPick }: { query: string; onPick: (emoji: string) =
 
   const cell = (emoji: string, label: string, key: string) => (
     <button key={key} type="button" title={label} aria-label={label} onClick={() => onPick(emoji)}
-      className="flex size-8 items-center justify-center rounded-md text-[20px] leading-none hover:bg-accent">
+      className="flex size-8 items-center justify-center rounded-[6px] text-[20px] leading-none hover:bg-[var(--surface-strong)]">
       {emoji}
     </button>
   );
@@ -349,7 +349,7 @@ export function ItemIconButton({ value, onChange, defaultIcon, size = 18, canEdi
   return (
     <IconPicker value={value} onChange={onChange} defaultIcon={defaultIcon}>
       <button type="button" aria-label={label ?? t('Change icon')} title={label ?? t('Change icon')}
-        className="-m-1 rounded-md p-1 outline-none transition-colors hover:bg-accent focus-visible:bg-accent">
+        className="-m-1 rounded-[6px] p-1 outline-none transition-colors hover:bg-[var(--surface-strong)] focus-visible:bg-[var(--surface-strong)]">
         {icon}
       </button>
     </IconPicker>

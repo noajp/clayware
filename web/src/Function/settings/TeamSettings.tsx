@@ -519,7 +519,7 @@ function AddMemberDialog({
           <button
             onClick={onClose}
             aria-label={t('Close')}
-            className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+            className="p-1 text-muted-foreground hover:text-foreground hover:bg-[var(--surface-strong)] rounded transition-colors"
           >
             <X size={14} />
           </button>

@@ -300,7 +300,7 @@ function AppContent() {
         <div className="text-center p-6 rounded-lg bg-card border border-border max-w-sm">
           <div className="text-destructive text-sm font-medium mb-2">{t('Connection Error')}</div>
           <div className="text-muted-foreground text-xs mb-4">{domainsError.message}</div>
-          <button onClick={() => refetchDomains()} className="px-3 py-1.5 bg-muted hover:bg-accent text-foreground rounded text-xs transition-colors">
+          <button onClick={() => refetchDomains()} className="px-3 py-1.5 bg-muted hover:bg-[var(--surface-strong)] text-foreground rounded text-xs transition-colors">
             {t('Try Again')}
           </button>
         </div>
@@ -867,7 +867,7 @@ function WorkspaceContent({
         <div className="text-center p-6 rounded-lg bg-card border border-border max-w-sm">
           <div className="text-destructive text-sm font-medium mb-2">{t('Connection Error')}</div>
           <div className="text-muted-foreground text-xs mb-4">{error.message}</div>
-          <button onClick={() => refetch()} className="px-3 py-1.5 bg-muted hover:bg-accent text-foreground rounded text-xs transition-colors">
+          <button onClick={() => refetch()} className="px-3 py-1.5 bg-muted hover:bg-[var(--surface-strong)] text-foreground rounded text-xs transition-colors">
             {t('Try Again')}
           </button>
         </div>

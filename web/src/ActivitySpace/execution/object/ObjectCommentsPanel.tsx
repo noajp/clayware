@@ -195,7 +195,7 @@ export function ObjectCommentsPanel({
                 type="button"
                 key={w.id}
                 onClick={() => insertMention(w)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-accent text-left"
+                className="w-full flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-[var(--surface-strong)] text-left"
               >
                 <div className="w-6 h-6 rounded-full bg-primary/10 text-[11px] font-medium text-primary flex items-center justify-center">
                   {w.name.charAt(0)}

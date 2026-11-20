@@ -1,19 +1,14 @@
 'use client';
 
-
 import React, { useState, useEffect } from 'react';
 import { useDomains } from '@/hooks/useSupabase';
 import { getActiveDomainId, setActiveDomainId } from '@/Function/space/domainsStore';
 import { ChevronRight } from '@/ui/icons';
+import { DomainIcon } from '@/Function/shared/conceptIcons';
+import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
+import { PageHeader } from '@/Function/shared/PageHeader';
+import { EmptyState } from '@/Function/shared/EmptyState';
 import { useI18n } from '@/Function/i18n/I18nProvider';
-
-const DomainIconSvg = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 5.5 4.5 9.25 12 13l7.5-3.75L12 5.5Z" />
-    <path d="M4.5 12.25 12 16l7.5-3.75" />
-    <path d="M4.5 15.25 12 19l7.5-3.75" />
-  </svg>
-);
 
 export function DomainsView({
   onOpen,
@@ -21,7 +16,7 @@ export function DomainsView({
   onOpen: (domainId: string) => void;
 }) {
   const { t } = useI18n();
-  const { data: domains } = useDomains();
+  const { data: domains, loading } = useDomains();
   const [activeId, setActiveId] = useState<string>(() => getActiveDomainId() ?? '');
 
   useEffect(() => {
@@ -39,58 +34,75 @@ export function DomainsView({
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-card">
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground tracking-tight">{t('Domains')}</h1>
-          <p className="text-[13px] text-muted-foreground mt-1">
+    <div className="flex h-full flex-col overflow-hidden bg-card">
+      <PageHeader
+        icon={<DomainIcon size={15} />}
+        title={t('Domains')}
+        count={domains.length || undefined}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-4xl px-6 py-6">
+          <p className="text-[13px] text-muted-foreground">
             {t('Top-level containers for organizations, operations, or workspaces. Objects multi-home across Domains.')}
           </p>
-        </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {domains.map((d) => {
-            const isActive = d.id === activeDomain?.id;
-            return (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => drillIn(d.id)}
-                className="text-left rounded-lg bg-white dark:bg-card border border-border/60 shadow-[var(--shadow-island)] hover:border-border transition-all p-5 group"
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-muted-foreground shrink-0"
-                    style={{ backgroundColor: d.color ?? undefined }}
+          {!loading && domains.length === 0 ? (
+            <div className="mt-8">
+              <EmptyState
+                art="domain"
+                title={t('No Domains yet')}
+                description={t('Create a Domain from the sidebar to organize Objects and Elements.')}
+              />
+            </div>
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {domains.map((d) => {
+                const isActive = d.id === activeDomain?.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => drillIn(d.id)}
+                    className="group rounded-lg border border-[var(--border-subtle)] bg-card p-4 text-left shadow-[var(--shadow-card)] transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)]/40"
                   >
-                    {d.color
-                      ? <span className="text-[15px] font-semibold text-white">{d.name.charAt(0)}</span>
-                      : <div className="bg-muted w-full h-full rounded-lg flex items-center justify-center"><DomainIconSvg size={20} /></div>
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-[15px] font-medium text-foreground tracking-tight truncate">{d.name}</h2>
-                      {isActive && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--status-success)]">
-                          <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)]" />
-                          {t('Active')}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex size-9 shrink-0 items-center justify-center rounded-[8px] border ${
+                          d.color && !d.icon
+                            ? 'border-transparent text-white'
+                            : 'border-[var(--border-subtle)] bg-[var(--surface-muted)] text-foreground/85'
+                        }`}
+                        style={d.color && !d.icon ? { backgroundColor: d.color } : undefined}
+                      >
+                        <ItemIcon
+                          icon={d.icon ?? null}
+                          color={d.color ?? null}
+                          size={18}
+                          fallback={<DomainIcon size={18} />}
+                        />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate text-[14px] font-medium tracking-tight text-foreground">{d.name}</h3>
+                          {isActive && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-[4px] bg-[var(--status-success-subtle)] px-1.5 py-0.5 text-[10.5px] font-medium text-[var(--status-success)]">
+                              <span className="size-1.5 rounded-full bg-[var(--status-success)]" />
+                              {t('Active')}
+                            </span>
+                          )}
+                        </div>
+                        {d.identifier && (
+                          <p className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground/70">{d.identifier}</p>
+                        )}
+                      </div>
+                      <ChevronRight size={14} className="shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </div>
-                    {d.identifier && (
-                      <p className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono">{d.identifier}</p>
-                    )}
-                  </div>
-                  <ChevronRight size={14} className="text-muted-foreground/30 group-hover:text-foreground transition-colors mt-1.5" />
-                </div>
-              </button>
-            );
-          })}
-
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-
-
       </div>
     </div>
   );

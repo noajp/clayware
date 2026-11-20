@@ -18,8 +18,8 @@ import type { ComponentProps, ReactNode, Ref } from 'react';
 // =============================================================
 
 const STATE = {
-  active: 'bg-sidebar-accent text-foreground',
-  idle: 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground has-[:focus-visible]:bg-sidebar-accent/50 has-[:focus-visible]:text-foreground',
+  active: 'bg-sidebar-accent text-foreground shadow-[inset_0_0_0_1px_var(--border-subtle)]',
+  idle: 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground has-[:focus-visible]:bg-sidebar-accent/60 has-[:focus-visible]:text-foreground',
 };
 
 export function SidebarRow({
@@ -59,15 +59,23 @@ export function SidebarRow({
   className?: string;
   ref?: Ref<HTMLDivElement>;
 } & Omit<ComponentProps<'div'>, 'children' | 'title' | 'onClick' | 'ref'>) {
-  const type = size === 'sm' ? 'h-8 text-[13px] font-normal'
+  const type = size === 'sm' ? 'h-[30px] text-[13px] font-normal'
     : size === 'tall' ? 'min-h-9 py-1.5 text-[13px] font-medium'
-    : 'h-8 text-[13px] font-medium';
+    : 'h-[30px] text-[13px] font-medium';
   const body = (
     <>
-      {icon && <span className="flex w-4 shrink-0 items-center justify-center">{icon}</span>}
+      {icon && (
+        <span className={`flex w-4 shrink-0 items-center justify-center transition-colors ${active ? 'text-foreground' : 'text-muted-foreground group-hover/srow:text-foreground'}`}>
+          {icon}
+        </span>
+      )}
       {children ?? <span className="min-w-0 flex-1 truncate">{label}</span>}
       {meta !== undefined && meta !== null && meta !== false && (
-        <span className="shrink-0 text-[11px] font-normal tabular-nums text-muted-foreground/70">{meta}</span>
+        <span className={`shrink-0 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] px-1.5 text-[11px] font-medium tabular-nums ${
+          typeof meta === 'number' && meta > 0
+            ? 'bg-[var(--accent-subtle)] text-[var(--accent-default)]'
+            : 'text-muted-foreground/75'
+        }`}>{meta}</span>
       )}
     </>
   );
@@ -75,12 +83,12 @@ export function SidebarRow({
     <div
       ref={ref}
       {...rest}
-      className={`flex w-full min-w-0 items-center rounded-md transition-colors duration-100 ${type} ${
+      className={`group/srow flex w-full min-w-0 items-center rounded-[6px] transition-colors duration-100 ${type} ${
         disabled ? 'text-muted-foreground opacity-50' : active ? STATE.active : STATE.idle
       } ${className}`}
     >
       {children !== undefined ? (
-        <div className="flex h-full min-w-0 flex-1 items-center gap-2.5 px-2.5">{body}</div>
+        <div className="flex h-full min-w-0 flex-1 items-center gap-2 px-2">{body}</div>
       ) : (
         <button
           type="button"
@@ -89,7 +97,7 @@ export function SidebarRow({
           title={title}
           aria-current={active ? 'page' : undefined}
           {...buttonProps}
-          className={`flex h-full min-w-0 flex-1 items-center gap-2.5 rounded-md px-2.5 text-left outline-none disabled:cursor-not-allowed ${buttonProps?.className ?? ''}`}
+          className={`flex h-full min-w-0 flex-1 items-center gap-2 rounded-[6px] px-2 text-left outline-none disabled:cursor-not-allowed ${buttonProps?.className ?? ''}`}
         >
           {body}
         </button>
@@ -101,7 +109,7 @@ export function SidebarRow({
 
 /** A trailing control in a SidebarRow — a chevron, a "…". No ground of its
  *  own: the row is already lit, so the glyph brightens instead. */
-export function SidebarRowAction({ label, onClick, children, ...rest }: {
+export function SidebarRowAction({ label, onClick, children, className = '', ...rest }: {
   label: string;
   onClick: () => void;
   children: ReactNode;
@@ -113,7 +121,7 @@ export function SidebarRowAction({ label, onClick, children, ...rest }: {
       title={label}
       onClick={onClick}
       {...rest}
-      className="flex size-6 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground"
+      className={`flex size-6 items-center justify-center rounded-[5px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground ${className}`}
     >
       {children}
     </button>

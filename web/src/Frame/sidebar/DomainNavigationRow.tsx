@@ -21,13 +21,16 @@ export function DomainNavigationRow({ name, mark, active, expanded, activeView, 
           <DisclosureTriangle open={expanded} />
         </SidebarRowAction>
         {onSettings
-          ? <SidebarRowAction label={`${name} settings`} onClick={onSettings}><MoreHorizontal size={12} /></SidebarRowAction>
+          ? <SidebarRowAction label={`${name} settings`} onClick={onSettings}
+              className="opacity-0 transition-opacity group-hover/srow:opacity-100 focus-visible:opacity-100">
+              <MoreHorizontal size={13} />
+            </SidebarRowAction>
           : <span aria-hidden className="size-6 shrink-0" />}
       </>} />
-    {expanded && <div className="mt-0.5 pl-7">
+    {expanded && <div className="ml-[15px] mt-0.5 space-y-0.5 border-l border-[var(--border-subtle)] pl-2.5">
       {(['objects', 'domain-elements'] as const).map(id => {
         const { icon: Icon, label } = VIEW_REGISTRY[id];
-        return <SidebarRow key={id} active={active && activeView === id} icon={Icon && <Icon size={16} />} label={t(label)} onClick={() => onSelect(id)} />;
+        return <SidebarRow key={id} size="sm" active={active && activeView === id} icon={Icon && <Icon size={15} />} label={t(label)} onClick={() => onSelect(id)} />;
       })}
     </div>}
   </div>;

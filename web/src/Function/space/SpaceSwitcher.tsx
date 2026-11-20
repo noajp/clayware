@@ -3,7 +3,7 @@
 import { appDialog } from '@/Function/shared/appDialogStore';
 
 import { useState } from 'react';
-import { Plus, Trash2, Settings, Users, ChevronRight, LogOut, ArrowLeft } from '@/ui/icons';
+import { Plus, Trash2, Settings, Users, ChevronRight, ChevronsUpDown, LogOut, ArrowLeft } from '@/ui/icons';
 import { Popover, PopoverTrigger, PopoverContent } from '@/ui/popover';
 import {
   useActivitySpaces,
@@ -76,20 +76,21 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
   };
 
 
-  const menuItem = 'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[13px] text-left transition-colors';
+  const menuItem = 'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[5px] text-[13px] text-left transition-colors';
 
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="w-full flex items-center gap-2 px-1 h-7 rounded-md hover:bg-sidebar-accent/50 transition-colors"
+          className="group/space flex h-7 max-w-full items-center gap-2 rounded-[6px] px-1.5 transition-colors hover:bg-sidebar-accent/70"
           title={t('Switch Space')}
         >
-          <SpaceMark space={active} size={24} />
-          <span className="text-left text-[13px] font-medium text-foreground truncate max-w-[100px]">
+          <SpaceMark space={active} size={20} />
+          <span className="min-w-0 max-w-[136px] truncate text-left text-[13px] font-semibold tracking-[-0.01em] text-foreground">
             {active?.name ?? 'Space'}
           </span>
+          <ChevronsUpDown size={13} className="shrink-0 text-muted-foreground/60 transition-colors group-hover/space:text-foreground" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" aria-label={t('Switch Space')} className="w-60 p-1">
@@ -100,17 +101,17 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => { setOpen(false); onSettings?.(); }}
-              className={`${menuItem} text-foreground hover:bg-muted/40`}
+              className={`${menuItem} text-foreground hover:bg-[var(--surface-strong)]`}
             >
-              <Settings size={15} className="text-muted-foreground" />
+              <Settings size={14} className="text-muted-foreground" />
               Settings
             </button>
             <button
               type="button"
               onClick={() => { setOpen(false); onSettings?.(); }}
-              className={`${menuItem} text-foreground hover:bg-muted/40`}
+              className={`${menuItem} text-foreground hover:bg-[var(--surface-strong)]`}
             >
-              <Users size={15} className="text-muted-foreground" />
+              <Users size={14} className="text-muted-foreground" />
               Invite and manage members
             </button>
 
@@ -119,7 +120,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => setPanel('spaces')}
-              className={`${menuItem} text-foreground hover:bg-muted/40`}
+              className={`${menuItem} text-foreground hover:bg-[var(--surface-strong)]`}
             >
               <SpaceMark space={active} size={15} />
               <span className="flex-1 truncate">Switch workspace</span>
@@ -128,9 +129,9 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => void signOut()}
-              className={`${menuItem} text-foreground hover:bg-muted/40`}
+              className={`${menuItem} text-foreground hover:bg-[var(--surface-strong)]`}
             >
-              <LogOut size={15} className="text-muted-foreground" />
+              <LogOut size={14} className="text-muted-foreground" />
               Log out
             </button>
           </>
@@ -142,7 +143,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => setPanel('main')}
-              className={`${menuItem} text-muted-foreground hover:bg-muted/40 mb-0.5`}
+              className={`${menuItem} text-muted-foreground hover:bg-[var(--surface-strong)] mb-0.5`}
             >
               <ArrowLeft size={14} />
               <span className="text-[12px] font-medium">Back</span>
@@ -153,7 +154,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
                 key={s.id}
                 type="button"
                 onClick={() => switchTo(s.id)}
-                className={`${menuItem} hover:bg-muted/40`}
+                className={`${menuItem} hover:bg-[var(--surface-strong)]`}
               >
                 <SpaceMark space={s} size={20} />
                 <span className="flex-1 truncate text-foreground">{s.name}</span>
@@ -164,7 +165,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => { setPanel('create'); setDraft(''); }}
-              className={`${menuItem} text-muted-foreground hover:bg-muted/40`}
+              className={`${menuItem} text-muted-foreground hover:bg-[var(--surface-strong)]`}
             >
               <Plus size={14} /> Create Space
             </button>
@@ -186,7 +187,7 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
             <button
               type="button"
               onClick={() => setPanel('spaces')}
-              className={`${menuItem} text-muted-foreground hover:bg-muted/40 mb-0.5`}
+              className={`${menuItem} text-muted-foreground hover:bg-[var(--surface-strong)] mb-0.5`}
             >
               <ArrowLeft size={14} />
               <span className="text-[12px] font-medium">Back</span>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LogOut } from '@/ui/icons';
+import { Check, Copy, LogOut } from '@/ui/icons';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import { SettingRow, SettingsIsland } from './SettingsControls';
@@ -16,6 +16,15 @@ export function AccountSettings() {
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const copyUserId = () => {
+    if (!user?.id) return;
+    void navigator.clipboard?.writeText(user.id).then(() => {
+      setCopiedId(true);
+      window.setTimeout(() => setCopiedId(false), 1600);
+    });
+  };
 
   const handleResetPassword = async () => {
     if (!user?.email) return;
@@ -52,13 +61,20 @@ export function AccountSettings() {
         </SettingRow>
 
         <SettingRow label={t('User ID')} desc={t('Used by integrations and the Supabase Edge.')}>
-          <span className="text-[11px] font-mono text-muted-foreground select-all">
-            {user?.id ?? '—'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-[5px] bg-[var(--surface-muted)] px-2 py-1 font-mono text-[11px] text-muted-foreground select-all">
+              {user?.id ?? '—'}
+            </span>
+            {user?.id && (
+              <Button variant="ghost" size="icon-xs" onClick={copyUserId} aria-label={copiedId ? t('Copied') : t('Copy')} title={copiedId ? t('Copied') : t('Copy')}>
+                {copiedId ? <Check size={12} className="text-[var(--status-success)]" /> : <Copy size={12} />}
+              </Button>
+            )}
+          </div>
         </SettingRow>
 
         <SettingRow label={t('Member since')}>
-          <span className="text-[13px] text-muted-foreground">{createdAt}</span>
+          <span className="text-[13px] tabular-nums text-muted-foreground">{createdAt}</span>
         </SettingRow>
 
         <SettingRow
@@ -66,7 +82,8 @@ export function AccountSettings() {
           desc={resetSent ? t('Reset email sent. Check your inbox.') : t('Send a reset link to your inbox.')}
         >
           <Button
-            variant="ghost"
+            variant="secondary"
+            size="sm"
             onClick={handleResetPassword}
             disabled={resetting || resetSent || !user?.email}
           >

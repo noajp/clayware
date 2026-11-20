@@ -61,11 +61,11 @@ export const FONT = {
   /** Sub-page titles */
   '2xl': 'text-[22px] leading-[30px] font-semibold tracking-normal',
   /** Section titles */
-  xl:   'text-[18px] leading-[26px] font-semibold tracking-normal',
+  xl:   'text-[18px] leading-[26px] font-semibold tracking-[-0.012em]',
   /** Section headings */
   lg:   'text-[15px] leading-[22px] font-medium tracking-normal',
-  /** Form inputs / buttons */
-  md:   'text-[14px] leading-[20px] font-normal',
+  /** Form inputs / buttons (unified 13px base across lists, details, and forms) */
+  md:   'text-[13px] leading-[20px] font-normal',
   /** Body text / list rows (default) */
   base: 'text-[13px] leading-[20px] font-normal',
   /** Sub-text / icon labels */
@@ -87,10 +87,10 @@ export const CONTROL = {
   square: { xs: 'size-6', sm: 'size-7', md: 'size-8', lg: 'size-11' },
   /** Horizontal padding. Vertical padding is never used — height is declared. */
   padX: { xs: 'px-2', sm: 'px-2.5', md: 'px-3', lg: 'px-4' },
-  /** Gap between icon and label. */
-  gap: { xs: 'gap-1', sm: 'gap-1', md: 'gap-1.5', lg: 'gap-1.5' },
-  /** Label type. 12px = FONT.sm, 13px = FONT.base. */
-  text: { xs: 'text-[12px]', sm: 'text-[12px]', md: 'text-[13px]', lg: 'text-sm' },
+  /** Gap between icon and label (minimum 6px so small icons never crowd text). */
+  gap: { xs: 'gap-1.5', sm: 'gap-1.5', md: 'gap-1.5', lg: 'gap-2' },
+  /** Label type. 12px = FONT.sm, 13px = FONT.base (unified across controls). */
+  text: { xs: 'text-[12px]', sm: 'text-[12px]', md: 'text-[13px]', lg: 'text-[13px]' },
   /** Center visible label metrics, rather than a font's asymmetric leading. */
   label: '[text-box-trim:trim-both] [text-box-edge:cap_alphabetic]',
   /** lucide `size` prop for an icon inside a control of this step. */
@@ -102,7 +102,7 @@ export const CONTROL = {
 } as const;
 
 export const FIELD = {
-  base: `${CONTROL.border} rounded-[var(--control-field-radius)] placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 focus:bg-[var(--surface-strong)]`,
+  base: 'bg-[var(--surface-muted)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] rounded-[var(--control-field-radius)] text-[13px] placeholder:text-muted-foreground/70 disabled:cursor-not-allowed disabled:opacity-50 focus:bg-[var(--surface-strong)]',
 } as const;
 
 export type ControlSize = keyof typeof CONTROL.height;
@@ -205,12 +205,12 @@ export const CONTROL_WELL = 'bg-foreground/[0.06]';
 export const CONTROL_WELL_HOVER = 'hover:bg-foreground/[0.1]';
 /** Shared geometry for Object and Element quick creation. */
 export const QUICK_CREATE = {
-  panel: 'pointer-events-auto w-full max-w-[760px] max-h-[calc(100dvh-48px)] overflow-y-auto rounded-lg gloss-overlay p-4',
-  header: 'flex items-center gap-2 mb-2',
-  context: 'inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground',
-  title: 'quick-create-title block w-full bg-transparent px-0 py-1 text-lg text-foreground placeholder:text-muted-foreground/60 resize-none',
-  description: 'block w-full bg-transparent px-0 py-1 text-[13px] text-foreground/85 placeholder:text-muted-foreground/50 resize-none',
-  properties: 'flex flex-wrap items-center gap-1.5 pt-2',
-  footer: 'flex items-center justify-end gap-3 pt-3',
+  panel: 'pointer-events-auto w-full max-w-[740px] max-h-[calc(100dvh-48px)] overflow-y-auto rounded-[10px] gloss-overlay p-4',
+  header: 'flex items-center gap-2 mb-2.5',
+  context: 'inline-flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[var(--surface-muted)] px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground',
+  title: 'quick-create-title block w-full bg-transparent px-0 py-1 text-[17px] leading-snug tracking-[-0.01em] text-foreground placeholder:text-muted-foreground/55 resize-none',
+  description: 'block w-full bg-transparent px-0 py-1 text-[13px] leading-relaxed text-foreground/85 placeholder:text-muted-foreground/50 resize-none',
+  properties: 'flex flex-wrap items-center gap-1.5 pt-2.5',
+  footer: 'mt-3 flex items-center justify-end gap-2.5 border-t border-[var(--border-subtle)] pt-3',
   descriptionMinHeight: 56,
 } as const;

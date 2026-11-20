@@ -76,7 +76,7 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
       <DetailPage rail={
         <RailCard title={t('Properties')}>
           <RailRow icon={domain.privacy === 'private' ? <Lock className="size-3.5 text-muted-foreground" /> : <Users className="size-3.5 text-muted-foreground" />}
-            name={t('Access')} label={domain.privacy === 'private' ? t('Private') : 'Space'} dense />
+            name={t('Access')} label={domain.privacy === 'private' ? t('Private') : t('Space')} dense />
           {domain.identifier && <RailRow icon={<Hash className="size-3.5 text-muted-foreground" />} name={t('Identifier')} label={domain.identifier} dense />}
           {/* The Strategies this Domain's Objects serve: what its work is for, read first. */}
           <div className="flex items-start gap-2 rounded-md px-2 py-1.5 text-[13px] leading-5">
@@ -95,10 +95,13 @@ export function DomainOverview({ domainId, onNavigate, onViewChange, onOpenNote 
             )}
           </div>
           <button type="button" className="w-full" onClick={() => { onNavigate({ objectId: null }); onViewChange?.('objects'); }}>
-            <RailRow icon={<ObjectIcon size={14} />} name="Objects" label={String(explorer.objects.length)} dense />
+            <RailRow icon={<ObjectIcon size={14} />} name={t('Objects')} label={String(explorer.objects.length)} dense />
           </button>
           <button type="button" className="w-full" onClick={() => { onNavigate({ objectId: null }); onViewChange?.('domain-elements'); }}>
-            <RailRow icon={<ElementIcon size={14} />} name="Elements" label={String(elements.length)} dense />
+            <RailRow icon={<ElementIcon size={14} />} name={t('Elements')} label={String(elements.length)} dense />
+          </button>
+          <button type="button" className="w-full" onClick={() => onViewChange?.('strategy')}>
+            <RailRow icon={<NavStrategyIcon size={14} />} name={t('Strategies')} label={String(initiatives.length)} placeholder={initiatives.length === 0} dense />
           </button>
         </RailCard>
       } head={<>

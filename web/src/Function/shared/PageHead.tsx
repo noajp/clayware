@@ -24,7 +24,9 @@ import { FONT } from '@/shared/designTokens';
  *  place: icon, then title, then description. */
 export function PageIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="mb-3 flex h-6 items-center text-muted-foreground">{children}</span>
+    <span className="mb-3 inline-flex size-9 items-center justify-center rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/70 text-foreground/80">
+      {children}
+    </span>
   );
 }
 

@@ -25,13 +25,13 @@ export function RailCard({
   return (
     <section className="group/rail gloss-island gloss-sheen rounded-lg bg-[var(--surface-card)] shadow-[var(--shadow-card)]">
       {/* Height is declared, not left to padding, so the heading is the same
-          40px whether the card is open or shut. */}
-      <div className="flex h-10 items-center pl-2.5 pr-2">
+          38px whether the card is open or shut. */}
+      <div className={`flex h-[38px] items-center pl-2.5 pr-2 ${!collapsed ? 'border-b border-[var(--border-subtle)]' : ''}`}>
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-expanded={!collapsed}
-          className="flex h-full min-w-0 items-center gap-1 rounded-md px-1.5 text-left text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-full min-w-0 items-center gap-1.5 rounded-md px-1.5 text-left text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           {icon}
           <span className="truncate">{title}</span>
@@ -44,7 +44,7 @@ export function RailCard({
         {action && <div className="shrink-0">{action}</div>}
       </div>
       {!collapsed && (
-        <div className={padded ? 'px-4 pb-4' : 'px-2 pb-2'}>
+        <div className={padded ? 'p-3.5' : 'p-1.5'}>
           {children}
         </div>
       )}

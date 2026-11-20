@@ -390,6 +390,13 @@ export function CommandPalette({ returnTo, onNavigate, onViewChange, onOpenItem,
           ))}
         </CommandGroup>
       </CommandList>
+      <div className="flex items-center justify-between border-t border-[var(--border-subtle)] bg-[var(--surface-well)] px-3.5 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1"><kbd className="kbd-key">↑</kbd><kbd className="kbd-key">↓</kbd><span>{t('Navigate')}</span></span>
+          <span className="inline-flex items-center gap-1"><kbd className="kbd-key">↵</kbd><span>{t('Open')}</span></span>
+        </div>
+        <span className="inline-flex items-center gap-1"><kbd className="kbd-key">Esc</kbd><span>{t('Close')}</span></span>
+      </div>
     </CommandDialog>
   );
 }

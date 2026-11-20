@@ -41,10 +41,10 @@ const KEEP = '#fff';
 // design-lint-ignore — a mask is luminance: white keeps, black cuts; not a UI colour.
 const CUT = '#000';
 
-// The drawing's 16-unit grid, framed a little inside its edges so every mark
-// draws about 14% larger than the box it is given (no layout changes); what
-// reaches past the frame still shows (overflow visible).
-const VIEW_BOX = '1 1 14 14';
+// The full 16-unit grid: icons stay optically inside their declared box instead
+// of bleeding 14% past it into neighbouring labels. At <= 14px, inner knockouts
+// widen slightly so fine details stay crisp instead of clogging.
+const VIEW_BOX = '0 0 16 16';
 
 /** Makes a glyph component from its drawing. */
 export function glyph(displayName: string, drawing: Drawing) {
@@ -55,20 +55,23 @@ export function glyph(displayName: string, drawing: Drawing) {
     void _strokeWidth; void _absolute;
     const id = useId();
     const mask = drawing.cut ? `clayware-icon-${id.replace(/:/g, '')}` : null;
+    const numericSize = typeof size === 'number' ? size : Number.parseFloat(String(size)) || 16;
+    const cutStroke = numericSize <= 14 ? 1.55 : 1.3;
+    const lineStroke = numericSize <= 14 ? 1.6 : 1.5;
     return (
-      <svg ref={ref} width={size} height={size} viewBox={VIEW_BOX} overflow="visible" fill="currentColor" aria-hidden="true"
+      <svg ref={ref} width={size} height={size} viewBox={VIEW_BOX} fill="currentColor" aria-hidden="true"
         style={color ? { color, ...style } : style} {...rest}>
         {mask && (
           <defs>
             <mask id={mask} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
               <rect width="16" height="16" fill={KEEP} />
-              <g fill="none" stroke={CUT} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">{drawing.cut}</g>
+              <g fill="none" stroke={CUT} strokeWidth={cutStroke} strokeLinecap="round" strokeLinejoin="round">{drawing.cut}</g>
             </mask>
           </defs>
         )}
         {drawing.solid && <g mask={mask ? `url(#${mask})` : undefined}>{drawing.solid}</g>}
         {drawing.line && (
-          <g fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{drawing.line}</g>
+          <g fill="none" stroke="currentColor" strokeWidth={lineStroke} strokeLinecap="round" strokeLinejoin="round">{drawing.line}</g>
         )}
       </svg>
     );

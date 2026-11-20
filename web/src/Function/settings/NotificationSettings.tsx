@@ -34,10 +34,12 @@ export function NotificationSettings() {
       <SettingsIsland title={t('Inbox')}>
         {NOTIFICATION_KINDS.map((kind) => {
           const meta = NOTIFICATION_KIND_META[kind];
+          const Icon = meta.icon;
           const isEnabled = !muted.has(kind);
           return (
             <ToggleRow
               key={kind}
+              icon={<Icon size={13} />}
               label={t(meta.label)}
               desc={KIND_HINT[kind] ? t(KIND_HINT[kind]!) : undefined}
               value={isEnabled}

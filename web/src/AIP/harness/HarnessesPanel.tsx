@@ -5,8 +5,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
+import { MoreHorizontal } from '@/ui/icons';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/ui/dialog';
 import { Plus } from '@/ui/icons';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
+import { Switch } from '@/Function/settings/SettingsControls';
+import { appDialog } from '@/Function/shared/appDialogStore';
 import { CARD_FLAT, FONT, SETTINGS_ISLAND } from '@/shared/designTokens';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
@@ -319,17 +323,17 @@ export function HarnessesPanel() {
                     <button type="button" onClick={() => setEditing(d)}
                       className="flex min-w-0 flex-1 items-center gap-3 py-2 text-left outline-none focus-visible:underline">
                       <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                           <span className="truncate text-[13px] font-medium text-foreground">{d.name}</span>
-                          {d.source_id && <span className="shrink-0 rounded-full bg-[var(--accent-subtle)] px-1.5 text-[11px] font-medium text-[var(--accent-text)]">{t('Official')}</span>}
-                          {isDefault && <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-[var(--text-secondary)]">{t('Default')}</span>}
-                          {d.promoted_from_draft_id && <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-[var(--text-secondary)]">{t('Promoted')}</span>}
-                          {!d.enabled && <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-muted-foreground">{t('Off')}</span>}
+                          {d.source_id && <span className="shrink-0 rounded-[5px] bg-[var(--accent-subtle)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--accent-text)]">{t('Official')}</span>}
+                          {isDefault && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t('Default')}</span>}
+                          {d.promoted_from_draft_id && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]">{t('Promoted')}</span>}
+                          {!d.enabled && <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('Off')}</span>}
                           {(relation.kind === 'current' || relation.kind === 'legacy-unknown') && relation.differs && (
-                            <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-muted-foreground">{t('Edited locally')}</span>
+                            <span className="shrink-0 rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-muted-foreground">{t('Edited locally')}</span>
                           )}
                           {needs.length > 0 && (
-                            <span className="shrink-0 rounded-full border border-[var(--border-default)] px-1.5 text-[11px] text-[var(--status-warning)]">
+                            <span className="shrink-0 rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-subtle)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--status-warning)]">
                               {t('Needs: {names}', { names: needs.map((n) => n.name).join(', ') })}
                             </span>
                           )}
@@ -338,35 +342,53 @@ export function HarnessesPanel() {
                       </div>
                       <CheckSummary diagnostics={checkHarness(parseDefinition(d.body), { connected, exceptions: exceptionsCtx })} />
                     </button>
-                    {needs.length > 0 && (
-                      <Button size="xs" variant="ghost" disabled={busy !== null}
+                    {needs.length > 0 ? (
+                      <Button size="xs" variant="secondary" disabled={busy !== null}
                         onClick={() => startWalk(d, d.source_id ?? '')}>
                         {t('Set up connectors')}
                       </Button>
-                    )}
-                    {relation.kind === 'update-available' && item && (
-                      <Button size="xs" variant="ghost" disabled={busy !== null}
+                    ) : relation.kind === 'update-available' && item ? (
+                      <Button size="xs" variant="secondary" disabled={busy !== null}
                         onClick={() => setReviewing({ definition: d, item })}>
                         {t('Update v{from} → v{to}', { from: relation.installedVersion, to: relation.catalogVersion })}
                       </Button>
+                    ) : (
+                      <Button size="xs" variant="secondary" disabled={!d.enabled} onClick={() => setTrying(d)}>{t('Try')}</Button>
                     )}
-                    {relation.kind === 'legacy-unknown' && item && (
-                      <Button size="xs" variant="ghost" disabled={busy !== null}
-                        onClick={() => setReviewing({ definition: d, item })}>
-                        {t('Review catalog version')}
-                      </Button>
-                    )}
-                    <Button size="xs" variant="ghost" disabled={busy !== null}
-                      onClick={() => void act(d.id, async () => { await setDefinitionEnabled(d.id, !d.enabled); await library.refetch(); })}>
-                      {d.enabled ? t('Turn off') : t('Turn on')}
-                    </Button>
-                    {isOwner && (
-                      <Button size="xs" variant="ghost" disabled={busy !== null || !d.enabled}
-                        onClick={() => void act(d.id, () => fallback.set(isDefault ? null : d.id))}>
-                        {isDefault ? t('Stop using as default') : t('Make default')}
-                      </Button>
-                    )}
-                    <Button size="xs" variant="ghost" disabled={!d.enabled} onClick={() => setTrying(d)}>{t('Try')}</Button>
+                    <Switch
+                      label={d.name}
+                      value={d.enabled}
+                      disabled={busy !== null}
+                      onChange={(next) => void act(d.id, async () => { await setDefinitionEnabled(d.id, next); await library.refetch(); })}
+                    />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon-xs" variant="ghost" aria-label={t('More options')} disabled={busy !== null}>
+                          <MoreHorizontal size={14} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[180px]">
+                        <DropdownMenuItem onSelect={() => setEditing(d)}>{t('Edit')}</DropdownMenuItem>
+                        {d.enabled && (needs.length > 0 || (relation.kind === 'update-available' && item)) && (
+                          <DropdownMenuItem onSelect={() => setTrying(d)}>{t('Try')}</DropdownMenuItem>
+                        )}
+                        {relation.kind === 'update-available' && item && needs.length > 0 && (
+                          <DropdownMenuItem onSelect={() => setReviewing({ definition: d, item })}>
+                            {t('Update v{from} → v{to}', { from: relation.installedVersion, to: relation.catalogVersion })}
+                          </DropdownMenuItem>
+                        )}
+                        {relation.kind === 'legacy-unknown' && item && (
+                          <DropdownMenuItem onSelect={() => setReviewing({ definition: d, item })}>
+                            {t('Review catalog version')}
+                          </DropdownMenuItem>
+                        )}
+                        {isOwner && d.enabled && (
+                          <DropdownMenuItem onSelect={() => void act(d.id, () => fallback.set(isDefault ? null : d.id))}>
+                            {isDefault ? t('Stop using as default') : t('Make default')}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 );
               })}
@@ -525,7 +547,7 @@ function ConnectorChips({ names, connected }: { names: string[]; connected: stri
     <div className="flex flex-wrap items-center gap-1">
       <span className="text-[11px] text-muted-foreground">{t('Uses')}</span>
       {names.map((n) => (
-        <span key={n} className={cn('rounded-full border border-[var(--border-default)] px-1.5 text-[11px]',
+        <span key={n} className={cn('rounded-[5px] border border-[var(--border-default)] px-1.5 py-0.5 text-[11px]',
           have.has(n.toLowerCase().replace(/\s+/g, '')) ? 'text-[var(--text-secondary)]' : 'text-muted-foreground')}>
           {n}
         </span>
@@ -591,8 +613,8 @@ function HarnessEditor({ spaceId, definition, connected, isOwner, exceptions, on
   const save = () => run(() => (definition
     ? updateDefinition(definition.id, { name: name.trim(), body })
     : createDefinition({ spaceId, name, body })));
-  const remove = () => {
-    if (!definition || !window.confirm(t('Delete “{name}”? Strategies and Elements that follow it go back to the Space’s default.', { name: definition.name }))) return;
+  const remove = async () => {
+    if (!definition || !(await appDialog.confirm(t('Delete “{name}”? Strategies and Elements that follow it go back to the Space’s default.', { name: definition.name })))) return;
     void run(() => deleteDefinition(definition.id));
   };
   return (
@@ -920,7 +942,7 @@ function DefinitionTestsSection({ spaceId, definitionId, savedBody, editingBody 
     setRunningAll(false);
   };
   const remove = async (test: DefinitionTest) => {
-    if (!window.confirm(t('Delete the test “{name}”?', { name: test.name }))) return;
+    if (!(await appDialog.confirm(t('Delete the test “{name}”?', { name: test.name })))) return;
     setBusyId(test.id); setError(null);
     try { await deleteDefinitionTest(test.id); refetch(); }
     catch (e) { setError(formatError(e)); }

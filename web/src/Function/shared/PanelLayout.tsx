@@ -20,10 +20,14 @@ export function Panel({ label, children }: { label: string; children: ReactNode 
  *  the left, a count beside it, actions at the right. */
 export function PanelHeader({ title, count, actions }: { title: string; count?: number; actions?: ReactNode }) {
   return (
-    <header className="flex h-[50px] shrink-0 items-center gap-1.5 border-b border-border/60 bg-card px-3">
+    <header className="gloss-bar flex h-12 shrink-0 items-center gap-1.5 bg-card px-3">
       <SidebarReveal />
-      <h2 className="text-[13px] font-medium text-foreground">{title}</h2>
-      {count ? <span className="text-[11px] tabular-nums text-muted-foreground">{count}</span> : null}
+      <h2 className="text-[13px] font-semibold text-foreground">{title}</h2>
+      {count ? (
+        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+          {count}
+        </span>
+      ) : null}
       <div className="flex-1" />
       {actions && <ButtonAppearanceProvider appearance="navigation">{actions}</ButtonAppearanceProvider>}
     </header>

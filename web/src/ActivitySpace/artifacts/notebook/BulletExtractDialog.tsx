@@ -135,7 +135,7 @@ export function BulletExtractDialog({
           {editTexts.map((text, i) => (
             <div
               key={i}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-accent group min-h-[1.625rem]"
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded hover:bg-[var(--surface-strong)] group min-h-[1.625rem]"
             >
               {/* Pick checkbox — matches the Done checkbox in Element List rows */}
               <button
@@ -218,7 +218,7 @@ function ObjectScopeSelect({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full inline-flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-border rounded-md hover:bg-accent text-foreground/90"
+        className="w-full inline-flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] border border-border rounded-md hover:bg-[var(--surface-strong)] text-foreground/90"
       >
         <span className="inline-flex items-center gap-1.5 truncate">
           <ObjectIcon size={12} />
@@ -232,7 +232,7 @@ function ObjectScopeSelect({
             type="button"
             onClick={() => { onChange(null); setOpen(false); }}
             className={[
-              'w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] hover:bg-accent',
+              'w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] hover:bg-[var(--surface-strong)]',
               value === null ? 'text-foreground' : 'text-foreground/80',
             ].join(' ')}
           >
@@ -250,7 +250,7 @@ function ObjectScopeSelect({
               type="button"
               onClick={() => { onChange(o.id); setOpen(false); }}
               className={[
-                'w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] hover:bg-accent',
+                'w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] hover:bg-[var(--surface-strong)]',
                 value === o.id ? 'text-foreground' : 'text-foreground/80',
               ].join(' ')}
             >

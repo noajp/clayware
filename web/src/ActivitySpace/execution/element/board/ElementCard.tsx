@@ -260,13 +260,13 @@ export function ElementCard({ element, onRefresh, onOpen, badge, object, extra, 
                   }}
                   onPointerDown={stop}
                   onClick={stop}
-                  className="min-w-0 flex-1 text-[14px] font-medium text-foreground leading-[22px] bg-transparent border-none resize-none overflow-y-auto"
+                  className="min-w-0 flex-1 text-[13px] font-medium text-foreground leading-[19px] bg-transparent border-none resize-none overflow-y-auto"
                 />
               ) : (
                 <button
                   type="button"
                   aria-label={t('Rename {title}', { title: element.title })}
-                  className="min-w-0 flex-1 truncate text-left text-[13.5px] font-medium text-foreground leading-[22px] -mx-1 px-1 rounded cursor-text"
+                  className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-foreground leading-[19px] -mx-1 px-1 rounded cursor-text"
                   title={element.title}
                   onPointerDown={stop}
                   onClick={(e) => { stop(e); setEditingTitle(true); }}
@@ -363,8 +363,8 @@ export function ElementCard({ element, onRefresh, onOpen, badge, object, extra, 
         )}
         {extra}
 
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-2.5">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">
+          <div className="flex min-w-0 items-center gap-1">
             {/* Assignee — click to assign / change. */}
             <DropdownMenu open={assigneeMenuOpen} onOpenChange={setAssigneeMenuOpen}>
               <DropdownMenuTrigger asChild>

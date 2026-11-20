@@ -36,14 +36,15 @@ export function CopilotApprovalInboxCard({ actionId }: { actionId: string }) {
   if (!action) return <p className={`${FONT.sm} text-muted-foreground`}>{t('This approval is no longer available.')}</p>;
 
   const when = (iso: string) => new Date(iso).toLocaleString(locale);
+  const decidedTime = action.decided_at ? when(action.decided_at) : null;
   const statusLine =
     action.status === 'pending' ? (action.expires_at
       ? t('Waiting for a decision until {time}', { time: when(action.expires_at) })
       : t('Awaiting approval'))
     : action.status === 'approved' ? t('Approved · the conversation is continuing')
-    : action.status === 'executed' ? t('Approved and run · {time}', { time: action.decided_at ? when(action.decided_at) : '' })
-    : action.status === 'failed' ? t('Approved, but the run failed · {time}', { time: action.decided_at ? when(action.decided_at) : '' })
-    : action.status === 'rejected' ? t('Denied · {time}', { time: action.decided_at ? when(action.decided_at) : '' })
+    : action.status === 'executed' ? (decidedTime ? t('Approved and run · {time}', { time: decidedTime }) : t('Approved'))
+    : action.status === 'failed' ? (decidedTime ? t('Approved, but the run failed · {time}', { time: decidedTime }) : t('Failed'))
+    : action.status === 'rejected' ? (decidedTime ? t('Denied · {time}', { time: decidedTime }) : t('Denied'))
     : t('Expired without a decision');
   const statusTone = action.status === 'pending' ? 'text-[var(--status-info)]'
     : action.status === 'executed' || action.status === 'approved' ? 'text-[var(--status-success)]'
@@ -74,11 +75,11 @@ export function CopilotApprovalInboxCard({ actionId }: { actionId: string }) {
   };
 
   return (
-    <section className="space-y-4 rounded-lg border border-border/60 bg-card p-6" aria-label={t('Approval request')}>
-      <div className="flex items-start gap-3">
-        <Hand size={18} className="mt-0.5 shrink-0 text-muted-foreground" />
+    <section className="ai-surface space-y-4 p-5" aria-label={t('Approval request')}>
+      <div className="flex items-start gap-2.5">
+        <Hand size={16} className="mt-0.5 shrink-0 text-[var(--accent-default)]" />
         <div className="min-w-0 flex-1 space-y-1">
-          <p className={`${FONT.sm} ${statusTone}`}>{statusLine}</p>
+          <p className={`${FONT.sm} font-medium ${statusTone}`}>{statusLine}</p>
           {action.decision_note && <p className={`${FONT.sm} text-foreground/80`}>{action.decision_note}</p>}
         </div>
       </div>

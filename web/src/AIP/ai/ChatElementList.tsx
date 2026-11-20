@@ -24,12 +24,12 @@ export function ChatElementList({ items }: { items: ElementListItem[] }) {
         const people = item.assignees.map((n) => byName.get(n.toLowerCase()) ?? { name: n });
         return (
           <div key={`${item.title}-${i}`}
-            className="flex min-w-0 items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 shadow-[var(--shadow-card)] dark:bg-[var(--surface-rail)]">
+            className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 shadow-[var(--shadow-card)] dark:bg-[var(--surface-rail)]">
             <span className="flex shrink-0" title={t(statusLabel(item.status))}>
-              <ElementProgressMark status={item.status as ElementStatus} size={15} />
+              <ElementProgressMark status={item.status as ElementStatus} size={14} />
             </span>
-            <span className="min-w-0 flex-1 truncate text-[13.5px] text-foreground" title={item.title}>{item.title}</span>
-            {item.due && <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{item.due}</span>}
+            <span className="min-w-0 flex-1 truncate text-[13px] text-foreground" title={item.title}>{item.title}</span>
+            {item.due && <span className="shrink-0 text-[11.5px] tabular-nums text-muted-foreground">{item.due}</span>}
             {people.length > 0 && <WorkerAvatarStack workers={people} size={20} />}
           </div>
         );

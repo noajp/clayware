@@ -2,7 +2,8 @@
 
 import { formatDateTime } from '@/Function/shared/dateUtils';
 import { useMemo, useState } from 'react';
-import { FileText } from '@/ui/icons';
+import { FileText, Pencil } from '@/ui/icons';
+import { Button } from '@/ui/button';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
@@ -34,7 +35,7 @@ type ProfileTab = 'overview' | 'elements' | 'notes' | 'calendar';
 // time, handle, email) and their bio; under it, tabs — an Overview of what
 // matters about their work now, their Elements, their Notes and their
 // Calendar.
-export function ProfileView({ onNavigate, onViewChange }: Props) {
+export function ProfileView({ onNavigate, onViewChange, onOpenSettings }: Props) {
   const { t } = useI18n();
   const { user, profile } = useAuthContext();
   const spaceId = useActiveSpaceId();
@@ -72,11 +73,18 @@ export function ProfileView({ onNavigate, onViewChange }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
-      {/* Settings is the gear beside you at the sidebar's foot. */}
-      <IslandHeader crumbs={[{ id: 'profile', label: t('Profile') }]} />
+      <IslandHeader
+        crumbs={[{ id: 'profile', label: t('Profile') }]}
+        actions={
+          <Button variant="secondary" size="xs" onClick={onOpenSettings}>
+            <Pencil size={12} />
+            {t('Edit profile')}
+          </Button>
+        }
+      />
       {/* The views sit right under the title row, as on an Object; the
           person themselves opens the Overview, as an Object's title does. */}
-      <ViewTabs tabs={tabs.map(({ id, label }) => ({ id, label }))} active={tab} onSelect={setTab} label={t('Profile sections')}
+      <ViewTabs tabs={tabs} active={tab} onSelect={setTab} label={t('Profile sections')}
         actions={<div ref={setControlsSlot} className={tab === 'elements' ? 'flex items-center' : 'hidden'} />} />
       <div className={tab === 'overview' ? 'min-h-0 flex-1 overflow-y-auto' : 'hidden'}>
         <DetailPage head={

@@ -200,6 +200,48 @@ const SURFACE_MESSAGES: Record<string, Row> = {
 
   // ── Calendar ──────────────────────────────────────────────────
   'All day': ['終日', '종일', 'Toute la journée', 'Todo el día'],
+  'Calendar view': ['カレンダー表示', '캘린더 보기', 'Vue calendrier', 'Vista de calendario'],
+  'Show {n} more': ['他 {n} 件を表示', '{n}개 더 보기', 'Afficher {n} de plus', 'Mostrar {n} más'],
+  'Collapse': ['折りたたむ', '접기', 'Réduire', 'Contraer'],
+
+  // ── Shell / Inbox / Controls ──────────────────────────────────
+  'Mark as read': ['既読にする', '읽음으로 표시', 'Marquer comme lu', 'Marcar como leído'],
+  'Mark as unread': ['未読にする', '읽지 않음으로 표시', 'Marquer comme non lu', 'Marcar como no leído'],
+  'New Element': ['新規 Element', '새 Element', 'Nouvel Element', 'Nuevo Element'],
+  'More options': ['その他の操作', '추가 옵션', 'Plus d’options', 'Más opciones'],
+  'Navigate': ['移動', '이동', 'Naviguer', 'Navegar'],
+  'Open': ['開く', '열기', 'Ouvrir', 'Abrir'],
+  'Space': ['Space', 'Space', 'Space', 'Space'],
+  'Denied': ['却下', '거부됨', 'Refusé', 'Rechazado'],
+  'Unable to load your overview.': ['概要を読み込めませんでした。', '개요를 불러올 수 없습니다.', 'Impossible de charger votre vue d’ensemble.', 'No se pudo cargar tu resumen.'],
+
+  // ── Agent / Copilot ───────────────────────────────────────────
+  'How can I help?': ['何をお手伝いしましょうか？', '무엇을 도와드릴까요?', 'Comment puis-je vous aider ?', '¿En qué puedo ayudarte?'],
+  'Ask about your Elements, Strategies, or schedule — or delegate work directly.': ['Element・Strategy・予定の確認から、作業の依頼まで何でも話しかけてください。', 'Element, Strategy, 일정에 대해 묻거나 작업을 바로 맡겨 보세요.', 'Posez des questions sur vos Elements, Strategies ou votre agenda, ou déléguez directement.', 'Pregunta sobre tus Elements, Strategies o agenda, o delega trabajo directamente.'],
+  'Review priorities': ['優先度を確認', '우선순위 확인', 'Voir les priorités', 'Revisar prioridades'],
+  'Summarize my highest-priority and overdue Elements right now.': ['今すぐ対応すべき高優先度および期限切れの Element をまとめてください。', '지금 가장 우선순위가 높고 기한이 지난 Element를 요약해 주세요.', 'Résumez mes Elements les plus prioritaires et en retard maintenant.', 'Resume mis Elements más prioritarios y vencidos ahora mismo.'],
+  'Check Strategy progress': ['Strategy の進捗を確認', 'Strategy 진행 상황 확인', 'Vérifier les Strategies', 'Revisar el progreso de Strategy'],
+  'Summarize current progress and blockers across our Strategies.': ['進行中の Strategy 全体の進捗とブロッカーをまとめてください。', '진행 중인 Strategy 전체의 현황과 방해 요소를 요약해 주세요.', 'Résumez l’avancement actuel et les blocages de nos Strategies.', 'Resume el progreso actual y los bloqueos de nuestras Strategies.'],
+  'Plan today': ['今日の計画を立てる', '오늘 일정 계획', 'Planifier la journée', 'Planificar hoy'],
+  'Suggest a focused plan for what I should tackle today.': ['今日取り組むべき優先作業の計画を提案してください。', '오늘 집중해서 처리해야 할 작업 계획을 제안해 주세요.', 'Proposez un plan ciblé pour ce que je dois traiter aujourd’hui.', 'Sugiere un plan enfocado para lo que debo abordar hoy.'],
+  'Please continue "{work}" (connected {names}).': ['「{work}」を続けてください（{names} を接続しました）。', '"{work}" 작업을 계속 진행해 주세요 ({names} 연결 완료).', 'Veuillez poursuivre « {work} » ({names} connecté).', 'Por favor continúa "{work}" ({names} conectado).'],
+  'Please continue "{work}" (entered credentials for {label}).': ['「{work}」を続けてください（{label} の認証情報を入力しました）。', '"{work}" 작업을 계속 진행해 주세요 ({label} 자격 증명 입력 완료).', 'Veuillez poursuivre « {work} » (identifiants saisis pour {label}).', 'Por favor continúa "{work}" (credenciales ingresadas para {label}).'],
+  'the pending work': ['保留中の作業', '보류 중인 작업', 'le travail en attente', 'el trabajo pendiente'],
+
+  // ── Domains / Strategy / Settings Confirmations ───────────────
+  'Top-level containers for organizations, operations, or workspaces. Objects multi-home across Domains.': ['組織・事業・ワークスペースの最上位コンテナです。Object は複数の Domain に所属できます。', '조직, 운영, 워크스페이스의 최상위 컨테이너입니다. Object는 여러 Domain에 동시에 속할 수 있습니다.', 'Conteneurs de premier niveau pour les organisations ou équipes. Les Objects peuvent appartenir à plusieurs Domains.', 'Contenedores de nivel superior para organizaciones o áreas. Los Objects pueden pertenecer a varios Domains.'],
+  'No Domains yet': ['Domain がまだありません', '아직 Domain이 없습니다', 'Aucun Domain pour le moment', 'Aún no hay Domains'],
+  'Create a Domain from the sidebar to organize Objects and Elements.': ['サイドバーから Domain を作成して、Object や Element を整理しましょう。', '사이드바에서 Domain을 만들어 Object와 Element를 정리하세요.', 'Créez un Domain depuis la barre latérale pour organiser vos Objects et Elements.', 'Crea un Domain desde la barra lateral para organizar Objects y Elements.'],
+  'Delete this assumption? This cannot be undone.': ['この前提を削除しますか？元に戻せません。', '이 가정을 삭제할까요? 되돌릴 수 없습니다.', 'Supprimer cette hypothèse ? Cette action est irréversible.', '¿Eliminar esta suposición? Esta acción no se puede deshacer.'],
+  'Delete this decision? This cannot be undone.': ['この意思決定を削除しますか？元に戻せません。', '이 결정을 삭제할까요? 되돌릴 수 없습니다.', 'Supprimer cette décision ? Cette action est irréversible.', '¿Eliminar esta decisión? Esta acción no se puede deshacer.'],
+  'Delete the Phase "{name}"? Its Objects and Elements stay, just unassigned.': ['Phase「{name}」を削除しますか？紐づく Object や Element は未割り当てのまま残ります。', 'Phase "{name}"을(를) 삭제할까요? 속한 Object와 Element는 미할당 상태로 남습니다.', 'Supprimer la Phase « {name} » ? Ses Objects et Elements resteront simplement non assignés.', '¿Eliminar la Phase "{name}"? Sus Objects y Elements permanecerán sin asignar.'],
+  'Failed to delete Phase': ['Phase の削除に失敗しました', 'Phase 삭제에 실패했습니다', 'Impossible de supprimer la Phase', 'No se pudo eliminar la Phase'],
+  'Failed to update Phase': ['Phase の更新に失敗しました', 'Phase 업데이트에 실패했습니다', 'Impossible de mettre à jour la Phase', 'No se pudo actualizar la Phase'],
+  'Delete the automation "{name}"? This cannot be undone.': ['オートメーション「{name}」を削除しますか？元に戻せません。', '자동화 "{name}"을(를) 삭제할까요? 되돌릴 수 없습니다.', 'Supprimer l’automatisation « {name} » ? Cette action est irréversible.', '¿Eliminar la automatización "{name}"? Esta acción no se puede deshacer.'],
+  'Manage Space invites': ['Space の招待を管理', 'Space 초대 관리', 'Gérer les invitations du Space', 'Gestionar invitaciones del Space'],
+  'Manage Domain members': ['Domain メンバーを管理', 'Domain 멤버 관리', 'Gérer les membres du Domain', 'Gestionar miembros del Domain'],
+  'No Domains in this Space yet. Types are set per Domain.': ['この Space にはまだ Domain がありません。タイプは Domain ごとに設定します。', '이 Space에 아직 Domain이 없습니다. 유형은 Domain별로 설정합니다.', 'Aucun Domain dans ce Space pour le moment. Les types se définissent par Domain.', 'Aún no hay Domains en este Space. Los tipos se configuran por Domain.'],
+  'Delete the type "{name}"? Existing items keep their value.': ['タイプ「{name}」を削除しますか？既存の項目には値がそのまま残ります。', '유형 "{name}"을(를) 삭제할까요? 기존 항목의 값은 유지됩니다.', 'Supprimer le type « {name} » ? Les éléments existants conservent leur valeur.', '¿Eliminar el tipo "{name}"? Los elementos existentes conservan su valor.'],
 
   // ── Create Domain ─────────────────────────────────────────────
   'A Domain is where work happens — a hospital, a company, a department. Inside it, Objects (the projects that hold Elements) and Elements (actions) live, and an Object can belong to several Domains.': ['Domain は活動の場です。病院・会社・部署など。その中に Object（Element をまとめる持ち場。プロジェクトに近い）と Element（行動）が入り、1 つの Object を複数の Domain に置くこともできます。', 'Domain은 활동이 일어나는 곳입니다. 병원, 회사, 부서 등. 그 안에 Object(Element를 묶는 담당 범위. 프로젝트에 가까움)와 Element(행동)가 있으며, 하나의 Object는 여러 Domain에 속할 수 있습니다.', 'Un Domain est le lieu de l’activité — un hôpital, une entreprise, un service. Il contient des Objects (les projets qui regroupent des Elements) et des Elements (actions), et un Object peut appartenir à plusieurs Domains.', 'Un Domain es donde ocurre el trabajo: un hospital, una empresa, un departamento. Dentro están los Objects (los proyectos que agrupan Elements) y los Elements (acciones), y un Object puede pertenecer a varios Domains.'],

@@ -1,10 +1,12 @@
 'use client';
 
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { PageHeader } from '@/Function/shared/PageHeader';
+import { ElementIcon } from '@/Function/shared/conceptIcons';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/dropdown-menu';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { Plus, Trash2 } from '@/ui/icons';
+import { MoreHorizontal, Plus, Trash2 } from '@/ui/icons';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fetchMyElements, type MyElementsData } from '@/hooks/myElementsData';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -311,50 +313,78 @@ export function MyElementsView({ onRefresh, onNavigate, onViewChange, embedded =
           sortColumnsStorageKey="my-elements"
           showClosedWindow
         />
-        <ButtonAppearanceProvider appearance="navigation">
-          {userId && (
-            <Button variant="ghost" size="icon-xs" onClick={() => setDeletedOpen(true)} title={t('Deleted Elements')} aria-label={t('Deleted Elements')}>
-              <Trash2 size={14} />
-            </Button>
-          )}
-          <Button variant="ghost" size="icon-xs" onClick={() => setQuickAddOpen(true)} title={t('Add personal Element')} aria-label={t('Add personal Element')}>
-            <Plus size={14} />
-          </Button>
-        </ButtonAppearanceProvider>
+        <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-[var(--border-subtle)]" />
+        <Button variant="primary" size="sm" onClick={() => setQuickAddOpen(true)} title={t('Add personal Element')}>
+          <Plus size={14} />
+          <span className="hidden sm:inline">{t('New Element')}</span>
+        </Button>
+        {userId && (
+          <ButtonAppearanceProvider appearance="navigation">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={t('More options')} title={t('More options')}>
+                  <MoreHorizontal size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => setDeletedOpen(true)}>
+                  <Trash2 size={14} />
+                  {t('Deleted Elements')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonAppearanceProvider>
+        )}
         {deletedOpen && userId && (
           <DeletedElementsDialog mine={userId} onClose={() => setDeletedOpen(false)} onRestored={() => { void fetchMine(); void onRefresh?.(); }} />
         )}
       </div>, controlsSlot) : (
-      <div className="h-[50px] flex items-center gap-2 px-4 border-b border-border/60 bg-card flex-shrink-0">
-        <SidebarReveal />
-        {!embedded && <span className="text-[13px] font-medium text-foreground">{t('My Elements')}</span>}
-        <span className="text-[11px] text-muted-foreground">{embedded ? t('{n} Elements', { n: elements.length }) : elements.length}</span>
-        <div className="flex-1" />
-        <ListControls
-          state={controls}
-          onChange={setControls}
-          typeOptions={typeOptions}
-          labelOptions={labelOptions}
-          workerOptions={workerOptions}
-          showOwnerFilter={false}
-          onReset={() => setControls(DEFAULT_STATE)}
-          sortColumnsStorageKey="my-elements"
-          showClosedWindow
-        />
-        <ButtonAppearanceProvider appearance="navigation">
-          {userId && (
-            <Button variant="ghost" size="icon-xs" onClick={() => setDeletedOpen(true)} title={t('Deleted Elements')} aria-label={t('Deleted Elements')}>
-              <Trash2 size={14} />
+      <>
+        <PageHeader
+          title={!embedded ? t('My Elements') : undefined}
+          icon={!embedded ? <ElementIcon size={15} /> : undefined}
+          count={embedded ? t('{n} Elements', { n: elements.length }) : elements.length}
+          controls={
+            <ListControls
+              state={controls}
+              onChange={setControls}
+              typeOptions={typeOptions}
+              labelOptions={labelOptions}
+              workerOptions={workerOptions}
+              showOwnerFilter={false}
+              onReset={() => setControls(DEFAULT_STATE)}
+              sortColumnsStorageKey="my-elements"
+              showClosedWindow
+            />
+          }
+          primaryAction={
+            <Button variant="primary" size="sm" onClick={() => setQuickAddOpen(true)} title={t('Add personal Element')}>
+              <Plus size={14} />
+              <span className="hidden sm:inline">{t('New Element')}</span>
             </Button>
-          )}
-          <Button variant="ghost" size="icon-xs" onClick={() => setQuickAddOpen(true)} title={t('Add personal Element')} aria-label={t('Add personal Element')}>
-            <Plus size={14} />
-          </Button>
-        </ButtonAppearanceProvider>
+          }
+          more={userId ? (
+            <ButtonAppearanceProvider appearance="navigation">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm" aria-label={t('More options')} title={t('More options')}>
+                    <MoreHorizontal size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setDeletedOpen(true)}>
+                    <Trash2 size={14} />
+                    {t('Deleted Elements')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </ButtonAppearanceProvider>
+          ) : undefined}
+        />
         {deletedOpen && userId && (
           <DeletedElementsDialog mine={userId} onClose={() => setDeletedOpen(false)} onRestored={() => { void fetchMine(); void onRefresh?.(); }} />
         )}
-      </div>
+      </>
       )}
 
       {loading ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import { CalendarPeoplePicker } from '@/ActivitySpace/calendar/CalendarPickers';
-import { SidebarReveal } from '@/Function/shared/SidebarReveal';
+import { PageHeader } from '@/Function/shared/PageHeader';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/providers/AuthProvider';
@@ -91,14 +91,16 @@ function CalendarSurface({ onNavigate, onViewChange, initialScope = 'mine' }: My
   return (
     <ElementDrilldown label="Calendar" onNavigate={onNavigate} onViewChange={onViewChange}>
       {openElement => <div className="flex min-h-0 flex-1 flex-col bg-card">
-      <div className="h-[50px] flex items-center gap-2 px-4 border-b border-border/60 bg-card flex-shrink-0">
-        <SidebarReveal />
-        <NavCalendarIcon size={14} />
-        <span className="text-[13px] font-medium text-foreground">{t('Calendar')}</span>
-        <div className="flex-1" />
-        <CalendarPeoplePicker />
-        <CalendarScopePicker domains={domains} objects={scoped.availableObjects} selection={{ ...selection, domainIds }} onChange={setSelection} />
-      </div>
+      <PageHeader
+        title={t('Calendar')}
+        icon={<NavCalendarIcon size={14} />}
+        controls={
+          <>
+            <CalendarPeoplePicker />
+            <CalendarScopePicker domains={domains} objects={scoped.availableObjects} selection={{ ...selection, domainIds }} onChange={setSelection} />
+          </>
+        }
+      />
       {error && <div role="alert" className="px-4 py-2 text-sm text-destructive">{t('Could not load the calendar.')} <Button size="xs" variant="ghost" onClick={() => { void domainQuery.refetch(); void fetchMine(); }}>{t('Retry')}</Button></div>}
       {loading && <div role="status" className="px-4 py-2 text-sm text-muted-foreground">{t('Loading schedules…')}</div>}
       <div className="flex-1 min-h-0 overflow-hidden" aria-busy={loading}>

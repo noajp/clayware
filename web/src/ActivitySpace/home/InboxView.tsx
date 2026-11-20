@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Archive, Check } from '@/ui/icons';
+import { Archive, Check, Inbox } from '@/ui/icons';
 import { ElementDetailView } from '@/ActivitySpace/execution/element/ElementDetailView';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { readableBody } from './inboxRow';
@@ -61,14 +61,17 @@ export function InboxView({ onNavigate, onViewChange }: InboxViewProps) {
     });
   };
 
-  // Every island opens with the same 50px header, so the title line sits
+  // Every island opens with the same 48px header, so the title line sits
   // level with the sidebar's Space row whichever view is showing.
   if (!selected) {
     return (
       <div className="flex h-full min-h-0 flex-col bg-card">
         {/* The title is the list's, beside: this side keeps only the line. */}
-        <div className="h-[50px] flex-shrink-0 border-b border-border/60" />
-        <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <div className="gloss-bar h-12 flex-shrink-0" />
+        <div className="flex flex-1 flex-col items-center justify-center gap-2.5 text-muted-foreground select-none">
+          <span className="flex size-10 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)]/70 text-muted-foreground/80">
+            <Inbox size={18} />
+          </span>
           <p className="text-[13px]">{t('No notification selected')}</p>
         </div>
       </div>
@@ -77,7 +80,7 @@ export function InboxView({ onNavigate, onViewChange }: InboxViewProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-card">
-      <header className="h-[50px] flex items-center gap-2 px-4 border-b border-border/60 bg-card flex-shrink-0 overflow-hidden">
+      <header className="gloss-bar flex h-12 flex-shrink-0 items-center gap-2 overflow-hidden bg-card px-4">
         <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
           {selected.actor_name && <span className="font-medium text-foreground">{selected.actor_name}</span>}
           {selected.actor_name && ' · '}

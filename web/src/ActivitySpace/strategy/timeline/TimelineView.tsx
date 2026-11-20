@@ -231,11 +231,11 @@ export function TimelineView({
 
   return (
     <div className="flex flex-col h-full bg-card">
-      {/* Top bar — mirrors the other Strategy-layer surfaces */}
-      <div className="h-[50px] flex flex-shrink-0 items-center gap-1 border-b border-border/60 bg-card pl-6 pr-2">
+      {/* Top bar — mirrors the shared 48px PageHeader */}
+      <div className="gloss-bar flex h-12 flex-shrink-0 items-center gap-1.5 bg-card pl-6 pr-3">
         <SidebarReveal />
         <span className="px-1.5 py-0.5 text-[13px] font-semibold text-foreground">{t('Timeline')}</span>
-        <span className="ml-0.5 text-[12px] text-muted-foreground">
+        <span className="inline-flex h-[18px] items-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">
           {loading ? t('Loading…') : rootStrategies.length === 1 ? t('1 Strategy') : t('{n} Strategies', { n: rootStrategies.length })}
         </span>
         <div className="flex-1" />
@@ -453,19 +453,27 @@ function InitiativeTimelineRow({
         <GridLines months={months} todayX={todayX} />
         {bar && (
           <div
-            className="absolute overflow-hidden rounded-md border border-border/70 bg-[var(--surface-strong)] shadow-[0_1px_2px_var(--gantt-bar-shadow)]"
+            className="absolute overflow-hidden rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-muted)] shadow-[0_1px_2px_var(--gantt-bar-shadow)]"
             style={{
               left: bar.left,
               width: Math.max(bar.width, 16),
               top: (INITIATIVE_ROW_H - INITIATIVE_BAR_H) / 2,
               height: INITIATIVE_BAR_H,
+              borderLeftWidth: 3,
+              borderLeftColor: color,
             }}
           >
             {progressFill && (
-              <div
-                className="absolute inset-y-0 left-0"
-                style={{ width: `${progress}%`, background: `color-mix(in oklab, ${color} 18%, transparent)` }}
-              />
+              <>
+                <div
+                  className="absolute inset-y-0 left-0"
+                  style={{ width: `${progress}%`, background: `color-mix(in oklab, ${color} 26%, transparent)` }}
+                />
+                <div
+                  className="absolute bottom-0 left-0 h-[2px]"
+                  style={{ width: `${progress}%`, background: color }}
+                />
+              </>
             )}
             <span
               className="absolute left-2 top-1/2 -translate-y-1/2 text-[11.5px] font-medium text-foreground truncate pr-2"
@@ -528,13 +536,15 @@ function ObjectTimelineRow({
         <GridLines months={months} todayX={todayX} />
         {bar ? (
           <div
-            className="absolute rounded border border-border/60"
+            className="absolute rounded-[5px] border border-[var(--border-default)]"
             style={{
               left: bar.left,
               width: Math.max(bar.width, 12),
               top: (OBJECT_ROW_H - OBJECT_BAR_H) / 2,
               height: OBJECT_BAR_H,
-              background: `color-mix(in oklab, ${color} 22%, var(--surface-strong))`,
+              borderLeftWidth: 3,
+              borderLeftColor: color,
+              background: `color-mix(in oklab, ${color} 26%, var(--surface-muted))`,
             }}
             title={obj.name}
           />

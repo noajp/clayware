@@ -34,21 +34,23 @@ export function RailRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-2 px-2 ${dense ? 'h-8' : 'min-h-8 py-1.5'} rounded-md hover:bg-muted/50 transition-colors text-[13px] font-normal leading-5 ${
+      className={`grid items-center gap-2 px-2 ${name ? 'grid-cols-[92px_minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'} ${dense ? 'h-[30px]' : 'min-h-[30px] py-1'} rounded-[5px] transition-colors hover:bg-[var(--surface-strong)]/60 text-[13px] font-normal leading-5 ${
         placeholder ? 'text-muted-foreground' : 'text-foreground'
       }`}
     >
       {name && (
-        <span className="shrink-0 w-24 text-left text-[12px] text-muted-foreground">
+        <span className="truncate text-left text-[12px] text-[var(--text-tertiary)]">
           {name}
         </span>
       )}
-      {icon && (
-        <span className="shrink-0 flex items-center justify-center min-w-4 opacity-90">
-          {icon}
-        </span>
-      )}
-      <span className="truncate text-left flex-1 min-w-0">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        {icon && (
+          <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+            {icon}
+          </span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      </span>
     </div>
   );
 }

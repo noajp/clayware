@@ -24,7 +24,7 @@ export function Chip({ children, className, style, title }: {
 }) {
   return (
     <span title={title} style={style}
-      className={cn('inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-full border border-transparent bg-foreground/[0.06] px-2 text-[11px] leading-none tabular-nums text-[var(--text-secondary)]', className)}>
+      className={cn('inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-1.5 text-[11px] leading-none tabular-nums text-[var(--text-secondary)]', className)}>
       {children}
     </span>
   );

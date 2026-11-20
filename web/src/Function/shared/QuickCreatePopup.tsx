@@ -180,9 +180,10 @@ export function QuickCreatePopup({
         {error && <p role="alert" className="pt-2 text-xs text-destructive">{error}</p>}
 
         <div className={QUICK_CREATE.footer}>
-          {hint && <span className="mr-auto min-w-0 text-[11px] text-muted-foreground">{tr(hint)}</span>}
+          {hint && <span className="mr-auto min-w-0 text-[11.5px] text-muted-foreground">{tr(hint)}</span>}
           <Button variant="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
             {busy ? tr('Creating…') : tr(submitLabel)}
+            {!busy && <kbd className="ml-1 inline-flex h-[16px] items-center justify-center rounded border border-white/30 px-1 text-[10px] font-medium leading-none opacity-85">⌘↵</kbd>}
           </Button>
         </div>
       </div>
@@ -190,8 +191,6 @@ export function QuickCreatePopup({
   );
 }
 
-/** The property-pill look every quick-create surface shares (mirrors the
- *  Properties panel chips: semibold, brighter text, soft fill at rest). */
 /**
  * The card opened from a menu or a list (a new unit, a new folder): `open`
  * shows it with what it is for (the parent unit, …), `card` is the card to
@@ -208,11 +207,13 @@ export function useQuickCreateCard<A = void>({ onSubmit, ...card }: Omit<QuickCr
   return { open: (arg: A) => setPending({ arg }), card: node };
 }
 
+/** The property-chip look every quick-create surface shares (sharp 6px Linear /
+ *  Raycast corners, calm border, crisp active highlight). */
 export function quickCreatePillClass(active: boolean): string {
   return [
-    'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold transition-colors border',
+    'inline-flex items-center gap-1.5 h-7 px-2 rounded-[6px] text-[12px] font-medium transition-colors border',
     active
-      ? 'bg-muted/60 border-border/60 text-foreground hover:bg-muted'
-      : 'bg-muted/30 border-border/40 text-foreground/85 hover:bg-muted/60 hover:text-foreground',
+      ? 'bg-[var(--surface-strong)] border-[var(--border-default)] text-foreground hover:bg-[var(--surface-strong)]'
+      : 'bg-[var(--surface-muted)]/70 border-[var(--border-subtle)] text-muted-foreground hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)]/60 hover:text-foreground',
   ].join(' ');
 }

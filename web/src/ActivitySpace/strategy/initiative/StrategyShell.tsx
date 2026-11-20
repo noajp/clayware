@@ -513,7 +513,7 @@ function ObjectPickerList({
                 type="button"
                 key={o.id}
                 onClick={() => onToggle(o.id)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-accent text-left"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] hover:bg-[var(--surface-strong)] text-left"
               >
                 <span
                   className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${
@@ -1024,11 +1024,22 @@ function StrategyDetailView({
             {t('Read-only')}
           </span>
         )}
-        actions={(deleteError || saveError) ? (
-          <span role="status" className="text-[11px] text-muted-foreground truncate">
-            {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
-          </span>
-        ) : undefined} />
+        actions={
+          <>
+            {(deleteError || saveError) && (
+              <span role="alert" className="truncate text-[11.5px] font-medium text-[var(--status-danger)]">
+                {deleteError ?? t('{error} — change reverted', { error: saveError ?? '' })}
+              </span>
+            )}
+            <Button
+              size="xs"
+              variant={talking ? 'primary' : 'secondary'}
+              onClick={() => setTalking((v) => !v)}
+            >
+              {t('Talk it through')}
+            </Button>
+          </>
+        } />
 
 
       <ViewTabs tabs={STRATEGY_TABS} active={tab} onSelect={setTab} label={t('Strategy views')}

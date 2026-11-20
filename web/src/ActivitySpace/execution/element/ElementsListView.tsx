@@ -1,7 +1,7 @@
 'use client';
 
 
-import { IslandHeader } from '@/Function/shared/MainIsland';
+import { PageHeader } from '@/Function/shared/PageHeader';
 import { Plus } from '@/ui/icons';
 import { useDomainRole } from '@/hooks/domainData';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
@@ -569,6 +569,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
       {!drillDetailOpen && (
       <ElementsHierarchyHeader
         domainName={activeDomainName ?? 'Domain'}
+        count={allElementsFlat.length}
         onDomainClick={() => {
           onViewChange?.('objects');
           onNavigate?.({ objectId: null });
@@ -710,22 +711,32 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
 }
 
 
-/** Domain › Elements, with the add on the right — the shell header every
- *  page uses. */
-function ElementsHierarchyHeader({ domainName, onDomainClick, onAdd }: {
+function ElementsHierarchyHeader({
+  domainName,
+  count,
+  onDomainClick,
+  onAdd,
+}: {
   domainName: string;
+  count?: number;
   onDomainClick?: () => void;
   onAdd?: () => void;
 }) {
   const { t } = useI18n();
   return (
-    <IslandHeader
-      crumbs={[{ id: 'domain', label: domainName, onClick: onDomainClick }, { id: 'elements', label: t('Elements') }]}
-      actions={onAdd && (
-        <Button variant="ghost" size="sm" type="button" className="text-muted-foreground" onClick={onAdd}>
-          <Plus size={14} />{t('Add Element')}
+    <PageHeader
+      crumbs={[
+        { id: 'domain', label: domainName, icon: <DomainIcon size={14} />, onClick: onDomainClick },
+        { id: 'elements', label: t('Elements') },
+      ]}
+      count={count}
+      primaryAction={onAdd ? (
+        <Button variant="primary" size="sm" onClick={onAdd} title={t('Create Element')}>
+          <Plus size={14} />
+          <span className="hidden sm:inline">{t('New Element')}</span>
         </Button>
-      )} />
+      ) : undefined}
+    />
   );
 }
 

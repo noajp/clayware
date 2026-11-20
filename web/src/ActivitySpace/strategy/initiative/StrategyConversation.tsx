@@ -116,13 +116,13 @@ export function StrategyConversation({ strategyId, spaceId, strategyDefinitionId
     <div className="flex flex-col gap-4">
       <div ref={listRef} className="space-y-5">
         {empty && !talk.loading && (
-          <div className="space-y-3 rounded-lg border border-border/60 px-4 py-4">
+          <div className="ai-surface space-y-3 px-4 py-4">
             <p className="text-[13px] text-foreground">{t('Settle what this Strategy is for by talking it through. What is agreed is written to the Strategy — purpose, success conditions, premises, decisions and how the work is done — and the Planner breaks it down from there.')}</p>
             <p className="text-[12px] text-muted-foreground">{t('If it is already clear, go straight to the plan below.')}</p>
             <div className="flex flex-wrap gap-1.5">
               {starters.map((s) => (
                 <button key={s} type="button" onClick={() => submit(s)} disabled={talk.working}
-                  className="rounded-md border border-border/60 px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground disabled:opacity-50">
+                  className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)] hover:text-foreground disabled:opacity-50">
                   {s}
                 </button>
               ))}
@@ -268,10 +268,10 @@ function WorkLine({ items }: { items: WorkItem[] }) {
 function PlanHandOff({ guidance, onPlan }: { guidance: string; onPlan: (guidance: string) => void }) {
   const { t } = useI18n();
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5">
-      <ListChecks size={15} className="shrink-0 text-muted-foreground" />
+    <div className="ai-surface flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+      <ListChecks size={15} className="shrink-0 text-[var(--accent-default)]" />
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] text-foreground">{t('Ready to break this down into Objects and Elements')}</p>
+        <p className="text-[13px] font-medium text-foreground">{t('Ready to break this down into Objects and Elements')}</p>
         {guidance && <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{guidance}</p>}
       </div>
       <Button size="sm" variant="primary" onClick={() => onPlan(guidance)}>{t('Draft the plan')}</Button>
@@ -359,14 +359,14 @@ function StartRunsCard({ item, elementStatus, runStatuses, spaceId, missingByEle
   };
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5">
-        <Play size={15} className="shrink-0 text-muted-foreground" />
+      <div className="ai-surface flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+        <Play size={15} className="shrink-0 text-[var(--accent-default)]" />
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] text-foreground">{t('Start {n} ready actions with AI', { n: proposal.elementIds.length })}</p>
-          {proposal.titles.length > 0 && <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{proposal.titles.join('、')}</p>}
+          <p className="text-[13px] font-medium text-foreground">{t('Start {n} ready actions with AI', { n: proposal.elementIds.length })}</p>
+          {proposal.titles.length > 0 && <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">{proposal.titles.join(', ')}</p>}
           {blocked.length > 0 && (
             <p className="mt-0.5 text-[12px] text-muted-foreground">
-              {t('Waiting on a connection: {names}', { names: blockedNeeds.map((n) => n.name).join('、') })}
+              {t('Waiting on a connection: {names}', { names: blockedNeeds.map((n) => n.name).join(', ') })}
             </p>
           )}
           {blockedDrafts.map((d) => (
@@ -380,7 +380,7 @@ function StartRunsCard({ item, elementStatus, runStatuses, spaceId, missingByEle
       </div>
       {blocked.length > 0 && (
         <ConnectRequestCard spaceId={spaceId} needs={blockedNeeds}
-          waitingFor={blockedTitles.length ? blockedTitles.join('、') : null} />
+          waitingFor={blockedTitles.length ? blockedTitles.join(', ') : null} />
       )}
     </div>
   );
