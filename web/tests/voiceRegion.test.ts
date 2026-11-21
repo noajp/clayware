@@ -6,135 +6,126 @@ import { schema } from '@/Function/notebook/pm/schema';
 import { docToHtml, htmlToDoc } from '@/Function/notebook/pm/html';
 import {
   appendSpoken,
-  beginVoice,
-  endVoice,
+  newVoiceAnchor,
   placeVoiceFile,
   readMinutes,
-  reanchorVoiceRegion,
   replaceMinutes,
   replaceSpoken,
   spokenChars,
   takeSpoken,
   textBeforeSpoken,
-  voiceKey,
   voiceRegionPlugin,
+  type VoiceAnchor,
 } from '@/Function/notebook/pm/voiceRegion';
 
 function makeView(html: string) {
-  const state = EditorState.create({ schema, doc: htmlToDoc(html), plugins: [voiceRegionPlugin()] });
-  return new EditorView(document.createElement('div'), { state });
+  const anchor: { current: VoiceAnchor | null } = { current: newVoiceAnchor() };
+  const plugins = [voiceRegionPlugin(() => anchor.current)];
+  const view = new EditorView(document.createElement('div'), { state: EditorState.create({ schema, doc: htmlToDoc(html), plugins }) });
+  // A shared Note rebound to another's document: a new state, the same content.
+  const rebind = () => view.updateState(EditorState.create({ schema, doc: htmlToDoc(docToHtml(view.state.doc)), plugins }));
+  return { view, a: anchor.current!, anchor, rebind };
 }
 
 const html = (view: EditorView) => docToHtml(view.state.doc);
+const spokenShown = (view: EditorView) => view.dom.querySelectorAll('.note-voice-spoken').length;
 
 describe('voice minutes in the Note', () => {
   it('writes words as spoken above the empty last line, and leaves the rest alone', () => {
-    const view = makeView('<p>Agenda</p><p></p>');
-    beginVoice(view);
-    appendSpoken(view, 'we open the beta in december');
-    appendSpoken(view, 'pricing is still open');
+    const { view, a } = makeView('<p>Agenda</p><p></p>');
+    appendSpoken(view, a, 'we open the beta in december');
+    appendSpoken(view, a, 'pricing is still open');
     expect(html(view)).toBe('<p>Agenda</p><p>we open the beta in december</p><p>pricing is still open</p><p></p>');
-    expect(spokenChars(view.state)).toBe('we open the beta in december\npricing is still open'.length);
-    expect(textBeforeSpoken(view.state)).toBe('Agenda');
+    expect(spokenChars(view.state, a)).toBe('we open the beta in december\npricing is still open'.length);
+    expect(textBeforeSpoken(view.state, a)).toBe('Agenda');
+    expect(spokenShown(view)).toBe(2);
+  });
+
+  it('keeps finding the words after the Note is laid down anew', () => {
+    const { view, a, rebind } = makeView('<p>Agenda</p>');
+    appendSpoken(view, a, 'one');
+    rebind();
+    appendSpoken(view, a, 'two');
+    expect(html(view)).toBe('<p>Agenda</p><p>one</p><p>two</p>');
+    expect(spokenShown(view)).toBe(2);
+    const taken = takeSpoken(view, a)!;
+    rebind();
+    expect(replaceSpoken(view, a, '<h2>Numbers</h2>', taken)).toBe('done');
+    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="transcript">one\ntwo</pre><h2>Numbers</h2>');
   });
 
   it('folds the words it took above the section made from them, keeping what was spoken meanwhile', () => {
-    const view = makeView('<p>Agenda</p>');
-    beginVoice(view);
-    appendSpoken(view, 'we open the beta in december');
-    const taken = takeSpoken(view)!;
-    appendSpoken(view, 'pricing is still open');
-    expect(replaceSpoken(view, '<h2>Launch</h2><ul><li>Beta opens in December</li></ul>', taken)).toBe('done');
+    const { view, a } = makeView('<p>Agenda</p>');
+    appendSpoken(view, a, 'we open the beta in december');
+    const taken = takeSpoken(view, a)!;
+    appendSpoken(view, a, 'pricing is still open');
+    expect(replaceSpoken(view, a, '<h2>Launch</h2><ul><li>Beta opens in December</li></ul>', taken)).toBe('done');
     expect(html(view)).toBe('<p>Agenda</p><pre data-lang="transcript">we open the beta in december</pre><h2>Launch</h2><ul><li>Beta opens in December</li></ul><p>pricing is still open</p>');
-    expect(textBeforeSpoken(view.state)).toBe('Agenda\nLaunch\nBeta opens in December');
-    expect(spokenChars(view.state)).toBe('pricing is still open'.length);
-    expect(readMinutes(view.state)?.html).toBe('<h2>Launch</h2><ul><li>Beta opens in December</li></ul>');
-  });
-
-  it('leaves words alone when they were corrected after being taken', () => {
-    const view = makeView('<p></p>');
-    beginVoice(view);
-    appendSpoken(view, 'the beta opens in decembar');
-    const taken = takeSpoken(view)!;
-    const region = voiceKey.getState(view.state)!;
-    view.dispatch(view.state.tr.insertText('!', region.end - 1));
-    expect(replaceSpoken(view, '<h2>Launch</h2>', taken)).toBe('changed');
-    expect(html(view)).toBe('<p>the beta opens in decembar!</p><p></p>');
-    expect(voiceKey.getState(view.state)?.cut).toBeNull();
+    expect(spokenChars(view.state, a)).toBe('pricing is still open'.length);
+    expect(textBeforeSpoken(view.state, a)).toBe('Agenda\nLaunch\nBeta opens in December');
+    expect(readMinutes(view.state, a)?.html).toBe('<h2>Launch</h2><ul><li>Beta opens in December</li></ul>');
   });
 
   it('folds words nothing was made of, all the same', () => {
-    const view = makeView('<p></p>');
-    beginVoice(view);
-    appendSpoken(view, 'um, right');
-    expect(replaceSpoken(view, '', takeSpoken(view)!)).toBe('done');
+    const { view, a } = makeView('<p></p>');
+    appendSpoken(view, a, 'um, right');
+    expect(replaceSpoken(view, a, '', takeSpoken(view, a)!)).toBe('done');
     expect(html(view)).toBe('<pre data-lang="transcript">um, right</pre><p></p>');
-    expect(readMinutes(view.state)).toBeNull();
+    expect(readMinutes(view.state, a)).toBeNull();
+  });
+
+  it('leaves words alone when they were corrected after being taken', () => {
+    const { view, a } = makeView('<p></p>');
+    appendSpoken(view, a, 'the beta opens in decembar');
+    const taken = takeSpoken(view, a)!;
+    view.dispatch(view.state.tr.insertText('!', 1 + 'the beta opens in decembar'.length));
+    expect(replaceSpoken(view, a, '<h2>Launch</h2>', taken)).toBe('changed');
+    expect(html(view)).toBe('<p>the beta opens in decembar!</p><p></p>');
   });
 
   it('regroups the sections under their transcripts and keeps the words still waiting', () => {
-    const view = makeView('<p>Agenda</p>');
-    beginVoice(view);
-    appendSpoken(view, 'one');
-    expect(replaceSpoken(view, '<h2>A</h2><p>one</p>', takeSpoken(view)!)).toBe('done');
-    appendSpoken(view, 'two');
-    expect(replaceSpoken(view, '<h2>B</h2><p>two</p>', takeSpoken(view)!)).toBe('done');
-    appendSpoken(view, 'three');
-    const minutes = readMinutes(view.state)!;
+    const { view, a } = makeView('<p>Agenda</p>');
+    appendSpoken(view, a, 'one');
+    expect(replaceSpoken(view, a, '<h2>A</h2><p>one</p>', takeSpoken(view, a)!)).toBe('done');
+    appendSpoken(view, a, 'two');
+    expect(replaceSpoken(view, a, '<h2>B</h2><p>two</p>', takeSpoken(view, a)!)).toBe('done');
+    appendSpoken(view, a, 'three');
+    const minutes = readMinutes(view.state, a)!;
     expect(minutes.plain).toBe(true);
     expect(minutes.html).toBe('<h2>A</h2><p>one</p><h2>B</h2><p>two</p>');
-    expect(replaceMinutes(view, '<h2>A and B</h2><p>one, two</p>', minutes.key)).toBe('done');
+    expect(replaceMinutes(view, a, '<h2>A and B</h2><p>one, two</p>', minutes.key)).toBe('done');
     expect(html(view)).toBe('<p>Agenda</p><pre data-lang="transcript">one</pre><pre data-lang="transcript">two</pre><h2>A and B</h2><p>one, two</p><p>three</p>');
-    expect(spokenChars(view.state)).toBe(5);
+    expect(spokenChars(view.state, a)).toBe(5);
   });
 
   it('does not regroup minutes that were edited since they were read', () => {
-    const view = makeView('<p></p>');
-    beginVoice(view);
-    appendSpoken(view, 'one');
-    replaceSpoken(view, '<h2>A</h2><p>one</p>', takeSpoken(view)!);
-    const minutes = readMinutes(view.state)!;
-    view.dispatch(view.state.tr.insertText('X', 2));
-    expect(replaceMinutes(view, '<h2>Z</h2>', minutes.key)).toBe('changed');
+    const { view, a } = makeView('<p></p>');
+    appendSpoken(view, a, 'one');
+    replaceSpoken(view, a, '<h2>A</h2><p>one</p>', takeSpoken(view, a)!);
+    const minutes = readMinutes(view.state, a)!;
+    view.dispatch(view.state.tr.insertText('X', 6));
+    expect(replaceMinutes(view, a, '<h2>Z</h2>', minutes.key)).toBe('changed');
     expect(html(view)).toContain('one');
   });
 
-  it('follows typing above the region and stops rewriting once ended', () => {
-    const view = makeView('<p>Agenda</p>');
-    beginVoice(view);
-    appendSpoken(view, 'one');
-    view.dispatch(view.state.tr.insert(0, schema.nodes.paragraph.create(null, schema.text('typed above'))));
-    appendSpoken(view, 'two');
-    expect(html(view)).toBe('<p>typed above</p><p>Agenda</p><p>one</p><p>two</p>');
-    endVoice(view);
-    expect(takeSpoken(view)).toBeNull();
-    expect(html(view)).toBe('<p>typed above</p><p>Agenda</p><p>one</p><p>two</p>');
-  });
-
-  it('places the transcript file above what voice wrote, and replaces it when placed again', () => {
-    const view = makeView('<p>Agenda</p>');
-    beginVoice(view);
-    appendSpoken(view, 'one');
+  it('places the transcript file above the minutes, and replaces it when placed again', () => {
+    const { view, a } = makeView('<p>Agenda</p>');
+    appendSpoken(view, a, 'one');
+    replaceSpoken(view, a, '<h2>A</h2>', takeSpoken(view, a)!);
     const file = (id: string) => schema.nodes.code_block.create({ lang: 'clayware' }, schema.text(`{"view":"file","id":"${id}"}`));
-    placeVoiceFile(view, file('a'));
-    appendSpoken(view, 'two');
-    placeVoiceFile(view, file('b'));
-    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="clayware">{"view":"file","id":"b"}</pre><p>one</p><p>two</p>');
-    expect(spokenChars(view.state)).toBe('one\ntwo'.length);
+    placeVoiceFile(view, a, file('a'));
+    appendSpoken(view, a, 'two');
+    placeVoiceFile(view, a, file('b'));
+    expect(html(view)).toBe('<p>Agenda</p><pre data-lang="clayware">{"view":"file","id":"b"}</pre><pre data-lang="transcript">one</pre><h2>A</h2><p>two</p>');
+    expect(spokenChars(view.state, a)).toBe(3);
   });
 
-  it('finds the region again after the whole document is laid down anew', () => {
-    const before = htmlToDoc('<p>Agenda</p><h2>A</h2><p>one</p><p>spoken</p><p>tail</p>');
-    const kids = Array.from({ length: before.childCount }, (_, i) => before.child(i));
-    const sizes = kids.map((k) => k.nodeSize);
-    const at = (i: number) => sizes.slice(0, i).reduce((a, b) => a + b, 0);
-    const region = { start: at(1), mid: at(3), end: at(4), cut: null, interim: '' };
-    // Someone else wrote a line at the top: every block comes back as it was, one further down.
-    const added = schema.nodes.paragraph.create(null, schema.text('from someone else'));
-    const after = schema.nodes.doc.create(null, [added, ...kids]);
-    const next = reanchorVoiceRegion(region, before, after);
-    expect(next.start).toBe(region.start + added.nodeSize);
-    expect(next.mid).toBe(region.mid + added.nodeSize);
-    expect(next.end).toBe(region.end + added.nodeSize);
+  it('writes nothing as its own once recording has ended', () => {
+    const { view, anchor } = makeView('<p>Agenda</p>');
+    appendSpoken(view, anchor.current!, 'one');
+    anchor.current = null;
+    view.dispatch(view.state.tr);
+    expect(spokenShown(view)).toBe(0);
+    expect(html(view)).toBe('<p>Agenda</p><p>one</p>');
   });
 });
