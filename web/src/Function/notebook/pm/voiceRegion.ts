@@ -1,7 +1,6 @@
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
-import { Plugin, PluginKey, type EditorState, type Transaction } from 'prosemirror-state';
+import { Plugin, PluginKey, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
-import { ySyncPluginKey } from 'y-prosemirror';
 import { schema } from './schema';
 import { docToHtml, htmlToDoc, isEmptyDoc } from './html';
 
@@ -10,6 +9,10 @@ import { docToHtml, htmlToDoc, isEmptyDoc } from './html';
 // section made from them below it, and once enough sections have gathered
 // those are regrouped under the transcripts they came from. The part of the
 // Note this may rewrite is the part it wrote: everything else is left as it is.
+//
+// What voice wrote is found by what it says, not by where it was: a shared
+// Note is laid down again whenever someone else opens it (the editor rebinds
+// to the document they hold), and a position kept across that points nowhere.
 
 /** A transcript: a code block of this language, so it is plain text to save
  *  and to read, drawn folded to its first line until the caret is in it. */
@@ -18,132 +21,99 @@ const TRANSCRIPT_LANG = 'transcript';
 const isTranscript = (node: PMNode) =>
   node.type === schema.nodes.code_block && node.attrs.lang === TRANSCRIPT_LANG;
 
-/** Boundaries between top-level blocks. The minutes are [start, mid), the
- *  words as spoken are [mid, end). `cut` is where the words being organized
- *  stop: those after it were spoken since. */
-export interface VoiceRegion {
-  start: number;
-  mid: number;
-  end: number;
-  cut: number | null;
+/** What this recording has written, by what it says. Kept by the editor, so
+ *  it outlives the editor's state being made anew. */
+export interface VoiceAnchor {
+  /** Lines written as spoken and not yet organized, in order. */
+  pending: string[];
+  /** Of `pending`, how many are being organized now. */
+  taken: number;
+  /** The first transcript this recording folded: where its minutes begin. */
+  firstTranscript: string | null;
+  /** The transcript file this recording placed, by its source. */
+  fileSource: string | null;
   /** What is being said now, not yet settled. Shown, never written. */
   interim: string;
-  /** The block just above the region is the transcript's file, placed by voice. */
-  filed?: boolean;
 }
 
 export type VoiceReplaceOutcome = 'done' | 'changed' | 'gone';
 
-export const voiceKey = new PluginKey<VoiceRegion | null>('note-voice-region');
+const refreshKey = new PluginKey('note-voice-region');
 
-const clamp = (doc: PMNode, pos: number) => Math.max(0, Math.min(pos, doc.content.size));
+export const newVoiceAnchor = (): VoiceAnchor => ({ pending: [], taken: 0, firstTranscript: null, fileSource: null, interim: '' });
 
-/** Pure. The nearest boundary between top-level blocks, leaving a block the
- *  position fell inside out of the region. */
-function toBoundary(doc: PMNode, pos: number, side: 'start' | 'end'): number {
-  const at = clamp(doc, pos);
-  const $pos = doc.resolve(at);
-  if ($pos.depth === 0) return at;
-  return side === 'start' ? $pos.after(1) : $pos.before(1);
+interface Block { node: PMNode; pos: number; index: number }
+
+function blocks(doc: PMNode): Block[] {
+  const out: Block[] = [];
+  doc.forEach((node, pos, index) => out.push({ node, pos, index }));
+  return out;
 }
 
-function ordered(region: VoiceRegion): VoiceRegion {
-  const start = region.start;
-  const end = Math.max(start, region.end);
-  const mid = Math.max(start, Math.min(region.mid, end));
-  const cut = region.cut === null ? null : Math.max(mid, Math.min(region.cut, end));
-  return { ...region, start, mid, end, cut };
-}
+const isLine = (node: PMNode, text: string) =>
+  node.type === schema.nodes.paragraph && node.textContent.trim() === text;
 
-/** Pure. The region after a change typed here. */
-function mapVoiceRegion(region: VoiceRegion, tr: Transaction): VoiceRegion {
-  const doc = tr.doc;
-  return ordered({
-    ...region,
-    // Typed just before the region stays outside it, typed just after too.
-    start: toBoundary(doc, tr.mapping.map(region.start, 1), 'start'),
-    mid: toBoundary(doc, tr.mapping.map(region.mid, -1), 'start'),
-    end: toBoundary(doc, tr.mapping.map(region.end, -1), 'end'),
-    cut: region.cut === null ? null : toBoundary(doc, tr.mapping.map(region.cut, -1), 'end'),
-  });
-}
-
-/** Pure. Where a boundary went when the whole document was laid down again
- *  (a change from someone else, an undo): found by the blocks beside it,
- *  which come back as they were. */
-function reanchor(oldDoc: PMNode, newDoc: PMNode, pos: number, prefer: 'after' | 'before'): number {
-  let index = 0;
-  let offset = 0;
-  while (index < oldDoc.childCount && offset < pos) {
-    offset += oldDoc.child(index).nodeSize;
-    index += 1;
-  }
-  const after = index < oldDoc.childCount ? oldDoc.child(index) : null;
-  const before = index > 0 ? oldDoc.child(index - 1) : null;
-
-  // The same block, or failing that one that reads the same, nearest to where it was.
-  const find = (node: PMNode, wasAt: number): { from: number; to: number } | null => {
-    let best: { from: number; to: number; far: number } | null = null;
-    let at = 0;
-    for (let i = 0; i < newDoc.childCount; i++) {
-      const kid = newDoc.child(i);
-      if (kid === node) return { from: at, to: at + kid.nodeSize };
-      if (kid.eq(node)) {
-        const far = Math.abs(i - wasAt);
-        if (!best || far < best.far) best = { from: at, to: at + kid.nodeSize, far };
-      }
-      at += kid.nodeSize;
+/** Pure. The last run of top-level lines that read `lines`, in order. */
+function findRun(doc: PMNode, lines: string[]): { from: number; to: number; first: number } | null {
+  if (!lines.length) return null;
+  const all = blocks(doc);
+  for (let end = all.length - 1; end >= lines.length - 1; end--) {
+    let ok = true;
+    for (let k = 0; k < lines.length && ok; k++) ok = isLine(all[end - k].node, lines[lines.length - 1 - k]);
+    if (ok) {
+      const first = all[end - lines.length + 1];
+      const last = all[end];
+      return { from: first.pos, to: last.pos + last.node.nodeSize, first: first.index };
     }
-    return best;
-  };
-
-  const viaAfter = after ? find(after, index)?.from ?? null : null;
-  const viaBefore = before ? find(before, index - 1)?.to ?? null : null;
-  const found = prefer === 'after' ? viaAfter ?? viaBefore : viaBefore ?? viaAfter;
-  if (found !== null) return found;
-  // Neither neighbour is left: keep the distance from the end.
-  return toBoundary(newDoc, newDoc.content.size - (oldDoc.content.size - pos), 'end');
+  }
+  return null;
 }
 
-/** Pure. The region after the document was laid down again. */
-export function reanchorVoiceRegion(region: VoiceRegion, oldDoc: PMNode, newDoc: PMNode): VoiceRegion {
-  return ordered({
-    ...region,
-    start: reanchor(oldDoc, newDoc, region.start, region.end > region.start ? 'after' : 'before'),
-    mid: reanchor(oldDoc, newDoc, region.mid, region.end > region.mid ? 'after' : 'before'),
-    end: reanchor(oldDoc, newDoc, region.end, region.end > region.start ? 'before' : 'after'),
-    cut: region.cut === null ? null : reanchor(oldDoc, newDoc, region.cut, 'before'),
-  });
+/** Pure. The lines still waiting that can be found: the longest run at the
+ *  end of `pending` (a line corrected by hand is no longer voice's to fold). */
+function waitingRun(doc: PMNode, pending: string[]) {
+  for (let drop = 0; drop < pending.length; drop++) {
+    const lines = pending.slice(drop);
+    const run = findRun(doc, lines);
+    if (run) return { ...run, lines, dropped: drop };
+  }
+  return null;
 }
 
-function replacesWholeDoc(tr: Transaction, oldDoc: PMNode): boolean {
-  const first = tr.steps[0];
-  if (!first) return false;
-  let whole = false;
-  first.getMap().forEach((from, to) => {
-    if (from === 0 && to === oldDoc.content.size && oldDoc.childCount > 1) whole = true;
-  });
-  return whole;
+/** Pure. Where new words go: below the lines still waiting, or at the end,
+ *  above an empty last line (the one the person is on stays below). */
+function insertAt(doc: PMNode, anchor: VoiceAnchor): number {
+  const run = waitingRun(doc, anchor.pending);
+  if (run) return run.to;
+  const last = doc.lastChild;
+  const emptyLast = !!last && last.type === schema.nodes.paragraph && last.content.size === 0;
+  return emptyLast ? doc.content.size - last.nodeSize : doc.content.size;
 }
 
-export function voiceRegionPlugin(): Plugin<VoiceRegion | null> {
-  return new Plugin<VoiceRegion | null>({
-    key: voiceKey,
-    state: {
-      init: () => null,
-      apply(tr, prev, oldState, newState) {
-        const meta = tr.getMeta(voiceKey) as VoiceRegion | null | undefined;
-        if (meta !== undefined) return meta;
-        if (!prev || !tr.docChanged) return prev;
-        const sync = tr.getMeta(ySyncPluginKey) as { isChangeOrigin?: boolean } | undefined;
-        return sync?.isChangeOrigin || replacesWholeDoc(tr, oldState.doc)
-          ? reanchorVoiceRegion(prev, oldState.doc, newState.doc)
-          : mapVoiceRegion(prev, tr);
-      },
-    },
+/** Pure. Where this recording's minutes are: from its first transcript to
+ *  the lines still waiting. */
+function minutesRange(doc: PMNode, anchor: VoiceAnchor): { from: number; to: number } | null {
+  if (!anchor.firstTranscript) return null;
+  const all = blocks(doc);
+  const run = waitingRun(doc, anchor.pending);
+  const stop = run ? run.first : all.length;
+  let start = -1;
+  for (let i = stop - 1; i >= 0; i--) {
+    if (isTranscript(all[i].node) && all[i].node.textContent === anchor.firstTranscript) { start = i; break; }
+  }
+  if (start < 0) return null;
+  let end = stop;
+  // The empty line the person writes on is not part of the minutes.
+  while (end > start + 1 && all[end - 1].node.type === schema.nodes.paragraph && all[end - 1].node.content.size === 0) end--;
+  const last = all[end - 1];
+  return { from: all[start].pos, to: last.pos + last.node.nodeSize };
+}
+
+export function voiceRegionPlugin(anchorOf: () => VoiceAnchor | null): Plugin {
+  return new Plugin({
+    key: refreshKey,
     props: {
       decorations(state: EditorState) {
-        const region = voiceKey.getState(state);
         const decos: Decoration[] = [];
         // A transcript shows its first line; all of it while the caret is in it.
         const $from = state.selection.$from;
@@ -153,29 +123,33 @@ export function voiceRegionPlugin(): Plugin<VoiceRegion | null> {
             decos.push(Decoration.node(pos, pos + node.nodeSize, { class: pos === caretIn ? 'note-transcript is-open' : 'note-transcript' }));
           }
         });
-        if (!region) return decos.length ? DecorationSet.create(state.doc, decos) : null;
-        // The words as spoken read a step back until they are organized.
-        state.doc.nodesBetween(region.mid, region.end, (node, pos) => {
-          if (pos >= region.mid && pos + node.nodeSize <= region.end) {
-            decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'note-voice-spoken' }));
+        const anchor = anchorOf();
+        if (anchor) {
+          // The words as spoken read a step back until they are organized.
+          const run = waitingRun(state.doc, anchor.pending);
+          if (run) {
+            state.doc.nodesBetween(run.from, run.to, (node, pos) => {
+              decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'note-voice-spoken' }));
+              return false;
+            });
           }
-          return false;
-        });
-        if (region.interim) {
-          decos.push(
-            Decoration.widget(
-              region.end,
-              () => {
-                const line = document.createElement('p');
-                line.className = 'note-voice-interim';
-                line.setAttribute('aria-hidden', 'true');
-                line.contentEditable = 'false';
-                line.textContent = region.interim;
-                return line;
-              },
-              { side: -1, key: `voice-interim:${region.interim}` },
-            ),
-          );
+          if (anchor.interim) {
+            const at = insertAt(state.doc, anchor);
+            decos.push(
+              Decoration.widget(
+                at,
+                () => {
+                  const line = document.createElement('p');
+                  line.className = 'note-voice-interim';
+                  line.setAttribute('aria-hidden', 'true');
+                  line.contentEditable = 'false';
+                  line.textContent = anchor.interim;
+                  return line;
+                },
+                { side: -1, key: `voice-interim:${anchor.interim}` },
+              ),
+            );
+          }
         }
         return decos.length ? DecorationSet.create(state.doc, decos) : null;
       },
@@ -183,118 +157,90 @@ export function voiceRegionPlugin(): Plugin<VoiceRegion | null> {
   });
 }
 
-/** Pure. Where a new region starts: at the end, above an empty last line (the
- *  one the person is on stays below what is spoken). */
-function freshRegion(doc: PMNode): VoiceRegion {
-  const last = doc.lastChild;
-  const emptyLast = !!last && last.type === schema.nodes.paragraph && last.content.size === 0;
-  const at = emptyLast ? doc.content.size - last.nodeSize : doc.content.size;
-  return { start: at, mid: at, end: at, cut: null, interim: '' };
-}
-
-const textOf = (doc: PMNode, from: number, to: number) =>
-  from < to ? doc.textBetween(from, to, '\n', ' ').trim() : '';
-
-/** Starts keeping the words spoken from here on. */
-export function beginVoice(view: EditorView): void {
-  view.dispatch(view.state.tr.setMeta(voiceKey, freshRegion(view.state.doc)));
-}
-
-/** Stops: what was written stays, and is no longer the region's to rewrite. */
-export function endVoice(view: EditorView): void {
-  if (voiceKey.getState(view.state)) view.dispatch(view.state.tr.setMeta(voiceKey, null));
-}
-
-export function setVoiceInterim(view: EditorView, text: string): void {
-  const region = voiceKey.getState(view.state);
-  const interim = text.trim();
-  if (!region || region.interim === interim) return;
-  view.dispatch(view.state.tr.setMeta(voiceKey, { ...region, interim }));
-  if (interim) follow(view);
+/** Draws again what the anchor says, when only the anchor changed. */
+function refresh(view: EditorView): void {
+  view.dispatch(view.state.tr.setMeta(refreshKey, true).setMeta('addToHistory', false));
 }
 
 /** Keeps the newest words in view, unless the person is working further up. */
-function follow(view: EditorView): void {
-  const region = voiceKey.getState(view.state);
-  if (!region) return;
-  if (view.hasFocus() && view.state.selection.from < region.start) return;
+function follow(view: EditorView, anchor: VoiceAnchor): void {
+  const at = insertAt(view.state.doc, anchor);
+  if (view.hasFocus() && view.state.selection.from < at - 2) return;
   const spoken = view.dom.querySelectorAll<HTMLElement>('.note-voice-spoken');
   const line = view.dom.querySelector<HTMLElement>('.note-voice-interim') ?? spoken[spoken.length - 1];
   line?.scrollIntoView?.({ block: 'nearest' });
 }
 
+export function setVoiceInterim(view: EditorView, anchor: VoiceAnchor, text: string): void {
+  const interim = text.trim();
+  if (anchor.interim === interim) return;
+  anchor.interim = interim;
+  refresh(view);
+  if (interim) follow(view, anchor);
+}
+
 /** Writes words as they were spoken, as a line of their own. */
-export function appendSpoken(view: EditorView, text: string): void {
+export function appendSpoken(view: EditorView, anchor: VoiceAnchor, text: string): void {
   const words = text.trim();
   if (!words) return;
-  const { state } = view;
-  const region = voiceKey.getState(state) ?? freshRegion(state.doc);
-  const line = schema.nodes.paragraph.create(null, schema.text(words));
-  const tr = state.tr.insert(region.end, line);
-  tr.setMeta(voiceKey, { ...region, end: region.end + line.nodeSize, interim: '' });
-  view.dispatch(tr);
-  follow(view);
+  const at = insertAt(view.state.doc, anchor);
+  anchor.pending.push(words);
+  anchor.interim = '';
+  view.dispatch(view.state.tr.insert(at, schema.nodes.paragraph.create(null, schema.text(words))));
+  follow(view, anchor);
 }
 
 /** How many characters are written as spoken and not yet organized. */
-export function spokenChars(state: EditorState): number {
-  const region = voiceKey.getState(state);
-  return region ? textOf(state.doc, region.mid, region.end).length : 0;
+export function spokenChars(state: EditorState, anchor: VoiceAnchor): number {
+  const run = waitingRun(state.doc, anchor.pending);
+  return run ? run.lines.join('\n').length : 0;
 }
 
 /** The Note up to the words as spoken, without the transcripts: what the
  *  next section continues from. */
-export function textBeforeSpoken(state: EditorState): string {
-  const region = voiceKey.getState(state);
-  if (!region) return '';
+export function textBeforeSpoken(state: EditorState, anchor: VoiceAnchor): string {
+  const run = waitingRun(state.doc, anchor.pending);
+  const stop = run ? run.from : state.doc.content.size;
   const lines: string[] = [];
-  state.doc.nodesBetween(0, region.mid, (node, pos) => {
-    // The transcripts are what the sections were made from, not what comes next.
-    if (pos + node.nodeSize <= region.mid && !isTranscript(node) && node.textContent.trim()) lines.push(node.textContent.trim());
-    return false;
+  state.doc.forEach((node, pos) => {
+    if (pos + node.nodeSize <= stop && !isTranscript(node) && node.textContent.trim()) lines.push(node.textContent.trim());
   });
   return lines.join('\n');
 }
 
-/** Takes the words as spoken to be organized. What is spoken from now on
- *  waits for the next round. */
-export function takeSpoken(view: EditorView): string | null {
-  const region = voiceKey.getState(view.state);
-  if (!region) return null;
-  const text = textOf(view.state.doc, region.mid, region.end);
-  if (!text) return null;
-  view.dispatch(view.state.tr.setMeta(voiceKey, { ...region, cut: region.end }));
-  return text;
+/** Takes the words as spoken to be organized; what is spoken from now on
+ *  waits for the next round. Lines corrected by hand are left as they are. */
+export function takeSpoken(view: EditorView, anchor: VoiceAnchor): string | null {
+  const run = waitingRun(view.state.doc, anchor.pending);
+  anchor.pending = run ? run.lines : [];
+  anchor.taken = anchor.pending.length;
+  return anchor.taken ? anchor.pending.join('\n') : null;
 }
 
 /** Gives back words that were taken and not organized. */
-export function releaseSpoken(view: EditorView): void {
-  const region = voiceKey.getState(view.state);
-  if (region && region.cut !== null) view.dispatch(view.state.tr.setMeta(voiceKey, { ...region, cut: null }));
+export function releaseSpoken(anchor: VoiceAnchor): void {
+  anchor.taken = 0;
 }
 
 /** Folds the words taken into a transcript and puts the section made from
  *  them below it. Words edited since they were taken are left alone ('changed'). */
-export function replaceSpoken(view: EditorView, html: string, taken: string): VoiceReplaceOutcome {
-  const { state } = view;
-  const region = voiceKey.getState(state);
-  if (!region || region.cut === null) return 'gone';
-  const { mid, cut } = region;
-  if (textOf(state.doc, mid, cut) !== taken) {
-    releaseSpoken(view);
+export function replaceSpoken(view: EditorView, anchor: VoiceAnchor, html: string, taken: string): VoiceReplaceOutcome {
+  if (!anchor.taken) return 'gone';
+  const lines = anchor.pending.slice(0, anchor.taken);
+  const run = lines.join('\n') === taken ? findRun(view.state.doc, lines) : null;
+  if (!run) {
+    releaseSpoken(anchor);
     return 'changed';
   }
   // The words stay, folded, above what was made of them; with nothing made
   // of them they are folded all the same.
   const added = html.trim() ? htmlToDoc(html) : null;
   const transcript = schema.nodes.code_block.create({ lang: TRANSCRIPT_LANG }, schema.text(taken));
-  const section = added && !isEmptyDoc(added)
-    ? Fragment.from(transcript).append(added.content)
-    : Fragment.from(transcript);
-  const tr = state.tr.replaceWith(mid, cut, section);
-  const grew = section.size - (cut - mid);
-  tr.setMeta(voiceKey, { ...region, mid: mid + section.size, end: region.end + grew, cut: null });
-  view.dispatch(tr);
+  const section = added && !isEmptyDoc(added) ? Fragment.from(transcript).append(added.content) : Fragment.from(transcript);
+  anchor.pending = anchor.pending.slice(anchor.taken);
+  anchor.taken = 0;
+  if (!anchor.firstTranscript) anchor.firstTranscript = taken;
+  view.dispatch(view.state.tr.replaceWith(run.from, run.to, section));
   return 'done';
 }
 
@@ -311,78 +257,70 @@ export interface VoiceMinutes {
   key: string;
 }
 
-function minutesParts(state: EditorState, region: VoiceRegion) {
+function minutesParts(doc: PMNode, range: { from: number; to: number }) {
   const transcripts: PMNode[] = [];
   const sections: PMNode[] = [];
-  state.doc.nodesBetween(region.start, region.mid, (node, pos) => {
-    if (pos >= region.start && pos + node.nodeSize <= region.mid) (isTranscript(node) ? transcripts : sections).push(node);
+  doc.nodesBetween(range.from, range.to, (node) => {
+    (isTranscript(node) ? transcripts : sections).push(node);
     return false;
   });
   return { transcripts, sections };
 }
 
-/** The minutes written so far. */
-export function readMinutes(state: EditorState): VoiceMinutes | null {
-  const region = voiceKey.getState(state);
-  if (!region || region.mid <= region.start) return null;
-  const { sections } = minutesParts(state, region);
+/** The minutes this recording has written so far. */
+export function readMinutes(state: EditorState, anchor: VoiceAnchor): VoiceMinutes | null {
+  const range = minutesRange(state.doc, anchor);
+  if (!range) return null;
+  const { sections } = minutesParts(state.doc, range);
   if (!sections.length) return null;
   let plain = true;
   let chars = 0;
   for (const section of sections) {
     chars += section.textContent.length;
+    if (!PLAIN.has(section.type.name)) plain = false;
     section.descendants((node) => {
       if (!PLAIN.has(node.type.name) || (node.type === schema.nodes.list_item && node.attrs.elementId)) plain = false;
       return plain;
     });
-    if (!PLAIN.has(section.type.name)) plain = false;
   }
-  const whole = schema.nodes.doc.create(null, state.doc.slice(region.start, region.mid).content);
+  const whole = schema.nodes.doc.create(null, state.doc.slice(range.from, range.to).content);
   return { html: docToHtml(schema.nodes.doc.create(null, sections)), chars, plain, key: docToHtml(whole) };
 }
 
 /** Puts the regrouped minutes where the minutes are, under the transcripts
  *  they came from, each still its own block. Minutes edited since they were
  *  read are left alone ('changed'). */
-export function replaceMinutes(view: EditorView, html: string, key: string): VoiceReplaceOutcome {
+export function replaceMinutes(view: EditorView, anchor: VoiceAnchor, html: string, key: string): VoiceReplaceOutcome {
   const { state } = view;
-  const region = voiceKey.getState(state);
-  const now = readMinutes(state);
-  if (!region || !now) return 'gone';
+  const range = minutesRange(state.doc, anchor);
+  const now = readMinutes(state, anchor);
+  if (!range || !now) return 'gone';
   if (now.key !== key || !now.plain) return 'changed';
   const added = html.trim() ? htmlToDoc(html) : null;
   if (!added || isEmptyDoc(added)) return 'gone';
-  const { start, mid } = region;
-  const regrouped = Fragment.from(minutesParts(state, region).transcripts).append(added.content);
-  const tr = state.tr.replaceWith(start, mid, regrouped);
-  const grew = regrouped.size - (mid - start);
-  tr.setMeta(voiceKey, {
-    ...region,
-    mid: mid + grew,
-    end: region.end + grew,
-    cut: region.cut === null ? null : region.cut + grew,
-  });
-  view.dispatch(tr);
+  const regrouped = Fragment.from(minutesParts(state.doc, range).transcripts).append(added.content);
+  view.dispatch(state.tr.replaceWith(range.from, range.to, regrouped));
   return 'done';
 }
 
-/** Places the transcript's file just above everything voice wrote. Placed
- *  again, it takes the place of the one placed before. */
-export function placeVoiceFile(view: EditorView, file: PMNode): void {
-  const { state } = view;
-  const region = voiceKey.getState(state);
-  if (!region) return;
-  const before = state.doc.resolve(region.start).nodeBefore;
-  const from = region.filed && before && before.type === schema.nodes.code_block ? region.start - before.nodeSize : region.start;
-  const tr = state.tr.replaceWith(from, region.start, file);
-  const grew = file.nodeSize - (region.start - from);
-  tr.setMeta(voiceKey, {
-    ...region,
-    filed: true,
-    start: region.start + grew,
-    mid: region.mid + grew,
-    end: region.end + grew,
-    cut: region.cut === null ? null : region.cut + grew,
-  });
+/** Places the transcript's file just above this recording's minutes (or the
+ *  words still waiting). Placed again, it takes the place of the one before. */
+export function placeVoiceFile(view: EditorView, anchor: VoiceAnchor, file: PMNode): void {
+  const { doc } = view.state;
+  const tr = view.state.tr;
+  let placed = false;
+  if (anchor.fileSource) {
+    doc.forEach((node, pos) => {
+      if (placed || node.type !== schema.nodes.code_block || node.textContent !== anchor.fileSource) return;
+      tr.replaceWith(pos, pos + node.nodeSize, file);
+      placed = true;
+    });
+  }
+  if (!placed) {
+    const range = minutesRange(doc, anchor);
+    const run = waitingRun(doc, anchor.pending);
+    tr.insert(range ? range.from : run ? run.from : insertAt(doc, anchor), file);
+  }
+  anchor.fileSource = file.textContent;
   view.dispatch(tr);
 }

@@ -95,7 +95,6 @@ export function PageView({
   // /voice, /ai, /complete and ⌘J in the editor. The header carries no AI button.
   const voice = useVoiceCapture(spokenLanguage(locale === 'en' ? 'en-US' : 'ja-JP'));
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const [autoStructure, setAutoStructure] = useState(true);
   const [structuring, setStructuring] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [density, setDensity] = useState<DensityReport>({
@@ -116,6 +115,9 @@ export function PageView({
   const filedCountRef = useRef(0);
   // Sections organized since the minutes were last regrouped.
   const roundsRef = useRef(0);
+  // After organizing fails it is not tried again by itself before this time.
+  const retryAtRef = useRef(0);
+  const closeWantedRef = useRef(false);
   const lastStructuredAtRef = useRef(0);
   const structuringRef = useRef(false);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -256,10 +258,10 @@ export function PageView({
       }
     } catch (err) {
       // Without AI (no plan, budget spent, offline) the words stay in the Note
-      // as spoken, and auto-organize turns off.
+      // as spoken; organizing is tried again in a minute, or when asked for.
       editor.voice.release();
       setAiError(formatError(err));
-      setAutoStructure(false);
+      retryAtRef.current = Date.now() + 60_000;
     } finally {
       structuringRef.current = false;
       setStructuring(false);
@@ -269,10 +271,10 @@ export function PageView({
 
   // Automatic background structuring while speaking once enough speech builds up.
   useEffect(() => {
-    if (!voiceOpen || !autoStructure) return;
+    if (!voiceOpen) return;
     if (voice.status !== 'listening' && voice.status !== 'paused') return;
     const id = setInterval(() => {
-      if (structuringRef.current) return;
+      if (structuringRef.current || Date.now() < retryAtRef.current) return;
       const chars = editorRef.current?.voice.pendingChars() ?? 0;
       setPendingChars(chars);
       const now = Date.now();
@@ -287,7 +289,7 @@ export function PageView({
       }
     }, 2000);
     return () => clearInterval(id);
-  }, [voiceOpen, autoStructure, voice.status, voice.lastSpeechAt, runStructure]);
+  }, [voiceOpen, voice.status, voice.lastSpeechAt, runStructure]);
 
   const handleOpenVoice = useCallback(() => {
     // What was said before the panel opened is not written again.
@@ -313,6 +315,7 @@ export function PageView({
   }, [voice]);
 
   const finishedRef = useRef(0);
+  const finishingRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     if (!stopped || finishedRef.current === stopped || !voiceOpen) return;
     if (writtenCountRef.current !== voice.segments.length) return;
@@ -320,26 +323,37 @@ export function PageView({
     const editor = editorRef.current;
     const spoken = voice.segments.slice(sessionStartRef.current);
     const spaceId = getActiveSpaceId();
-    void (async () => {
-      if (autoStructure) await runStructure(true);
-      // Everything said, word for word, kept in Artifacts and placed above the minutes.
-      if (!editor || !spaceId || voice.segments.length === filedCountRef.current || !spoken.length) return;
-      filedCountRef.current = voice.segments.length;
+    // One at a time: closing right after stopping waits for the stop's work.
+    finishingRef.current = finishingRef.current.then(async () => {
       try {
+        // A round already under way finishes before the last one is asked for.
+        while (structuringRef.current) await new Promise((done) => setTimeout(done, 200));
+        await runStructure(true);
+        // Everything said, word for word, kept in Artifacts and placed above the minutes.
+        if (!editor || !spaceId || voice.segments.length === filedCountRef.current || !spoken.length) return;
+        filedCountRef.current = voice.segments.length;
         const name = `${draftTitle.trim() || t('Voice minutes')} — ${t('Transcript')} ${formatDateTime(new Date(spoken[0].timestamp))}.md`;
         const file = new File([transcriptMarkdown(spoken)], name.replace(/[\\/:]/g, '-'), { type: 'text/markdown' });
         const saved = await uploadToArtifacts(spaceId, file);
         editor.voice.placeFile(saved.id);
       } catch (err) {
         setAiError(formatError(err));
+      } finally {
+        if (closeWantedRef.current) {
+          closeWantedRef.current = false;
+          editor?.voice.end();
+          setVoiceOpen(false);
+        }
       }
-    })();
-  }, [stopped, voiceOpen, voice.segments, autoStructure, runStructure, draftTitle, t]);
+    });
+  }, [stopped, voiceOpen, voice.segments, runStructure, draftTitle, t]);
 
+  // Closing finishes first what stopping would: the words still waiting are
+  // organized and the transcript filed, and only then is the panel put away.
   const handleCloseVoice = useCallback(() => {
+    closeWantedRef.current = true;
     voice.stop();
-    editorRef.current?.voice.end();
-    setVoiceOpen(false);
+    setStopped((n) => n + 1);
   }, [voice]);
 
   const handleRequestProposals = useCallback(async () => {
@@ -475,7 +489,6 @@ export function PageView({
           interimText={voice.interimText}
           elapsedSec={voice.elapsedSec}
           unprocessedChars={pendingChars}
-          autoStructure={autoStructure}
           structuring={structuring}
           notice={aiNotice}
           error={aiError || voice.error}
@@ -485,8 +498,7 @@ export function PageView({
           onResume={voice.resume}
           onStop={handleStopVoice}
           onClose={handleCloseVoice}
-          onToggleAutoStructure={() => setAutoStructure((v) => !v)}
-          onStructureNow={() => { void runStructure(); }}
+          onStructureNow={() => { retryAtRef.current = 0; void runStructure(); }}
           onAppendManualText={voice.appendManualText}
         />
       )}

@@ -55,8 +55,7 @@ import {
 } from '../pm/aiAssist';
 import {
   appendSpoken,
-  beginVoice,
-  endVoice,
+  newVoiceAnchor,
   placeVoiceFile,
   readMinutes,
   releaseSpoken,
@@ -67,6 +66,7 @@ import {
   takeSpoken,
   textBeforeSpoken,
   voiceRegionPlugin,
+  type VoiceAnchor,
   type VoiceMinutes,
   type VoiceReplaceOutcome,
 } from '../pm/voiceRegion';
@@ -778,7 +778,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const common = (undo: Command, redo: Command): Plugin[] => [
       slashTrigger((key) => slashKeyRef.current(key)),
       ghostCompletionPlugin(),
-      voiceRegionPlugin(),
+      voiceRegionPlugin(() => voiceAnchorRef.current),
       pinpointProposalsPlugin((id) => {
         const v = viewRef.current;
         if (!v) return;
@@ -907,25 +907,33 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     offeredRef.current = [];
     if (found.length) linkItems(found)(view.state, view.dispatch);
   }, []);
+  // What the recording here has written, by what it says. Kept outside the
+  // editor's state, which is made anew whenever the shared Note is rebound.
+  const voiceAnchorRef = useRef<VoiceAnchor | null>(null);
   const voice = useMemo<NoteVoiceHandle>(() => {
-    const withView = <T,>(none: T, run: (view: EditorView) => T): T => {
+    const withVoice = <T,>(none: T, run: (view: EditorView, anchor: VoiceAnchor) => T): T => {
       const view = viewRef.current;
-      return view ? run(view) : none;
+      const anchor = voiceAnchorRef.current;
+      return view && anchor ? run(view, anchor) : none;
+    };
+    const redraw = () => {
+      const view = viewRef.current;
+      if (view) view.dispatch(view.state.tr.setMeta('addToHistory', false));
     };
     return {
-      begin: () => withView(undefined, beginVoice),
-      end: () => withView(undefined, endVoice),
-      append: (text) => withView(undefined, (view) => appendSpoken(view, text)),
-      interim: (text) => withView(undefined, (view) => setVoiceInterim(view, text)),
-      pendingChars: () => withView(0, (view) => spokenChars(view.state)),
-      context: () => withView('', (view) => textBeforeSpoken(view.state)),
-      take: () => withView(null, takeSpoken),
-      release: () => withView(undefined, releaseSpoken),
-      replaceSpoken: (html, taken) => withView<VoiceReplaceOutcome>('gone', (view) => replaceSpoken(view, html, taken)),
-      minutes: () => withView(null, (view) => readMinutes(view.state)),
-      replaceMinutes: (html, key) => withView<VoiceReplaceOutcome>('gone', (view) => replaceMinutes(view, html, key)),
-      placeFile: (fileId) => withView(undefined, (view) =>
-        placeVoiceFile(view, code_block.create({ lang: EMBED_LANG }, schema.text(embedSource({ view: FILE_VIEW, id: fileId }))))),
+      begin: () => { voiceAnchorRef.current = newVoiceAnchor(); redraw(); },
+      end: () => { voiceAnchorRef.current = null; redraw(); },
+      append: (text) => withVoice(undefined, (view, anchor) => appendSpoken(view, anchor, text)),
+      interim: (text) => withVoice(undefined, (view, anchor) => setVoiceInterim(view, anchor, text)),
+      pendingChars: () => withVoice(0, (view, anchor) => spokenChars(view.state, anchor)),
+      context: () => withVoice('', (view, anchor) => textBeforeSpoken(view.state, anchor)),
+      take: () => withVoice(null, takeSpoken),
+      release: () => withVoice(undefined, (_view, anchor) => releaseSpoken(anchor)),
+      replaceSpoken: (html, taken) => withVoice<VoiceReplaceOutcome>('gone', (view, anchor) => replaceSpoken(view, anchor, html, taken)),
+      minutes: () => withVoice(null, (view, anchor) => readMinutes(view.state, anchor)),
+      replaceMinutes: (html, key) => withVoice<VoiceReplaceOutcome>('gone', (view, anchor) => replaceMinutes(view, anchor, html, key)),
+      placeFile: (fileId) => withVoice(undefined, (view, anchor) =>
+        placeVoiceFile(view, anchor, code_block.create({ lang: EMBED_LANG }, schema.text(embedSource({ view: FILE_VIEW, id: fileId }))))),
     };
   }, []);
   const getBlocks = useCallback((): NoteBlockSummary[] => {
