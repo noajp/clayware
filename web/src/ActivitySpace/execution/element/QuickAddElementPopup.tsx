@@ -7,9 +7,12 @@ import { Button } from '@/ui/button';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '@/shared/designTokens';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscapeLayer } from '@/Function/shared/keyboard';
-import { Check, ChevronDown, LayoutTemplate, Tag as TagIcon, User as UserIcon, X } from '@/ui/icons';
+import { ChevronDown, LayoutTemplate, Tag as TagIcon, User as UserIcon, X } from '@/ui/icons';
 import { openInApp } from '@/Function/shared/appNavigation';
-import { ElementIcon, ObjectIcon as BoxIcon } from '@/Function/shared/conceptIcons';
+import { notifySuccess } from '@/Function/shared/toastStore';
+import { requestElementDetail } from '@/Function/shared/element/elementDetailRequest';
+import type { QuickAddResult } from '@/Function/shared/element/quickAdd';
+import { DomainIcon, ElementIcon, ObjectIcon as BoxIcon } from '@/Function/shared/conceptIcons';
 import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
 import { PriorityPicker } from '@/Function/shared/PriorityPicker';
@@ -75,13 +78,16 @@ interface QuickAddElementPopupProps {
   open: boolean;
   /** Context label shown next to the title — e.g. an Object name. */
   contextLabel?: string;
+  /** What `contextLabel` names, so the chip carries that thing's icon. Unset
+   *  (or no label) shows the Element icon with "New Element". */
+  contextKind?: 'object' | 'domain' | 'personal';
   /** Hint shown under the textarea. Optional contextual guidance. */
   hint?: string;
   onClose: () => void;
   /** Receives one NewElementInput per non-empty line of the textarea. Shared
    *  rich fields (description / status / …) are copied into every entry so
    *  the caller can persist them on every created Element. */
-  onSubmit: (inputs: NewElementInput[]) => void | number | Promise<void | number>;
+  onSubmit: (inputs: NewElementInput[]) => void | number | QuickAddResult | Promise<void | number | QuickAddResult>;
   /** Domain-shared Element types for the Type pill (`domains.element_types`).
    *  Empty array hides the pill. */
   types?: string[];
@@ -131,6 +137,7 @@ interface QuickAddElementPopupProps {
 export function QuickAddElementPopup({
   open,
   contextLabel,
+  contextKind,
   hint,
   onClose,
   onSubmit,
@@ -173,12 +180,8 @@ export function QuickAddElementPopup({
     onOpenChange: (next: boolean) => setOpenMenu(next ? id : null),
   });
   const [busy, setBusy] = useState(false);
-  // What the last create made and where it went. The popup staying open after
-  // a create is otherwise indistinguishable from a create that silently
-  // failed, so the confirmation names the Element and the place it landed,
-  // with a way to go there.
-  const [lastAdded, setLastAdded] = useState<LastAdded | null>(null);
-  // A create that failed outright says so here; the typed text stays.
+  // A create that failed outright says so in the footer; the typed text stays.
+  // A create that landed says so in a toast (see `announceCreated`).
   const [failed, setFailed] = useState(false);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const descRef = useRef<HTMLTextAreaElement | null>(null);
@@ -194,7 +197,6 @@ export function QuickAddElementPopup({
     if (!open) return;
     setText(initialText);
     setDescription('');
-    setLastAdded(null);
     setFailed(false);
     setType(defaultType);
     setStatus(defaultStatus);
@@ -271,16 +273,38 @@ export function QuickAddElementPopup({
   // neither), so a popup that offers My Elements shows it as the choice
   // instead of an empty "Save to" that hides where the Element went.
   const savesToPersonal = objectId === PERSONAL_SCOPE_ID || (objectId === null && canSaveToPersonal);
+  const showObjectPillEarly = objects.length > 0 || canSaveToPersonal;
   const isPersonalChoice = savesToPersonal;
   const objectOpt = savesToPersonal
     ? { id: PERSONAL_SCOPE_ID, name: t('My Elements') }
     : objectId ? objects.find((o) => o.id === objectId) ?? null : null;
 
-  const openLastAdded = () => {
-    if (!lastAdded) return;
-    if (lastAdded.objectId) openInApp('objects', { objectId: lastAdded.objectId });
-    else openInApp('my-elements');
-    onClose();
+  // The popup staying open after a create is otherwise indistinguishable from
+  // a create that silently failed, so every create raises a toast that names
+  // the Element and the place it landed, with a way to go there. A toast, not
+  // a line in the popup: it outlives the popup (⌘Enter closes it) and sits
+  // where every other "done" lands.
+  const announceCreated = (result: QuickAddResult | null, count: number, firstTitle: string, place: string, placeObjectId: string | null) => {
+    const one = result?.created.length === 1 ? result.created[0] : null;
+    const detail = one
+      ? (one.displayId ? `${one.displayId} – ${one.title}` : one.title)
+      : count === 1 ? firstTitle : t('{n} Elements', { n: count });
+    notifySuccess(t('Created in {place}', { place }), detail, {
+      elementStatus: one ? one.status : undefined,
+      action: {
+        label: t('Open'),
+        run: () => {
+          if (placeObjectId) {
+            openInApp('objects', { objectId: placeObjectId });
+            if (one) requestElementDetail(one.id);
+          } else {
+            openInApp('my-elements');
+            if (one) requestElementDetail(one.id);
+          }
+          onClose();
+        },
+      },
+    });
   };
 
   const handleSubmit = async (closeAfter: boolean) => {
@@ -306,27 +330,27 @@ export function QuickAddElementPopup({
       // A caller that reports how many landed keeps the "N added" count true
       // when some lines failed.
       const landed = await onSubmit(inputs);
+      const result = landed && typeof landed === 'object' ? landed : null;
+      const count = result ? result.count : typeof landed === 'number' ? landed : inputs.length;
+      const landedIn = result?.created[0]?.objectId ?? (isPersonal ? null : objectId);
+      announceCreated(
+        result,
+        count,
+        inputs[0].title,
+        landedIn ? objects.find((o) => o.id === landedIn)?.name ?? contextLabel ?? t('New Element') : t('My Elements'),
+        landedIn,
+      );
+      setText('');
+      setDescription('');
       if (closeAfter) {
-        setText('');
-        setDescription('');
         onClose();
         return;
       }
-      const count = typeof landed === 'number' ? landed : inputs.length;
-      setLastAdded({
-        title: inputs[0].title,
-        count,
-        place: isPersonal ? t('My Elements') : objectOpt?.name ?? t('Save to'),
-        objectId: isPersonal ? null : objectId,
-      });
-      setText('');
-      setDescription('');
       // Focus survives the re-render on its own, but not if the click came from
       // the Create button — put the caret back where the next title goes.
       taRef.current?.focus();
     } catch (e) {
       console.error('QuickAdd submit failed:', e);
-      setLastAdded(null);
       setFailed(true);
     } finally {
       setBusy(false);
@@ -335,9 +359,14 @@ export function QuickAddElementPopup({
 
   const statusOpt = STATUS_OPTIONS.find((s) => s.value === status);
   const priorityOpt = PRIORITY_OPTIONS.find((p) => p.value === priority);
+  // The chip names where the next create lands. With a Save to pill, that is
+  // the pill's pick — the label the caller opened on would go stale the
+  // moment the person re-points it.
+  const chipLabel = showObjectPillEarly && objectOpt ? objectOpt.name : contextLabel;
+  const chipKind = showObjectPillEarly && objectOpt ? (savesToPersonal ? 'personal' : 'object') : contextKind;
   const assigneeCount = assigneeIds.size;
   const labelCount = labels.size;
-  const showObjectPill = objects.length > 0 || canSaveToPersonal;
+  const showObjectPill = showObjectPillEarly;
 
   return (
     <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pointer-events-none">
@@ -349,8 +378,12 @@ export function QuickAddElementPopup({
         {/* Header — context chip + close */}
         <div className={QUICK_CREATE.header}>
           <span className={QUICK_CREATE.context}>
-            <ElementIcon size={12} />
-            <span className="truncate max-w-[200px]">{contextLabel ?? t('New Element')}</span>
+            {!chipLabel ? <ElementIcon size={12} />
+              : chipKind === 'object' ? <BoxIcon size={12} />
+              : chipKind === 'domain' ? <DomainIcon size={12} />
+              : chipKind === 'personal' ? <NavMyTasksIcon size={12} />
+              : <ElementIcon size={12} />}
+            <span className="truncate max-w-[200px]">{chipLabel ?? t('New Element')}</span>
           </span>
           {titles.length > 1 && (
             <span className="text-[11px] text-muted-foreground">{t('{n} Elements', { n: titles.length })}</span>
@@ -617,26 +650,10 @@ export function QuickAddElementPopup({
 
         <div className={QUICK_CREATE.footer}>
           {/* Polite live region, present from the start so a screen reader
-              hears each confirmation as it changes. */}
+              hears a failure as it appears. */}
           <div role="status" aria-live="polite" className="mr-auto flex min-w-0 items-center gap-2 text-[12px]">
             {failed ? (
               <span className="min-w-0 truncate text-[var(--status-danger)]">{t('Could not create it. Please try again.')}</span>
-            ) : lastAdded ? (
-              <>
-                <Check size={13} className="shrink-0 text-[var(--status-success)]" />
-                <span className="min-w-0 truncate text-foreground">
-                  {lastAdded.count > 1
-                    ? t('Added {n} Elements to {place}', { n: lastAdded.count, place: lastAdded.place })
-                    : t('Added “{title}” to {place}', { title: lastAdded.title, place: lastAdded.place })}
-                </span>
-                <button
-                  type="button"
-                  onClick={openLastAdded}
-                  className="inline-flex h-7 shrink-0 items-center rounded-md px-2 font-medium text-[var(--accent-text)] hover:bg-[var(--accent-subtle)] transition-colors"
-                >
-                  {t('Open')}
-                </button>
-              </>
             ) : hint ? (
               <span className="text-[11px] text-muted-foreground">{hint}</span>
             ) : null}
@@ -648,14 +665,6 @@ export function QuickAddElementPopup({
       </div>
     </div>
   );
-}
-
-interface LastAdded {
-  title: string;
-  count: number;
-  place: string;
-  /** null = My Elements. */
-  objectId: string | null;
 }
 
 // Tailwind for pill triggers — semibold + brighter text, soft-fill at rest.

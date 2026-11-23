@@ -207,6 +207,7 @@ export function QuickAddElementLauncher({
     <QuickAddElementPopup
       open={open}
       contextLabel={contextLabel}
+      contextKind="object"
       defaultStatus={presetStatus}
       hint={presetDueDate ? t('Due {date}', { date: parseDateOnly(presetDueDate)?.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) ?? presetDueDate }) : undefined}
       onClose={() => setOpen(false)}

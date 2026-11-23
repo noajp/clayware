@@ -46,13 +46,29 @@ function resolveQuickAddObjectId(input: QuickAddInput, fallbackObjectId: string 
   return input.objectId !== undefined ? input.objectId : fallbackObjectId;
 }
 
+/** One Element the batch produced — enough for the "created" toast to name
+ *  it and open it. */
+export interface QuickAddCreated {
+  id: string;
+  title: string;
+  displayId: string | null;
+  status: ElementStatus | null;
+  objectId: string | null;
+}
+
+/** What a batch produced; `count` is `created.length`. */
+export interface QuickAddResult {
+  count: number;
+  created: QuickAddCreated[];
+}
+
 /**
  * Create one Element per line. A bad line does not discard the rest; a batch
  * where some lines failed says how many, and a batch where none landed
  * rejects so the popup keeps the text instead of reporting success.
  */
-export async function createQuickAddElements(inputs: readonly QuickAddInput[], ctx: QuickAddContext): Promise<number> {
-  let created = 0;
+export async function createQuickAddElements(inputs: readonly QuickAddInput[], ctx: QuickAddContext): Promise<QuickAddResult> {
+  const created: QuickAddCreated[] = [];
   let lastError: unknown = null;
   let skippedAssignees = 0;
   for (const input of inputs) {
@@ -70,7 +86,7 @@ export async function createQuickAddElements(inputs: readonly QuickAddInput[], c
         estimated_hours: input.estimatedHours ?? null,
         due_date: ctx.dueDate ?? undefined,
       });
-      created += 1;
+      created.push({ id: row.id, title: row.title, displayId: row.display_id ?? null, status: row.status ?? null, objectId });
       const assignees = input.assigneeWorkerIds?.length ? input.assigneeWorkerIds : ctx.fallbackAssigneeIds ?? [];
       skippedAssignees += (await assignWorkersToElement(row.id, assignees)).skipped.length;
     } catch (e) {
@@ -79,14 +95,14 @@ export async function createQuickAddElements(inputs: readonly QuickAddInput[], c
     }
   }
   noticeSkippedAssignees(skippedAssignees);
-  const failed = inputs.length - created;
+  const failed = inputs.length - created.length;
   if (failed > 0) {
     void appDialog.alert(translate('{failed} of {total} Elements could not be created.', { failed, total: inputs.length }));
   }
-  if (created === 0 && inputs.length > 0) {
+  if (created.length === 0 && inputs.length > 0) {
     throw lastError ?? new Error('No Elements were created');
   }
-  return created;
+  return { count: created.length, created };
 }
 
 /** The Domain's saved templates as the popup's Template pill reads them. A

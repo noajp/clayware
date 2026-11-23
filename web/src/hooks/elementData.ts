@@ -749,7 +749,11 @@ export async function restoreElement(deletionId: string): Promise<string> {
 // Domain. Keyed by the primary Object (not the Element) so every Element in a
 // Domain shares one list, and kept short-lived — a whole Objects list per
 // visited Element is not worth persisting.
-export async function fetchElementMoveTargets(primaryId: string | null): Promise<{ id: string; name: string }[]> {
+// Where an Element can move / multi-home to: the sibling Objects in its
+// Object's Domain, or — for a personal Element, which has no Domain — the
+// Objects of the active Space only. Without that bound a personal Element
+// listed every Object the person can see in every Space they belong to.
+export async function fetchElementMoveTargets(primaryId: string | null, spaceId: string | null = null): Promise<{ id: string; name: string }[]> {
   let domainId: string | null = null;
   if (primaryId) {
     const { data: primaryObj } = await supabase
@@ -760,8 +764,18 @@ export async function fetchElementMoveTargets(primaryId: string | null): Promise
     domainId = (primaryObj?.domain_id as string | null) ?? null;
   }
   // Archived Objects are not move / multi-home targets.
-  const objQuery = onlyActiveObjects(supabase.from('objects').select('id, name, domain_id')).order('order_index');
-  const { data: objs } = domainId ? await objQuery.eq('domain_id', domainId) : await objQuery;
+  if (domainId) {
+    const { data: objs } = await onlyActiveObjects(supabase.from('objects').select('id, name, domain_id'))
+      .eq('domain_id', domainId)
+      .order('order_index');
+    return (objs ?? []).map((o) => ({ id: o.id as string, name: o.name as string }));
+  }
+  if (!spaceId) return [];
+  const { data: objs } = await onlyActiveObjects(
+    supabase.from('objects').select('id, name, domain_id, domain:domains!objects_domain_id_fkey!inner(activity_space_id)'),
+  )
+    .eq('domain.activity_space_id', spaceId)
+    .order('order_index');
   return (objs ?? []).map((o) => ({ id: o.id as string, name: o.name as string }));
 }
 

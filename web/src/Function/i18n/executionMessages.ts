@@ -308,8 +308,7 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
 
   // Quick add
   'Quick add Element': ['Element をすばやく追加', 'Element 빠르게 추가', 'Ajout rapide d’Element', 'Añadir Element rápido'],
-  'Added “{title}” to {place}': ['「{title}」を {place} に追加しました', '“{title}”을(를) {place}에 추가했습니다', '« {title} » ajouté à {place}', '«{title}» añadido a {place}'],
-  'Added {n} Elements to {place}': ['{n} 件の Element を {place} に追加しました', 'Element {n}개를 {place}에 추가했습니다', '{n} Elements ajoutés à {place}', '{n} Elements añadidos a {place}'],
+  'Created in {place}': ['{place} に作成しました', '{place}에 만들었습니다', 'Créé dans {place}', 'Creado en {place}'],
   'Template': ['テンプレート', '템플릿', 'Modèle', 'Plantilla'],
   '1 assignee': ['担当者 1 人', '담당자 1명', '1 assigné', '1 responsable'],
   '{n} assignees': ['担当者 {n} 人', '담당자 {n}명', '{n} assignés', '{n} responsables'],

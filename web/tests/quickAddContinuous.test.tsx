@@ -12,11 +12,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QuickAddElementPopup } from '@/ActivitySpace/execution/element/QuickAddElementPopup';
+import { clearToasts, getToasts } from '@/Function/shared/toastStore';
+
+// The created toast — the only evidence a create landed, now that the popup
+// stays open.
+const lastToast = () => getToasts().at(-1);
 
 // The Type pill's icons are read from the Domains; this test has none.
 vi.mock('@/Function/shared/elementTypeIcon', () => ({ useTypeIcons: () => new Map(), TypeMark: () => null }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); clearToasts(); });
 
 function setup(overrides: Partial<Parameters<typeof QuickAddElementPopup>[0]> = {}) {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
@@ -71,7 +76,21 @@ describe('QuickAdd continuous create', () => {
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0]).toEqual([expect.objectContaining({ personal: true, objectId: null })]);
     // ...and the confirmation names it after.
-    await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Added “first” to My Elements'));
+    await vi.waitFor(() => expect(lastToast()).toMatchObject({ kind: 'success', message: 'Created in My Elements', detail: 'first' }));
+  });
+
+  it('names the Object it landed in and the Element, ID first', async () => {
+    const onSubmit = vi.fn().mockResolvedValue({
+      count: 1,
+      created: [{ id: 'e7', title: 'first', displayId: 'ELE-7', status: 'todo', objectId: 'o1' }],
+    });
+    render(<QuickAddElementPopup open onClose={vi.fn()} onSubmit={onSubmit} defaultObjectId="o1" objects={[{ id: 'o1', name: 'Launch' }]} />);
+
+    await createWith(screen.getByPlaceholderText(/Element title/i) as HTMLTextAreaElement, 'first');
+
+    await vi.waitFor(() => expect(lastToast()).toMatchObject({
+      message: 'Created in Launch', detail: 'ELE-7 – first', elementStatus: 'todo', action: { label: 'Open' },
+    }));
   });
 
   it('closes on Cmd+Enter, the way out for wanting only one', async () => {
@@ -94,13 +113,13 @@ describe('QuickAdd continuous create', () => {
   it('reports what the sitting has produced', async () => {
     const { title } = setup();
 
-    expect(screen.getByRole('status').textContent).toBe('');
+    expect(getToasts()).toHaveLength(0);
 
     await createWith(title, 'first');
-    await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Added “first”'));
+    await vi.waitFor(() => expect(lastToast()?.detail).toBe('first'));
 
     await createWith(title, 'second');
-    await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Added “second”'));
+    await vi.waitFor(() => expect(lastToast()?.detail).toBe('second'));
   });
 
   it('counts every line of a multi-line paste', async () => {
@@ -110,7 +129,7 @@ describe('QuickAdd continuous create', () => {
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0][0]).toHaveLength(3);
-    await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Added 3 Elements'));
+    await vi.waitFor(() => expect(lastToast()?.detail).toBe('3 Elements'));
   });
 
   it('does not fire a second create while the first is still in flight', async () => {
@@ -144,7 +163,7 @@ describe('QuickAdd continuous create', () => {
     await createWith(title, 'this one will not land');
 
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('status').textContent).not.toContain('Added');
+    expect(getToasts()).toHaveLength(0);
     await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('Could not create it'));
     expect(title.value).toBe('this one will not land');
     expect(onClose).not.toHaveBeenCalled();

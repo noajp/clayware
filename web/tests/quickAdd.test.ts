@@ -55,8 +55,12 @@ describe('createQuickAddElements', () => {
   });
 
   it('says how many lines failed when some landed', async () => {
-    createElement.mockResolvedValueOnce({ id: 'e1' }).mockRejectedValueOnce(new Error('no'));
-    await expect(createQuickAddElements([{ title: 'a' }, { title: 'b' }], { fallbackObjectId: 'o1', userId: null })).resolves.toBe(1);
+    createElement.mockResolvedValueOnce({ id: 'e1', title: 'a', display_id: 'ELE-1', status: 'todo' }).mockRejectedValueOnce(new Error('no'));
+    await expect(createQuickAddElements([{ title: 'a' }, { title: 'b' }], { fallbackObjectId: 'o1', userId: null })).resolves.toEqual({
+      count: 1,
+      // What the created toast names and opens: the row that landed, in the Object it landed in.
+      created: [{ id: 'e1', title: 'a', displayId: 'ELE-1', status: 'todo', objectId: 'o1' }],
+    });
     expect(alert).toHaveBeenCalledTimes(1);
   });
 

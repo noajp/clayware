@@ -1,8 +1,20 @@
-// A failure the person should hear about, shown as a short toast by the one
-// <Toaster/> in the app shell. Plain module state (like appDialogStore) so the
-// data layer — the QueryClient's MutationCache, a helper outside React — can
-// report without a hook.
-export type Toast = { id: number; message: string; detail: string | null };
+// A short note the person should hear about — a failure, or a create that
+// happened somewhere they are not looking — shown by the one <Toaster/> in the
+// app shell. Plain module state (like appDialogStore) so the data layer — the
+// QueryClient's MutationCache, a helper outside React — can report without a
+// hook.
+import type { ElementStatus } from '@/types/database';
+
+export interface ToastAction { label: string; run: () => void }
+export type Toast = {
+  id: number;
+  message: string;
+  detail: string | null;
+  kind?: 'error' | 'success';
+  /** Status mark in front of the detail line (a created Element's). */
+  elementStatus?: ElementStatus | null;
+  action?: ToastAction;
+};
 
 const LIFETIME_MS = 6000;
 const MAX_TOASTS = 3;
@@ -59,7 +71,18 @@ function isAbort(error: unknown): boolean {
 export function notifyError(error: unknown, message: string): number | null {
   if (isAbort(error)) return null;
   const detail = errorMessage(error);
-  const shown = { message, detail: detail === message ? null : detail };
+  return push({ message, detail: detail === message ? null : detail, kind: 'error' });
+}
+
+/**
+ * Say something was done — "Element created", the Element's name, and a way
+ * to go to it. Returns the toast id.
+ */
+export function notifySuccess(message: string, detail: string | null, opts: { action?: ToastAction; elementStatus?: ElementStatus | null } = {}): number | null {
+  return push({ message, detail, kind: 'success', ...opts });
+}
+
+function push(shown: Omit<Toast, 'id'>): number | null {
   if (toasts.some((toast) => toast.message === shown.message && toast.detail === shown.detail)) return null;
   const toast: Toast = { id: ++nextId, ...shown };
   const overflow = toasts.slice(0, Math.max(0, toasts.length - MAX_TOASTS + 1));
