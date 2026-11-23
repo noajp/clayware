@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { schema } from '@/Function/notebook/pm/schema';
 import { docToHtml, htmlToDoc } from '@/Function/notebook/pm/html';
@@ -118,6 +118,21 @@ describe('voice minutes in the Note', () => {
     placeVoiceFile(view, a, file('b'));
     expect(html(view)).toBe('<p>Agenda</p><pre data-lang="clayware">{"view":"file","id":"b"}</pre><pre data-lang="transcript">one</pre><h2>A</h2><p>two</p>');
     expect(spokenChars(view.state, a)).toBe(3);
+  });
+
+  it('keeps a transcript folded until its toggle opens it, even with the caret in it', () => {
+    const { view, a } = makeView('<p></p>');
+    appendSpoken(view, a, 'one');
+    replaceSpoken(view, a, '<h2>A</h2>', takeSpoken(view, a)!);
+    const pre = () => view.dom.querySelector('pre')!;
+    expect(pre().className).toBe('note-transcript');
+    expect(view.dom.querySelector('.note-transcript-label')?.textContent).toBe('Transcript · 1 lines');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+    expect(pre().className).toBe('note-transcript');
+    view.dom.querySelector('.note-transcript-toggle')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(pre().className).toBe('note-transcript is-open');
+    view.dom.querySelector('.note-transcript-toggle')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(pre().className).toBe('note-transcript');
   });
 
   it('writes nothing as its own once recording has ended', () => {
