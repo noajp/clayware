@@ -131,7 +131,9 @@ export function useVoiceCapture(language: string): VoiceCaptureState {
     const now = Date.now();
     seqRef.current += 1;
     const id = `seg-${now}-${seqRef.current}`;
-    setSegments((prev) => [...prev, { id, text, timestamp: now }]);
+    // The browser sometimes repeats the end of what it has just settled as
+    // unsettled words: those are already written.
+    setSegments((prev) => (prev[prev.length - 1]?.text.endsWith(text) ? prev : [...prev, { id, text, timestamp: now }]));
     setLastSpeechAt(now);
   }, []);
 

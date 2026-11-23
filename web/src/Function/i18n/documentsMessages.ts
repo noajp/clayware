@@ -125,8 +125,6 @@ const DOCUMENTS_MESSAGES: Record<string, Row> = {
   'Start recording': ['録音を開始', '녹음 시작', 'Démarrer l’enregistrement', 'Iniciar grabación'],
   'Record': ['録音', '녹음', 'Enregistrer', 'Grabar'],
   'Stop and organize': ['停止して議事を整理', '중지하고 회의록 정리', 'Arrêter et organiser', 'Detener y organizar'],
-  'Automatically organize spoken notes into structured minutes': ['話した内容を自動で構造化して議事に整理する', '말한 내용을 자동으로 구조화하여 회의록으로 정리', 'Organiser automatiquement les paroles en compte rendu structuré', 'Organizar automáticamente lo hablado en un acta estructurada'],
-  'Auto-structure': ['自動構造化', '자동 구조화', 'Structuration auto', 'Autoestructurar'],
   'Organize transcript into minutes now': ['いま書き起こしを議事に整理する', '지금 받아쓰기를 회의록으로 정리', 'Organiser la transcription maintenant', 'Organizar la transcripción ahora'],
   'Organize now': ['今すぐ整理', '지금 정리', 'Organiser', 'Organizar'],
   'Toggle raw transcript': ['書き起こしの表示を切り替え', '받아쓰기 패널 열기/닫기', 'Afficher/masquer la transcription', 'Mostrar/ocultar transcripción'],
