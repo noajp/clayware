@@ -38,7 +38,18 @@ export interface VoiceAnchor {
 
 export type VoiceReplaceOutcome = 'done' | 'changed' | 'gone';
 
-const refreshKey = new PluginKey('note-voice-region');
+const refreshKey = new PluginKey<Set<string>>('note-voice-region');
+
+/** The transcripts opened here, by what they say. Each starts folded, and
+ *  only its own toggle opens or folds it: clicking into one to correct a
+ *  word must not fold it away under the caret. */
+const toggleMeta = 'note-transcript-toggle';
+
+/** Pure. A transcript's first line, as its folded label. */
+function firstLine(text: string): string {
+  const line = text.split('\n').find((l) => l.trim()) ?? '';
+  return line.trim();
+}
 
 export const newVoiceAnchor = (): VoiceAnchor => ({ pending: [], taken: 0, firstTranscript: null, fileSource: null, interim: '' });
 
@@ -109,19 +120,65 @@ function minutesRange(doc: PMNode, anchor: VoiceAnchor): { from: number; to: num
   return { from: all[start].pos, to: last.pos + last.node.nodeSize };
 }
 
-export function voiceRegionPlugin(anchorOf: () => VoiceAnchor | null): Plugin {
-  return new Plugin({
+/** `label` names a transcript of so many lines, in the person's language. */
+export function voiceRegionPlugin(
+  anchorOf: () => VoiceAnchor | null,
+  label: (lines: number) => string = (lines) => `Transcript · ${lines} lines`,
+): Plugin<Set<string>> {
+  return new Plugin<Set<string>>({
     key: refreshKey,
+    state: {
+      init: () => new Set<string>(),
+      apply(tr, open) {
+        const key = tr.getMeta(toggleMeta) as string | undefined;
+        if (key === undefined) return open;
+        const next = new Set(open);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      },
+    },
     props: {
       decorations(state: EditorState) {
         const decos: Decoration[] = [];
-        // A transcript shows its first line; all of it while the caret is in it.
-        const $from = state.selection.$from;
-        const caretIn = $from.depth > 0 ? $from.before(1) : -1;
+        // A transcript is folded to a labelled line until its toggle opens it.
+        const open = refreshKey.getState(state) ?? new Set<string>();
         state.doc.forEach((node, pos) => {
-          if (isTranscript(node)) {
-            decos.push(Decoration.node(pos, pos + node.nodeSize, { class: pos === caretIn ? 'note-transcript is-open' : 'note-transcript' }));
-          }
+          if (!isTranscript(node)) return;
+          const text = node.textContent;
+          const isOpen = open.has(text);
+          decos.push(Decoration.node(pos, pos + node.nodeSize, { class: isOpen ? 'note-transcript is-open' : 'note-transcript' }));
+          const lines = text.split('\n').filter((l) => l.trim()).length;
+          decos.push(
+            Decoration.widget(
+              pos + 1,
+              (view) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'note-transcript-toggle';
+                button.contentEditable = 'false';
+                button.setAttribute('aria-expanded', String(isOpen));
+                const chevron = document.createElement('span');
+                chevron.className = 'note-transcript-chevron';
+                chevron.setAttribute('aria-hidden', 'true');
+                chevron.textContent = '›';
+                const name = document.createElement('span');
+                name.className = 'note-transcript-label';
+                name.textContent = label(lines);
+                const preview = document.createElement('span');
+                preview.className = 'note-transcript-preview';
+                preview.textContent = firstLine(text);
+                button.append(chevron, name, preview);
+                button.addEventListener('mousedown', (event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  view.dispatch(view.state.tr.setMeta(toggleMeta, text).setMeta('addToHistory', false));
+                });
+                return button;
+              },
+              { side: -1, key: `transcript:${isOpen ? 1 : 0}:${lines}:${firstLine(text).slice(0, 40)}`, ignoreSelection: true, stopEvent: () => true },
+            ),
+          );
         });
         const anchor = anchorOf();
         if (anchor) {

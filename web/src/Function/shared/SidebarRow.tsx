@@ -18,7 +18,7 @@ import type { ComponentProps, ReactNode, Ref } from 'react';
 // =============================================================
 
 const STATE = {
-  active: 'bg-sidebar-accent text-foreground shadow-[inset_0_0_0_1px_var(--border-subtle)]',
+  active: 'bg-sidebar-accent text-foreground',
   idle: 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground has-[:focus-visible]:bg-sidebar-accent/60 has-[:focus-visible]:text-foreground',
 };
 

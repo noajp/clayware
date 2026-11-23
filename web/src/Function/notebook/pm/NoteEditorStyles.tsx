@@ -272,34 +272,60 @@ export function NoteEditorStyles() {
           scroll-margin-bottom: 96px;
         }
         /* A transcript: the words as spoken, kept above the section made
-           from them. Folded to its first line until the caret is in it. */
+           from them. A quiet labelled line, folded until its toggle opens
+           it; open, the words sit indented under the label. No box: it
+           reads as a note on the minutes, not as a block of its own. */
         .note-editor pre.note-transcript {
-          position: relative;
-          margin: 0.25rem 0;
-          padding: 0 0 0 1.25rem;
+          margin: 0.25rem 0 0.125rem;
+          padding: 0;
           background: transparent;
           border-radius: 0;
           font-family: inherit;
-          font-size: inherit;
+          font-size: 13px;
+          line-height: 1.6;
           color: var(--muted-foreground);
-          cursor: pointer;
-        }
-        .note-editor pre.note-transcript::before {
-          content: '›';
-          position: absolute;
-          left: 0.25rem;
-          top: 0;
-          transition: transform 120ms ease;
         }
         .note-editor pre.note-transcript:not(.is-open) {
+          height: 1.6em;
+          overflow: hidden;
+        }
+        .note-editor pre.note-transcript.is-open { padding-left: 1.25rem; }
+        .note-editor .note-transcript-toggle {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          width: 100%;
+          min-width: 0;
+          height: 1.6em;
+          padding: 0;
+          background: transparent;
+          border: 0;
+          font: inherit;
+          color: inherit;
+          text-align: left;
+          cursor: pointer;
           white-space: nowrap;
+        }
+        .note-editor pre.note-transcript.is-open .note-transcript-toggle { margin-left: -1.25rem; width: calc(100% + 1.25rem); }
+        .note-editor .note-transcript-chevron {
+          display: inline-flex;
+          justify-content: center;
+          width: 1rem;
+          flex-shrink: 0;
+          transition: transform 120ms ease;
+        }
+        .note-editor pre.note-transcript.is-open .note-transcript-chevron { transform: rotate(90deg); }
+        .note-editor .note-transcript-label { flex-shrink: 0; font-weight: 500; }
+        .note-editor .note-transcript-preview {
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
+          opacity: 0.8;
         }
-        .note-editor pre.note-transcript.is-open { cursor: text; }
-        .note-editor pre.note-transcript.is-open::before { transform: rotate(90deg); }
+        .note-editor pre.note-transcript.is-open .note-transcript-preview { display: none; }
+        .note-editor .note-transcript-toggle:hover .note-transcript-label { color: var(--foreground); }
         @media (prefers-reduced-motion: reduce) {
-          .note-editor pre.note-transcript::before { transition: none; }
+          .note-editor .note-transcript-chevron { transition: none; }
         }
         .note-editor .note-voice-interim {
           pointer-events: none;

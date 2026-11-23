@@ -19,7 +19,7 @@ import {
   Mic, Sparkles,
 } from '@/ui/icons';
 import { ElementIcon } from '@/Function/shared/conceptIcons';
-import { useI18n } from '@/Function/i18n/I18nProvider';
+import { translate, useI18n } from '@/Function/i18n/I18nProvider';
 import { EMBED_LANG, embedSource, parseEmbed, useEmbedHost, type EmbedSpec } from './embedBlocks';
 import { ArtifactPicker, FILE_VIEW } from './fileBlocks';
 import { NotePinpointEdit } from './NotePinpointEdit';
@@ -778,7 +778,7 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
     const common = (undo: Command, redo: Command): Plugin[] => [
       slashTrigger((key) => slashKeyRef.current(key)),
       ghostCompletionPlugin(),
-      voiceRegionPlugin(() => voiceAnchorRef.current),
+      voiceRegionPlugin(() => voiceAnchorRef.current, (lines) => translate('Transcript · {count} lines', { count: lines })),
       pinpointProposalsPlugin((id) => {
         const v = viewRef.current;
         if (!v) return;
