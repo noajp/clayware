@@ -161,7 +161,10 @@ function SortableViewTab({ tab, active, sortable, closable, onSelect, onClose }:
             {...attributes} {...listeners} aria-pressed={active} onClick={onSelect}
             className={[
               sortable ? 'touch-none' : '',
-              closable && active ? 'pr-7' : '',
+              // Room for the close button. Stated with the tab's own px-3: a
+              // className with no px- gets the Button's px-3 appended after
+              // it, which would erase the pr-7 and put the × on the label.
+              closable && active ? 'px-3 pr-7' : '',
             ].filter(Boolean).join(' ') || undefined}>
             <span className={active ? 'text-foreground' : 'text-muted-foreground'}><TabIcon size={13} /></span>
             {t(tab.title)}
