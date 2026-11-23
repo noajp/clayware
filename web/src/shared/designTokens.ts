@@ -211,6 +211,6 @@ export const QUICK_CREATE = {
   title: 'quick-create-title block w-full bg-transparent px-0 py-1 text-[17px] leading-snug tracking-[-0.01em] text-foreground placeholder:text-muted-foreground/55 resize-none',
   description: 'block w-full bg-transparent px-0 py-1 text-[13px] leading-relaxed text-foreground/85 placeholder:text-muted-foreground/50 resize-none',
   properties: 'flex flex-wrap items-center gap-1.5 pt-2.5',
-  footer: 'mt-3 flex items-center justify-end gap-2.5 border-t border-[var(--border-subtle)] pt-3',
+  footer: 'mt-4 flex items-center justify-end gap-2.5',
   descriptionMinHeight: 56,
 } as const;

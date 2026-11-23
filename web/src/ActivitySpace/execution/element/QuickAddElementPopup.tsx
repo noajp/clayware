@@ -7,7 +7,8 @@ import { Button } from '@/ui/button';
 import { STATUS_OPTIONS, PRIORITY_OPTIONS } from '@/shared/designTokens';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEscapeLayer } from '@/Function/shared/keyboard';
-import { ChevronDown, LayoutTemplate, Tag as TagIcon, User as UserIcon, X } from '@/ui/icons';
+import { Check, ChevronDown, LayoutTemplate, Tag as TagIcon, User as UserIcon, X } from '@/ui/icons';
+import { openInApp } from '@/Function/shared/appNavigation';
 import { ElementIcon, ObjectIcon as BoxIcon } from '@/Function/shared/conceptIcons';
 import { ElementProgressMark } from '@/Function/shared/ElementProgressMark';
 import { PriorityMark } from '@/Function/shared/PriorityMark';
@@ -172,9 +173,13 @@ export function QuickAddElementPopup({
     onOpenChange: (next: boolean) => setOpenMenu(next ? id : null),
   });
   const [busy, setBusy] = useState(false);
-  // How many this sitting has produced. The popup staying open after a create
-  // is otherwise indistinguishable from a create that silently failed.
-  const [createdCount, setCreatedCount] = useState(0);
+  // What the last create made and where it went. The popup staying open after
+  // a create is otherwise indistinguishable from a create that silently
+  // failed, so the confirmation names the Element and the place it landed,
+  // with a way to go there.
+  const [lastAdded, setLastAdded] = useState<LastAdded | null>(null);
+  // A create that failed outright says so here; the typed text stays.
+  const [failed, setFailed] = useState(false);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const descRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -189,7 +194,8 @@ export function QuickAddElementPopup({
     if (!open) return;
     setText(initialText);
     setDescription('');
-    setCreatedCount(0);
+    setLastAdded(null);
+    setFailed(false);
     setType(defaultType);
     setStatus(defaultStatus);
     setPriority(defaultPriority);
@@ -236,9 +242,10 @@ export function QuickAddElementPopup({
   // Adding N things should not cost N trips to the "+".
   //
   // Enter creates and stays, because the common case is a list of things you
-  // already have in your head. Only the title clears: the description and the
-  // pills are the batch's shared context, so the second Element inherits
-  // everything you set up for the first. ⌘Enter is the way out for the times
+  // already have in your head. The title and description clear — they belong
+  // to the Element just made, and text left behind reads as "not saved yet".
+  // The pills are the batch's shared context, so the second Element inherits
+  // the Status / Assignee / Save to you set up for the first. ⌘Enter is the way out for the times
   // you only wanted one — create and close, no reach for Escape.
   // Picking a Template only fills in the fields it actually defines — it
   // never clears one the user already set. A blank field on the template
@@ -259,13 +266,31 @@ export function QuickAddElementPopup({
     if (t.estimatedHours !== null) setEstimatedHours(t.estimatedHours);
   };
 
+  // Where the next create lands. With no Object picked, an Element has
+  // nowhere to live but the person's own list (the database refuses one with
+  // neither), so a popup that offers My Elements shows it as the choice
+  // instead of an empty "Save to" that hides where the Element went.
+  const savesToPersonal = objectId === PERSONAL_SCOPE_ID || (objectId === null && canSaveToPersonal);
+  const isPersonalChoice = savesToPersonal;
+  const objectOpt = savesToPersonal
+    ? { id: PERSONAL_SCOPE_ID, name: t('My Elements') }
+    : objectId ? objects.find((o) => o.id === objectId) ?? null : null;
+
+  const openLastAdded = () => {
+    if (!lastAdded) return;
+    if (lastAdded.objectId) openInApp('objects', { objectId: lastAdded.objectId });
+    else openInApp('my-elements');
+    onClose();
+  };
+
   const handleSubmit = async (closeAfter: boolean) => {
     if (!canSubmit) return;
     setBusy(true);
+    setFailed(false);
     try {
       // Translate the "Personal" sentinel into a real personal flag; clear
       // objectId so the caller doesn't try to FK a non-existent Object id.
-      const isPersonal = objectId === PERSONAL_SCOPE_ID;
+      const isPersonal = savesToPersonal;
       const shared = {
         description: description.trim() || null,
         type,
@@ -287,13 +312,22 @@ export function QuickAddElementPopup({
         onClose();
         return;
       }
-      setCreatedCount((n) => n + (typeof landed === 'number' ? landed : inputs.length));
+      const count = typeof landed === 'number' ? landed : inputs.length;
+      setLastAdded({
+        title: inputs[0].title,
+        count,
+        place: isPersonal ? t('My Elements') : objectOpt?.name ?? t('Save to'),
+        objectId: isPersonal ? null : objectId,
+      });
       setText('');
+      setDescription('');
       // Focus survives the re-render on its own, but not if the click came from
       // the Create button — put the caret back where the next title goes.
       taRef.current?.focus();
     } catch (e) {
       console.error('QuickAdd submit failed:', e);
+      setLastAdded(null);
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -301,10 +335,6 @@ export function QuickAddElementPopup({
 
   const statusOpt = STATUS_OPTIONS.find((s) => s.value === status);
   const priorityOpt = PRIORITY_OPTIONS.find((p) => p.value === priority);
-  const isPersonalChoice = objectId === PERSONAL_SCOPE_ID;
-  const objectOpt = isPersonalChoice
-    ? { id: PERSONAL_SCOPE_ID, name: t('My Elements') }
-    : objectId ? objects.find((o) => o.id === objectId) ?? null : null;
   const assigneeCount = assigneeIds.size;
   const labelCount = labels.size;
   const showObjectPill = objects.length > 0 || canSaveToPersonal;
@@ -324,11 +354,6 @@ export function QuickAddElementPopup({
           </span>
           {titles.length > 1 && (
             <span className="text-[11px] text-muted-foreground">{t('{n} Elements', { n: titles.length })}</span>
-          )}
-          {createdCount > 0 && (
-            <span className="text-[11px] text-muted-foreground/70">
-              {t('{n} added', { n: createdCount })}
-            </span>
           )}
           <div className="flex-1" />
           <button
@@ -549,12 +574,6 @@ export function QuickAddElementPopup({
                     {objectId === o.id && <MenuCheck />}
                   </DropdownMenuItem>
                 ))}
-                {(objectOpt && !isPersonalChoice) && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setObjectId(null)} className="text-[12px] text-muted-foreground">{t('Clear (Domain-direct)')}</DropdownMenuItem>
-                  </>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -597,7 +616,31 @@ export function QuickAddElementPopup({
         </div>
 
         <div className={QUICK_CREATE.footer}>
-          {hint && <span className="mr-auto min-w-0 text-[11px] text-muted-foreground">{hint}</span>}
+          {/* Polite live region, present from the start so a screen reader
+              hears each confirmation as it changes. */}
+          <div role="status" aria-live="polite" className="mr-auto flex min-w-0 items-center gap-2 text-[12px]">
+            {failed ? (
+              <span className="min-w-0 truncate text-[var(--status-danger)]">{t('Could not create it. Please try again.')}</span>
+            ) : lastAdded ? (
+              <>
+                <Check size={13} className="shrink-0 text-[var(--status-success)]" />
+                <span className="min-w-0 truncate text-foreground">
+                  {lastAdded.count > 1
+                    ? t('Added {n} Elements to {place}', { n: lastAdded.count, place: lastAdded.place })
+                    : t('Added “{title}” to {place}', { title: lastAdded.title, place: lastAdded.place })}
+                </span>
+                <button
+                  type="button"
+                  onClick={openLastAdded}
+                  className="inline-flex h-7 shrink-0 items-center rounded-md px-2 font-medium text-[var(--accent-text)] hover:bg-[var(--accent-subtle)] transition-colors"
+                >
+                  {t('Open')}
+                </button>
+              </>
+            ) : hint ? (
+              <span className="text-[11px] text-muted-foreground">{hint}</span>
+            ) : null}
+          </div>
           <Button variant="primary" onClick={() => handleSubmit(false)} disabled={!canSubmit}>
             {titles.length > 1 ? t('Create {n}', { n: titles.length }) : t('Create')}
           </Button>
@@ -605,6 +648,14 @@ export function QuickAddElementPopup({
       </div>
     </div>
   );
+}
+
+interface LastAdded {
+  title: string;
+  count: number;
+  place: string;
+  /** null = My Elements. */
+  objectId: string | null;
 }
 
 // Tailwind for pill triggers — semibold + brighter text, soft-fill at rest.
