@@ -496,6 +496,11 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
   // unset.
   //
   // Both add paths accept multiple titles per submit (paste-many).
+  // The chip's icon: the band's Object, else the Domain the list is on (a
+  // status / assignee band names a value, not a place — no place icon).
+  const quickAddKind: 'object' | 'domain' | undefined = quickAddTargetObjectId
+    ? 'object'
+    : !quickAddLabel || quickAddLabel === (activeDomainName ?? 'Domain') ? 'domain' : undefined;
   const openQuickAddDomain = () => {
     setQuickAddTargetObjectId(null);
     setQuickAddGroup(undefined);
@@ -550,6 +555,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
         <QuickAddElementPopup
           open={quickAddOpen}
           contextLabel={quickAddLabel ?? activeDomainName ?? 'Domain'}
+          contextKind={quickAddKind}
           onClose={() => setQuickAddOpen(false)}
           onSubmit={handleQuickAddSubmit}
           types={elementTypes}
@@ -678,6 +684,7 @@ export function ElementsListView({ onRefresh, activeDomainId, onNavigate, onView
       <QuickAddElementPopup
         open={quickAddOpen}
         contextLabel={quickAddLabel ?? activeDomainName ?? 'Domain'}
+          contextKind={quickAddKind}
         onClose={() => setQuickAddOpen(false)}
         onSubmit={handleQuickAddSubmit}
         types={elementTypes}

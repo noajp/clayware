@@ -205,12 +205,13 @@ export const CONTROL_WELL = 'bg-foreground/[0.06]';
 export const CONTROL_WELL_HOVER = 'hover:bg-foreground/[0.1]';
 /** Shared geometry for Object and Element quick creation. */
 export const QUICK_CREATE = {
-  panel: 'pointer-events-auto w-full max-w-[740px] max-h-[calc(100dvh-48px)] overflow-y-auto rounded-[10px] gloss-overlay p-4',
+  // `quick-create-panel` lets the Toaster lift its stack clear of an open card.
+  panel: 'quick-create-panel pointer-events-auto w-full max-w-[740px] max-h-[calc(100dvh-48px)] overflow-y-auto rounded-[10px] gloss-overlay p-4',
   header: 'flex items-center gap-2 mb-2.5',
   context: 'inline-flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[var(--surface-muted)] px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground',
   title: 'quick-create-title block w-full bg-transparent px-0 py-1 text-[17px] leading-snug tracking-[-0.01em] text-foreground placeholder:text-muted-foreground/55 resize-none',
   description: 'block w-full bg-transparent px-0 py-1 text-[13px] leading-relaxed text-foreground/85 placeholder:text-muted-foreground/50 resize-none',
   properties: 'flex flex-wrap items-center gap-1.5 pt-2.5',
-  footer: 'mt-3 flex items-center justify-end gap-2.5 border-t border-[var(--border-subtle)] pt-3',
+  footer: 'mt-4 flex items-center justify-end gap-2.5',
   descriptionMinHeight: 56,
 } as const;

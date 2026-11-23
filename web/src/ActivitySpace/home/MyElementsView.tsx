@@ -30,6 +30,7 @@ import type {
 } from '@/types/database';
 import type { ElementWithDetails } from '@/hooks/useSupabase';
 import { ElementDetailView } from '@/ActivitySpace/execution/element/ElementDetailView';
+import { ELEMENT_DETAIL_EVENT, clearElementDetail, pendingElementDetail } from '@/Function/shared/element/elementDetailRequest';
 import { QuickAddElementPopup, type NewElementInput } from '@/ActivitySpace/execution/element/QuickAddElementPopup';
 import { ElementsList } from '@/ActivitySpace/execution/element/ElementsList';
 import type { ColumnId, DataColumn } from '@/Function/shared/listTable/useListColumns';
@@ -107,7 +108,20 @@ export function MyElementsView({ onRefresh, onNavigate, onViewChange, embedded =
       return { ...base, elements: update(base.elements) };
     });
   }, [qc, queryKey]);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  // A request to open an Element (the "created" toast's Open) waiting from
+  // before this view mounted is taken as the first detail.
+  const [detailId, setDetailId] = useState<string | null>(() => pendingElementDetail());
+  useEffect(() => {
+    const pending = pendingElementDetail();
+    if (pending) clearElementDetail(pending);
+    const onRequest = (e: Event) => {
+      const id = (e as CustomEvent<string | null>).detail;
+      setDetailId(id);
+      if (id) clearElementDetail(id);
+    };
+    window.addEventListener(ELEMENT_DETAIL_EVENT, onRequest);
+    return () => window.removeEventListener(ELEMENT_DETAIL_EVENT, onRequest);
+  }, []);
   const { t } = useI18n();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [deletedOpen, setDeletedOpen] = useState(false);
@@ -415,6 +429,7 @@ export function MyElementsView({ onRefresh, onNavigate, onViewChange, embedded =
       <QuickAddElementPopup
         open={quickAddOpen}
         contextLabel={t('My Elements')}
+        contextKind="personal"
         onClose={() => setQuickAddOpen(false)}
         onSubmit={handleQuickAddSubmit}
         types={elementTypes}

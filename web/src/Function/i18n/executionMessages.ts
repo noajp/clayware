@@ -308,13 +308,12 @@ const EXECUTION_MESSAGES: Record<string, Row> = {
 
   // Quick add
   'Quick add Element': ['Element をすばやく追加', 'Element 빠르게 추가', 'Ajout rapide d’Element', 'Añadir Element rápido'],
-  '{n} added': ['{n} 件追加済み', '{n}개 추가됨', '{n} ajouté(s)', '{n} añadidos'],
+  'Created in {place}': ['{place} に作成しました', '{place}에 만들었습니다', 'Créé dans {place}', 'Creado en {place}'],
   'Template': ['テンプレート', '템플릿', 'Modèle', 'Plantilla'],
   '1 assignee': ['担当者 1 人', '담당자 1명', '1 assigné', '1 responsable'],
   '{n} assignees': ['担当者 {n} 人', '담당자 {n}명', '{n} assignés', '{n} responsables'],
   'Save to': ['保存先', '저장 위치', 'Enregistrer dans', 'Guardar en'],
   'My Elements (personal)': ['自分の Elements（個人）', '내 Elements (개인)', 'Mes Elements (personnel)', 'Mis Elements (personal)'],
-  'Clear (Domain-direct)': ['クリア（Domain 直下）', '지우기 (Domain 바로 아래)', 'Effacer (directement dans le Domain)', 'Quitar (directo en el Domain)'],
   '{n} label': ['ラベル {n} 件', '라벨 {n}개', '{n} label', '{n} etiqueta'],
   '{n} labels': ['ラベル {n} 件', '라벨 {n}개', '{n} labels', '{n} etiquetas'],
   'Create {n}': ['{n} 件作成', '{n}개 만들기', 'Créer {n}', 'Crear {n}'],

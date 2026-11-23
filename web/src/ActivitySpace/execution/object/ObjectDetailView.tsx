@@ -648,6 +648,7 @@ export function ObjectDetailView({ object, onNavigate, onRefresh, tabTypeOverrid
       <QuickAddElementPopup
         open={quickAddOpen}
         contextLabel={object.name}
+        contextKind="object"
         onClose={() => setQuickAddOpen(false)}
         types={elementTypes}
         workers={popupWorkers.map((w) => ({ id: w.id, name: w.name, avatar_url: w.avatar_url }))}

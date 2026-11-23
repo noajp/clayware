@@ -18,6 +18,7 @@ import {
 import { EntityActionsMenu, type ActionTarget } from '@/Function/shared/EntityActionsMenu';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { fetchElementMoveTargets, fetchElementObjectIds } from '@/hooks/elementData';
+import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 
 /**
  * "⋯" menu for an Element, wired to the breadcrumb in ElementDetailView.
@@ -25,7 +26,8 @@ import { fetchElementMoveTargets, fetchElementObjectIds } from '@/hooks/elementD
  * add to the Element — a dependency, approval — handing it to an AI Worker
  * with instructions, then Delete.
  * Targets are the
- * sibling Objects in the Element's primary Domain, fetched here so the menu is
+ * sibling Objects in the Element's primary Domain (the active Space's Objects
+ * for a personal Element), fetched here so the menu is
  * self-contained across every mount (Object detail, Elements list, My Elements).
  */
 const NO_TARGETS: ActionTarget[] = [];
@@ -59,9 +61,11 @@ export function ElementActionsMenu({
   const { t } = useI18n();
   const qc = useQueryClient();
   const primaryId = element.object_id ?? null;
+  // A personal Element has no Domain; its targets are the active Space's.
+  const spaceId = useActiveSpaceId();
   const { data: fetchedTargets } = useQuery({
-    queryKey: ['action-targets', primaryId ?? 'all'],
-    queryFn: () => fetchElementMoveTargets(primaryId),
+    queryKey: ['action-targets', primaryId ?? `space:${spaceId ?? ''}`],
+    queryFn: () => fetchElementMoveTargets(primaryId, spaceId),
     gcTime: 5 * 60_000,
   });
   const membersKey = useMemo(
@@ -98,9 +102,12 @@ export function ElementActionsMenu({
     } catch (e) { console.error('Duplicate Element failed', e); }
   };
 
+  // An Element with an Object is no longer personal: the Object's list (and
+  // every Domain surface) shows only Elements with no personal owner, so a
+  // move that kept owner_id left the Element in neither list.
   const move = async (objectId: string) => {
     try {
-      await updateElement(element.id, { object_id: objectId });
+      await updateElement(element.id, { object_id: objectId, owner_id: null });
       await onRefresh?.();
       await reload();
     } catch (e) { console.error('Move Element failed', e); }
@@ -109,6 +116,8 @@ export function ElementActionsMenu({
   const toggleMultiHome = async (objectId: string, isMember: boolean) => {
     try {
       if (isMember) await removeElementFromObject(element.id, objectId);
+      // A personal Element's first Object is its home, not a second one.
+      else if (!element.object_id) await updateElement(element.id, { object_id: objectId, owner_id: null });
       else await addElementToObject(element.id, objectId);
       await onRefresh?.();
       await reload();
@@ -132,7 +141,7 @@ export function ElementActionsMenu({
       memberIds={memberIds}
       moveLabel={t('Move to Object')}
       multiHomeLabel={t('Multi-home to Object')}
-      targetEmptyLabel={t('No other Objects in this Domain')}
+      targetEmptyLabel={primaryId ? t('No other Objects in this Domain') : t('No Objects yet')}
       onDuplicate={duplicate}
       onMove={move}
       onToggleMultiHome={toggleMultiHome}

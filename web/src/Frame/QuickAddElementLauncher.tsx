@@ -175,9 +175,13 @@ export function QuickAddElementLauncher({
     [explorerData],
   );
 
+  // The chip names the Object the popup opened on. With none, it stays the
+  // generic "New Element": the Domain's name there read as "this lands in the
+  // Domain", but an Element with no Object is saved to My Elements, which the
+  // Save to pill shows.
   const contextLabel = defaultObjectId
     ? objectOptions.find((o) => o.id === defaultObjectId)?.name
-    : domains.find((d) => d.id === activeDomainId)?.name ?? undefined;
+    : undefined;
 
   // Same two save scopes as the list views' quick-add handlers: an Object, or
   // personal (owner_id = me) when the popup names no Object. An Element always
@@ -203,6 +207,7 @@ export function QuickAddElementLauncher({
     <QuickAddElementPopup
       open={open}
       contextLabel={contextLabel}
+      contextKind="object"
       defaultStatus={presetStatus}
       hint={presetDueDate ? t('Due {date}', { date: parseDateOnly(presetDueDate)?.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) ?? presetDueDate }) : undefined}
       onClose={() => setOpen(false)}
