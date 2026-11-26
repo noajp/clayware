@@ -34,7 +34,7 @@ Clayware の中心は AIP の統制（ハーネス・アクション・承認・
 |---|---|---|---|---|
 | **Strategy** | 何を達成し、どう勝つか | Vision → Portfolio（入れ子にできる） | 活動（action） | 戦略 |
 | **Execution** | 実際の行動 | Domain → Object → Element | 仕事（work） | 作戦 |
-| **Sustainment** | Strategy と Execution の活動を支える維持活動 | 会計・CRM・SCM・IT アセット管理・人事・労務（拡張計画で検討中。今あるのは Artifacts / Team / Table / Calendar） | 労働（labor） | 兵站 |
+| **Sustainment** | Strategy と Execution の活動を支える維持活動 | 会計・CRM・SCM・IT アセット管理・人事・労務（拡張計画で検討中） | 労働（labor） | 兵站 |
 
 - **Strategy** は Vision と Portfolio でできている。**Execution** は Domain・Object・Element でできている。どちらも活動の領域で、行為を実行する単位の枠組み
 - **Sustainment** は、上の活動を支える維持活動。会計・CRM・SCM・IT アセット管理・人事・労務など、ERP が扱ってきた領域に当たる。資源を保ち続けることを扱い、活動の領域とは単位が違う。設計は §9 の拡張計画で検討中
