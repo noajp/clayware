@@ -34,7 +34,7 @@ Clayware を、課題を解決できる道具にすること。そのために�
 |---|---|---|
 | **Strategy** | 何を達成し、どう勝つか | Vision（Space の目指す姿。入れ子にしない）→ Portfolio（それを勝ち取る筋道。際限なく入れ子にでき、Portfolio・Domain・Object を持つ）。Phase（期間の区切り）はナビに出さない |
 | **Execution** | 実際に行動する | Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位） |
-| **Sustainment** | 活動を続ける道具 | Artifacts / Team / Table / Calendar |
+| **Sustainment** | Strategy と Execution の活動を支える維持活動 | 会計・CRM・SCM・IT アセット管理・人事・労務（PRODUCT.md §9 の拡張計画で検討中） |
 
 Vision と Portfolio は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。Vision は Domain と同じくメンバーと権限（owner / admin / member / viewer）を持ち、Portfolio は必ずどれか一つの Vision に属する。Portfolio は今どの段階にあるか（Status）を持つ。Element・Object・Portfolio の Status は同じ 7 段階（Backlog / To Do / In Progress / In Review / Done / Blocked / Cancelled）で、同じマークで描き、Space が段階ごとに独自の Status を足せる。Element は動詞（`judge` `decide` `approve` `answer` は人だけ、ほかは AI もできる）を持つ。Worker は `human | ai_agent`。外の世界のもの（顧客・候補・問い合わせ）は Object ではなく Table の行に置く。
 
