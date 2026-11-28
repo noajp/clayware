@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 
-import { isMissingTable, nextSustainmentOrder } from '@/hooks/useSustainments';
+import { NOT_ALLOWED, assertChanged, isMissingTable, nextSustainmentOrder } from '@/hooks/useSustainments';
 
 describe('nextSustainmentOrder', () => {
   it('puts a new Sustainment after the last one', () => {
@@ -19,5 +19,15 @@ describe('isMissingTable', () => {
   it('keeps every other failure an error', () => {
     expect(isMissingTable(null)).toBe(false);
     expect(isMissingTable({ code: '42501', message: 'permission denied for table sustainments' })).toBe(false);
+  });
+});
+
+describe('assertChanged', () => {
+  it('reads a change that touched no row as refused', () => {
+    expect(() => assertChanged([])).toThrow(NOT_ALLOWED);
+    expect(() => assertChanged(null)).toThrow(NOT_ALLOWED);
+  });
+  it('lets a change that touched a row through', () => {
+    expect(() => assertChanged([{ id: 'a' }])).not.toThrow();
   });
 });

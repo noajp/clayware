@@ -47,13 +47,15 @@ export function FunctionPage({ fn, onUpdate, onRemove }: {
     setDifferences(fn.differences ?? '');
   }
 
+  // What went wrong, in the person's language (the hooks report in English).
+  const reason = (e: unknown) => t(e instanceof Error ? e.message : (e as { message?: string } | null)?.message ?? "Couldn't save");
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
     setFailure(null);
-    try { await work(); } catch (e) {
-      setFailure(e instanceof Error ? e.message : (e as { message?: string } | null)?.message ?? t("Couldn't save"));
-    } finally { setBusy(false); }
+    try { await work(); } catch (e) { setFailure(reason(e)); } finally { setBusy(false); }
   };
+  /** A save the page head reports itself: it shows what is thrown. */
+  const saved = (work: Promise<void>) => work.catch((e) => { throw new Error(reason(e)); });
   const publish = () => {
     const missing = publishGaps(def);
     setGaps(missing);
@@ -70,8 +72,8 @@ export function FunctionPage({ fn, onUpdate, onRemove }: {
           descriptionLabel={t('What it is for')}
           descriptionPlaceholder={t('Who uses it, and what must always be right')}
           emptyDescription={t('Nothing written')}
-          onSaveTitle={(name) => onUpdate({ name })}
-          onSaveDescription={(intent) => onUpdate({ definition: { ...def, intent } })}
+          onSaveTitle={(name) => saved(onUpdate({ name }))}
+          onSaveDescription={(intent) => saved(onUpdate({ definition: { ...def, intent } }))}
           under={
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
@@ -136,7 +138,8 @@ export function FunctionPage({ fn, onUpdate, onRemove }: {
       <ConfirmDialog open={confirmDelete} title={t('Delete “{name}”?', { name: fn.name })}
         description={t('Its definition is removed for everyone in this Space. This cannot be undone.')}
         busy={busy} onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => void run(async () => { await onRemove(); setConfirmDelete(false); })} />
+        // Refused or not, the question is answered: a refusal shows on the page.
+        onConfirm={() => void run(async () => { try { await onRemove(); } finally { setConfirmDelete(false); } })} />
     </DetailPage>
   );
 }

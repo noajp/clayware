@@ -36,6 +36,7 @@ const SUSTAINMENT_MESSAGES: Record<string, Row> = {
   'Add at least one commitment or fact.': ['「約束」か「事実」を一つ以上足す。', '‘약속’ 또는 ‘사실’을 하나 이상 추가하세요.', 'Ajouter au moins un engagement ou un fait.', 'Añade al menos un compromiso o un hecho.'],
   'In your own words. Then change the lines below to match.': ['自分の言葉で書きます。そのうえで、下の行を合わせて直します。', '자신의 말로 적습니다. 그런 다음 아래 줄을 맞게 고치세요.', 'Avec vos propres mots. Puis modifiez les lignes ci-dessous en conséquence.', 'Con tus propias palabras. Después cambia las líneas de abajo para que coincidan.'],
   'Its definition is removed for everyone in this Space. This cannot be undone.': ['この Space の全員から定義が消えます。元に戻せません。', '이 Space의 모든 사람에게서 정의가 삭제됩니다. 되돌릴 수 없습니다.', 'Sa définition est supprimée pour tout le monde dans ce Space. Cette action est irréversible.', 'Su definición se elimina para todos en este Space. No se puede deshacer.'],
+  'Only the person who made this, or an owner of the Space, can change it.': ['変更できるのは、これを作った人か Space の owner だけです。', '이것을 만든 사람이나 Space의 owner만 변경할 수 있습니다.', 'Seule la personne qui l’a créé, ou un owner du Space, peut le modifier.', 'Solo quien lo creó, o un owner del Space, puede cambiarlo.'],
   'Sustainment name': ['Sustainment の名前', 'Sustainment 이름', 'Nom du Sustainment', 'Nombre del Sustainment'],
   'What this Sustainment keeps right for the company': ['この Sustainment が会社のために正しく保つもの', '이 Sustainment가 회사를 위해 올바르게 유지하는 것', 'Ce que ce Sustainment garde en ordre pour l’entreprise', 'Lo que este Sustainment mantiene en orden para la empresa'],
   'Functions': ['機能', '기능', 'Fonctions', 'Funciones'],

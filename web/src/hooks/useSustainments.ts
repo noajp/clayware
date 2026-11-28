@@ -16,6 +16,16 @@ export function isMissingTable(error: { code?: string; message?: string } | null
     || /relation .* does not exist|could not find the table/i.test(error.message ?? '');
 }
 
+/** What a refused change says. The page translates it. */
+export const NOT_ALLOWED = 'Only the person who made this, or an owner of the Space, can change it.';
+
+/** Row-level security refuses a change by matching no row, without an
+ *  error. A change that touched none is a refusal, and is reported as one
+ *  rather than passing for a save. */
+export function assertChanged(rows: readonly unknown[] | null | undefined): void {
+  if (!rows || rows.length === 0) throw new Error(NOT_ALLOWED);
+}
+
 /** A function to create with a new Sustainment. */
 export interface NewFunctionInput {
   name: string;
@@ -122,8 +132,9 @@ export function useSustainments() {
 
   const update = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Pick<Sustainment, 'name' | 'icon' | 'description'>> }) => {
-      const { error } = await supabase.from('sustainments').update(patch).eq('id', id);
+      const { data: rows, error } = await supabase.from('sustainments').update(patch).eq('id', id).select('id');
       if (error) throw error;
+      assertChanged(rows);
     },
     onMutate: ({ id, patch }) => {
       qc.setQueryData<Sustainment[]>(key, (rows) => rows?.map((r) => (r.id === id ? { ...r, ...patch } : r)));
