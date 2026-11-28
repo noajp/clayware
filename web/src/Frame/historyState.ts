@@ -36,6 +36,7 @@ function routePartsOf(screen: ScreenSnapshot): (string | null)[] {
     n.workerId ?? null,
     n.unitId ?? null,
     n.sustainmentId ?? null,
+    n.sustainmentFunctionId ?? null,
     n.files?.view ?? null,
     n.files?.tab ?? null,
     n.files?.domainId ?? null,

@@ -548,7 +548,7 @@ function WorkspaceContent({
   };
   // A Sustainment's rail button opens its page in this tab, as a place does.
   const handleOpenSustainment = (id: string) => {
-    setActiveNavigation({ sustainmentId: id });
+    setActiveNavigation({ sustainmentId: id, sustainmentFunctionId: null });
     setActiveView('sustainment');
   };
 

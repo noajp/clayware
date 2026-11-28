@@ -15,6 +15,7 @@ import { SettingsModal } from '@/Function/settings/SettingsModal';
 import { SegmentedControl, SettingField } from '@/Function/settings/SettingsControls';
 import { NavStrategyIcon } from './sidebar/NavIcons';
 import { TeamList } from './sidebar/TeamList';
+import { SustainmentList } from './sidebar/SustainmentList';
 import { railSectionOf, type RailSection } from '@/Frame/railSections';
 import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
@@ -195,8 +196,9 @@ export function AppSidebar({
   const treeView = followPickOpen ? '' : activeView;
   // Slides makes nothing until the Space's decks are loaded; the load would replace it.
   const slidesReady = useSlidesReady();
-  // Team makes its units in its own list (owners only), so it has no "+".
-  const createLabel = section === 'team' ? undefined
+  // Team makes its units in its own list (owners only), so it has no "+";
+  // a Sustainment adds its functions on its own page.
+  const createLabel = activeView === 'sustainment' || section === 'team' ? undefined
     : section === 'strategy' ? 'New Vision'
     : ({
       notebook: 'Add Notebook', tables: 'Add Table', slides: 'Create new',
@@ -445,12 +447,18 @@ export function AppSidebar({
             <SettingsSidebarPanel />
           ) : (
           <>
-          {section === 'team' && (
+          {activeView === 'sustainment' && (
+            <SustainmentList sustainmentId={navigation.sustainmentId ?? null}
+              functionId={navigation.sustainmentFunctionId ?? null}
+              onOpen={(id) => onNavigate({ sustainmentFunctionId: id })} />
+          )}
+
+          {activeView !== 'sustainment' && section === 'team' && (
             <TeamList navigation={activeView === 'team' || activeView === 'workload' ? navigation : undefined}
               onOpen={(nav) => { onNavigate(nav); onViewChange('team'); }} />
           )}
 
-          {section === 'strategy' && <>
+          {activeView !== 'sustainment' && section === 'strategy' && <>
           <div className="mt-5" />
           <VisionList activeView={treeView} visionId={openVisionId}
             onOpenVision={(id) => { onNavigate({ visionId: id, strategyId: null }); onViewChange('vision'); }}
@@ -458,7 +466,7 @@ export function AppSidebar({
             onCreate={() => openCreate('vision')} />
           </>}
 
-          {section === 'execution' && <>
+          {activeView !== 'sustainment' && section === 'execution' && <>
           <div className="mt-5" />
           {/* Execution: what this person starred, then the Domains. */}
           <FollowSection kinds={['vision', 'strategy', 'domain', 'object', 'element']}

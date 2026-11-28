@@ -6429,11 +6429,78 @@ export type Database = {
           },
         ]
       }
+      sustainment_functions: {
+        Row: {
+          activity_space_id: string
+          created_at: string
+          created_by: string | null
+          definition: Json
+          differences: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+          published_at: string | null
+          status: string
+          sustainment_id: string
+          template_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          differences?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          published_at?: string | null
+          status?: string
+          sustainment_id: string
+          template_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          differences?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          published_at?: string | null
+          status?: string
+          sustainment_id?: string
+          template_key?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sustainment_functions_activity_space_id_fkey"
+            columns: ["activity_space_id"]
+            isOneToOne: false
+            referencedRelation: "activity_spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sustainment_functions_sustainment_id_fkey"
+            columns: ["sustainment_id"]
+            isOneToOne: false
+            referencedRelation: "sustainments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sustainments: {
         Row: {
           activity_space_id: string
           created_at: string
           created_by: string | null
+          description: string | null
           icon: string | null
           id: string
           name: string
@@ -6444,6 +6511,7 @@ export type Database = {
           activity_space_id: string
           created_at?: string
           created_by?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           name: string
@@ -6454,6 +6522,7 @@ export type Database = {
           activity_space_id?: string
           created_at?: string
           created_by?: string | null
+          description?: string | null
           icon?: string | null
           id?: string
           name?: string
