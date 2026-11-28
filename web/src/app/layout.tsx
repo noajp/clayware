@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+// The UI's two typefaces ship with the app, from the @fontsource packages (the
+// versions and subsets Google Fonts serves): Inter as a variable font, so the
+// 510 / 590 UI weights render precisely, and JetBrains Mono for code and data.
+// Each script's glyphs are a file of their own, fetched only when used. Nothing is
+// fetched from Google while building, so a build cannot fail on that fetch.
+// The families ("Inter Variable", "JetBrains Mono Variable") are named in
+// globals.css (--font-sans / --font-mono), with what follows them.
+import "@fontsource-variable/inter/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
@@ -8,23 +16,12 @@ import { AppDialogHost } from "@/Function/shared/AppDialogHost";
 import { Toaster } from "@/Function/shared/Toaster";
 import { I18nProvider } from "@/Function/i18n/I18nProvider";
 
-// Primary sans-serif - Inter for clean UI typography
-// Inter as a variable font (no discrete weights) so the 510 / 590 UI weights
-// render precisely; this also drops the off-spec 700+ static instances.
-const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  // Inter has no Japanese: "Clayware JP" (globals.css) takes those glyphs, at
-  // weights matched to Inter's, before the system's own Japanese font.
-  fallback: ["Clayware JP", "system-ui", "sans-serif"],
-});
-
-// Monospace for code/data
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
+// The two files every page needs, fetched alongside the stylesheet rather than
+// after it (the address is the one the stylesheet itself points at).
+const PRELOAD_FONTS = [
+  new URL("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", import.meta.url).pathname,
+  new URL("../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2", import.meta.url).pathname,
+];
 
 export const metadata: Metadata = {
   title: "Clayware",
@@ -55,6 +52,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {PRELOAD_FONTS.map((href) => (
+          <link key={href} rel="preload" as="font" type="font/woff2" href={href} crossOrigin="anonymous" />
+        ))}
         {/* Preferences this browser saved under the earlier key names move to
             the current ones, once, before anything reads them. */}
         <script
@@ -91,9 +91,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <I18nProvider>
           <ThemeProvider>
             <QueryProvider>
