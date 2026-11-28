@@ -25,14 +25,15 @@ const cellTone = (on: boolean) => (on
   ? 'bg-sidebar-accent text-foreground'
   : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground');
 
-/** Athena's mark, the rail's top button: the crowned ghost, idling. With
- *  reduced motion it holds still on its first frame. The button carries
- *  the name, so the picture is decorative. */
+/** Athena's mark, the rail's top button: the crowned ghost, idling, cut
+ *  out on its own (no circle, no tile). With reduced motion it holds still
+ *  on its first frame. The button carries the name, so the picture is
+ *  decorative. */
 function AthenaMark() {
   return (
-    <picture className="block size-8 shrink-0 overflow-hidden rounded-full">
+    <picture className="block size-10 shrink-0">
       <source srcSet="/athena/idle.png" media="(prefers-reduced-motion: reduce)" />
-      <img src="/athena/idle.webp" alt="" width={32} height={32} className="size-8 object-cover" draggable={false} />
+      <img src="/athena/idle.webp" alt="" width={40} height={40} className="size-10" draggable={false} />
     </picture>
   );
 }
@@ -68,7 +69,8 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
         return (
           <button key={id} type="button" onClick={() => onSelect(id)}
             aria-label={name} title={name} aria-current={on ? 'page' : undefined}
-            className={`relative ${CELL} ${cellTone(on)}`}>
+            // Athena stands bare: no tile behind it, open or not.
+            className={`relative ${CELL} ${id === 'assistant' ? '' : cellTone(on)}`}>
             {id === 'assistant' ? <AthenaMark /> : <Icon size={18} />}
             {unread && <span aria-hidden className="absolute right-2 top-2 size-2 rounded-full bg-primary" />}
           </button>
