@@ -53,7 +53,7 @@ function CanvasStartMenu({ kind, disabled, onPick }: { kind: CanvasStartKind; di
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onPick(null)} className="gap-2 py-1.5 text-[13px]">
-          <Sparkles size={14} />{t('Ask Athena…')}
+          <Sparkles size={14} />{t('Ask Athenya…')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

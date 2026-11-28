@@ -99,7 +99,7 @@ export function HeartbeatSettings({ spaceId, isOwner }: { spaceId: string; isOwn
   return (
     <SettingsIsland
       title={t('Heartbeat')}
-      description={t('Athena wakes on a cadence, looks at what has been left waiting in this Space, and speaks only when there is something worth saying. A wake never acts — it only notifies.')}
+      description={t('Athenya wakes on a cadence, looks at what has been left waiting in this Space, and speaks only when there is something worth saying. A wake never acts — it only notifies.')}
     >
       <ToggleRow
         label={t('Heartbeat')}
@@ -131,7 +131,7 @@ export function HeartbeatSettings({ spaceId, isOwner }: { spaceId: string; isOwn
               </Button>
             </SettingRow>
           )}
-          <SettingRow label={t('Cadence')} desc={t('How often Athena wakes to inspect what has been left waiting.')}>
+          <SettingRow label={t('Cadence')} desc={t('How often Athenya wakes to inspect what has been left waiting.')}>
             <SelectControl
               value={cadence.label}
               options={HEARTBEAT_CADENCES.map((c) => c.label)}

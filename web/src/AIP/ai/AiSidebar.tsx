@@ -262,9 +262,9 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
   const foldersSectionOpen = q ? true : !closed.has(FOLDERS);
 
   return (
-    <Panel label={t('Athena')}>
+    <Panel label={t('Athenya')}>
       <PanelHeader
-        title={t('Athena')}
+        title={t('Athenya')}
         actions={
           <>
             <Button

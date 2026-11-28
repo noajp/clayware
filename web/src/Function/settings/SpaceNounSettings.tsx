@@ -57,7 +57,7 @@ export function SpaceNounSettings({ spaceId, nouns, isOwner, onSaved }: {
   return (
     <SettingsIsland
       title={t('Names')}
-      description={t('The words this Space uses for the three things its work is made of. Every label and sentence uses them; your data and what Athena reads keep the built-in names.')}
+      description={t('The words this Space uses for the three things its work is made of. Every label and sentence uses them; your data and what Athenya reads keep the built-in names.')}
     >
       <div className="grid gap-6 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_240px]">
         <form onSubmit={(e) => { e.preventDefault(); save(draft); }} className="min-w-0">

@@ -120,7 +120,7 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
   return (
     <PageSection title={t('Gap')} action={
       <Button variant="secondary" size="sm" onClick={() => void run()} disabled={running}>
-        {running ? t('Checking…') : check ? t('Check again with Athena') : t('Check with Athena')}
+        {running ? t('Checking…') : check ? t('Check again with Athenya') : t('Check with Athenya')}
       </Button>
     }>
       <p className="mb-3 text-[12px] text-muted-foreground">
@@ -135,7 +135,7 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
       {/* Athena's reading — a record of one moment, shown as such. */}
       <div className="rounded-lg border border-border/60">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/50 px-3 py-2 text-[12px]">
-          <span className="font-medium text-foreground">Athena</span>
+          <span className="font-medium text-foreground">Athenya</span>
           {check && (
             <span className="text-muted-foreground">
               {t('Checked {when} · read {n} open Elements', { when: formatRelative(check.created_at), n: check.scope?.elements ?? 0 })}
@@ -150,7 +150,7 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
         </div>
         <div className="px-3 py-2.5">
           {running ? (
-            <p className="text-[13px] text-muted-foreground" role="status">{t('Athena is reading the Strategy and the work under it. This takes up to a minute.')}</p>
+            <p className="text-[13px] text-muted-foreground" role="status">{t('Athenya is reading the Strategy and the work under it. This takes up to a minute.')}</p>
           ) : runError ? (
             <p className="text-[13px] text-[var(--status-danger-text)]" role="alert">{t('Could not check: {reason}', { reason: runError })}</p>
           ) : loading ? (
@@ -158,12 +158,12 @@ export function StrategyGapPanel({ strategyId, strategyName, strategyUpdatedAt, 
           ) : error ? (
             <p className="text-[13px] text-[var(--status-danger-text)]" role="alert">{t('Could not load the last check: {reason}', { reason: error.message })}</p>
           ) : !check ? (
-            <p className="text-[13px] text-muted-foreground">{t('Not checked yet. Athena reads the Strategy, the Strategies and Objects under it and their open Elements, and lists the work that has drifted.')}</p>
+            <p className="text-[13px] text-muted-foreground">{t('Not checked yet. Athenya reads the Strategy, the Strategies and Objects under it and their open Elements, and lists the work that has drifted.')}</p>
           ) : (
             <div className="space-y-3">
               {check.summary && <p className="text-[13px] text-foreground">{check.summary}</p>}
               {check.findings.length === 0 && check.uncovered.length === 0 && (
-                <p className="text-[13px] text-muted-foreground">{t('Athena found no work that has drifted.')}</p>
+                <p className="text-[13px] text-muted-foreground">{t('Athenya found no work that has drifted.')}</p>
               )}
               {KIND_ORDER.map((kind) => {
                 const rows = check.findings.filter((f) => f.kind === kind);

@@ -14,9 +14,9 @@ export function AthenaControls({ disabled }: { disabled?: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" disabled={disabled} aria-label={t('Athena settings')}
+        <button type="button" disabled={disabled} aria-label={t('Athenya settings')}
           className="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50">
-          <span className="font-medium text-foreground">Athena</span>
+          <span className="font-medium text-foreground">Athenya</span>
           <span>{t(effort.label)}</span>
           <ChevronDown size={12} />
         </button>

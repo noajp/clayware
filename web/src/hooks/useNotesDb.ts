@@ -59,11 +59,11 @@ function rowToNode(r: NoteRow): NoteNode {
 /** App overview written into the seeded readme. Sanitiser-safe HTML
  *  (h1/h2/p/ul/li/strong — see brief/editor/htmlSanitizer). */
 const APP_GUIDE_README_HTML = `<h1>Clayware へようこそ</h1>
-<p>Clayware は、チームの業務アシスタント Athena を起点にした業務基盤です。チームの誰もが Athena に頼み、Athena が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。</p>
+<p>Clayware は、チームの業務アシスタント Athenya を起点にした業務基盤です。チームの誰もが Athenya に頼み、Athenya が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。</p>
 <p>すべてが Space ごとの一つの共有データの上にあり、個人ではなくチームで使います。誰が頼んだ仕事でも、目的・判断・結果は組織の記録として残り、見られる範囲は権限で決まります。</p>
-<h2>Athena と Inbox</h2>
+<h2>Athenya と Inbox</h2>
 <ul>
-<li><strong>Athena</strong> — レールの一番上。押すと、どの画面からでも Agent のチャットが開く</li>
+<li><strong>Athenya</strong> — レールの一番上。押すと、どの画面からでも Agent のチャットが開く</li>
 <li><strong>Inbox</strong> — その下。承認待ちと通知が届く</li>
 </ul>
 <h2>三つの分類</h2>

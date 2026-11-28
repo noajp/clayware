@@ -280,7 +280,7 @@ function CustomIcon({ value, onPick }: { value: ItemLook; onPick: (icon: string)
   return (
     <div className="space-y-4 pt-3">
       <section className="px-1">
-        <h3 className="pb-1.5 text-[12px] font-medium text-muted-foreground">{t('Ask Athena')}</h3>
+        <h3 className="pb-1.5 text-[12px] font-medium text-muted-foreground">{t('Ask Athenya')}</h3>
         <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); void draw(); }}>
           <input value={prompt} onChange={(e) => setPrompt(e.target.value)} maxLength={300}
             placeholder={t('e.g. a stamp of approval')} aria-label={t('Describe the icon')}
@@ -295,7 +295,7 @@ function CustomIcon({ value, onPick }: { value: ItemLook; onPick: (icon: string)
           </p>
         )}
         {drafts.length > 0 && (
-          <div className="grid grid-cols-4 gap-1 pt-2" aria-label={t('Drafts from Athena')}>{drafts.map((d, i) => cell(d.icon, d.name, `d-${i}`))}</div>
+          <div className="grid grid-cols-4 gap-1 pt-2" aria-label={t('Drafts from Athenya')}>{drafts.map((d, i) => cell(d.icon, d.name, `d-${i}`))}</div>
         )}
       </section>
       <section className="px-1">

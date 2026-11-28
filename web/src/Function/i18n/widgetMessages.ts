@@ -196,7 +196,7 @@ const WIDGET_MESSAGES: Record<string, Row> = {
   // Starting a canvas from the Object page
   'Add an app': ['アプリを追加', '앱 추가', 'Ajouter une app', 'Añadir una app'],
   'Add a chart': ['グラフを追加', '차트 추가', 'Ajouter un graphique', 'Añadir un gráfico'],
-  'Ask Athena…': ['Athena に頼む…', 'Athena에게 요청…', 'Demander à Athena…', 'Pedir a Athena…'],
+  'Ask Athenya…': ['Athenya に頼む…', 'Athenya에게 요청…', 'Demander à Athenya…', 'Pedir a Athenya…'],
   'By status': ['ステータス別', '상태별', 'Par statut', 'Por estado'],
   'By priority': ['優先度別', '우선순위별', 'Par priorité', 'Por prioridad'],
   'By Phase': ['Phase 別', 'Phase별', 'Par Phase', 'Por Phase'],

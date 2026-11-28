@@ -58,7 +58,7 @@ export function AutomationSettings({ onOpenElement }: {
           <h2 className="text-[13px] font-medium text-foreground">{t('Automations')}</h2>
           {!creating && !builderCreating && (
             <span className="flex gap-2">
-              <Button size="sm" variant="secondary" disabled={!spaceId} onClick={() => setBuilderCreating(true)}>{t('Build with Athena')}</Button>
+              <Button size="sm" variant="secondary" disabled={!spaceId} onClick={() => setBuilderCreating(true)}>{t('Build with Athenya')}</Button>
               <Button size="sm" variant="secondary" disabled={!spaceId} onClick={() => setCreating(true)}>{t('New automation')}</Button>
             </span>
           )}

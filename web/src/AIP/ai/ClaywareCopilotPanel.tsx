@@ -380,7 +380,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
         }}
         rows={centeredEmptyPage ? 2 : 1}
         disabled={noAthena || streaming}
-        placeholder={streaming ? '…' : t('Ask Athena anything')}
+        placeholder={streaming ? '…' : t('Ask Athenya anything')}
         aria-label={t('Message AI')}
         className={`max-h-48 w-full resize-none overflow-hidden bg-transparent px-4 pt-3.5 text-[14px] leading-[1.55] text-foreground placeholder:text-muted-foreground/60 disabled:opacity-60 ${
           centeredEmptyPage ? 'min-h-[60px] pb-2' : 'min-h-[44px] pb-1.5'
@@ -453,7 +453,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
         {floating ? (
           <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground">
             <AthenaAvatar size="xs" working={streaming} />
-            <span>{t('Athena')}</span>
+            <span>{t('Athenya')}</span>
           </span>
         ) : !isEmpty ? (
           <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
@@ -549,7 +549,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
 
             {noAthena && (
               <div role="status" className="mt-5 flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-well)] px-4 py-3">
-                <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
+                <p className="text-[13px] text-foreground">{t('Athenya is available from the Team plan. This Space is on Free.')}</p>
                 <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
               </div>
             )}
@@ -634,7 +634,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
           </div>
           {noAthena && (
             <div role="status" className={`mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] px-4 py-3 ${column}`}>
-              <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
+              <p className="text-[13px] text-foreground">{t('Athenya is available from the Team plan. This Space is on Free.')}</p>
               <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
             </div>
           )}

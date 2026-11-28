@@ -51,7 +51,7 @@ const ja: StarterContent = {
       name: 'はじめに — Clayware の考え方',
       description: 'Clayware が組織の活動をどう捉えるかを知る。',
       elements: [
-        { title: 'Athena に仕事を頼む', description: 'レールの一番上の Athena を押すと、どの画面からでも Agent のチャットが開きます。Athena が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。' },
+        { title: 'Athenya に仕事を頼む', description: 'レールの一番上の Athenya を押すと、どの画面からでも Agent のチャットが開きます。Athenya が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。' },
         { title: 'Strategy・Execution・Sustainment の 3 分類を知る', description: 'Strategy は「何を達成し、どう勝つか」、Execution は「実際の行動」で、この二つが仕事を管理する単位です。Sustainment は経理・CRM など会社ごとに作る業務アプリで、レールの区切り線の下に並びます。' },
         { title: 'Domain → Object → Element の階層を理解する', description: 'Domain は活動の場、Object は Element をまとめる持ち場（プロジェクトに近い）、Element は行動の最小単位です。いま見ているこの行が Element です。' },
         { title: 'この Element を完了にしてみる', description: 'ステータスを変更すると、Object の進捗に反映されます。' },
@@ -141,7 +141,7 @@ const en: StarterContent = {
       name: 'Start here — how Clayware thinks',
       description: 'How Clayware models an organisation\'s activity.',
       elements: [
-        { title: 'Ask Athena to do a piece of work', description: 'Select Athena at the top of the rail to open the Agent chat from any screen. Athena plans the work and does it, and sends only judgments and approvals to people.' },
+        { title: 'Ask Athenya to do a piece of work', description: 'Select Athenya at the top of the rail to open the Agent chat from any screen. Athenya plans the work and does it, and sends only judgments and approvals to people.' },
         { title: 'Learn the three areas: Strategy, Execution, Sustainment', description: 'Strategy is what to achieve and how to win, and Execution is the actual work: these two are the units work is managed in. Sustainment holds your company\'s own business apps, such as Accounting or CRM, listed below the divider on the rail.' },
         { title: 'Understand Domain → Object → Element', description: 'A Domain is where work happens, an Object holds the Elements of one project, and an Element is the smallest unit of action. This row is an Element.' },
         { title: 'Mark this Element as done', description: 'Changing the status updates the Object\'s progress.' },
@@ -232,8 +232,8 @@ const ko: StarterContent = {
       "description": "Clayware이 조직의 활동을 어떻게 다루는지 알아봅니다.",
       "elements": [
         {
-          "title": "Athena에게 일 맡기기",
-          "description": "레일 맨 위의 Athena를 누르면 어느 화면에서든 Agent 채팅이 열립니다. Athena가 계획을 세워 일을 진행하고, 판단과 승인이 필요한 것만 사람에게 넘깁니다."
+          "title": "Athenya에게 일 맡기기",
+          "description": "레일 맨 위의 Athenya를 누르면 어느 화면에서든 Agent 채팅이 열립니다. Athenya가 계획을 세워 일을 진행하고, 판단과 승인이 필요한 것만 사람에게 넘깁니다."
         },
         {
           "title": "Strategy·Execution·Sustainment 세 영역 알기",
@@ -418,8 +418,8 @@ const fr: StarterContent = {
       "description": "Comment Clayware modélise l’activité d’une organisation.",
       "elements": [
         {
-          "title": "Confier un travail à Athena",
-          "description": "Sélectionnez Athena en haut de la barre pour ouvrir le chat Agent depuis n’importe quel écran. Athena planifie et fait le travail, et ne renvoie aux personnes que les jugements et les approbations."
+          "title": "Confier un travail à Athenya",
+          "description": "Sélectionnez Athenya en haut de la barre pour ouvrir le chat Agent depuis n’importe quel écran. Athenya planifie et fait le travail, et ne renvoie aux personnes que les jugements et les approbations."
         },
         {
           "title": "Découvrir les trois domaines : Strategy, Execution, Sustainment",
@@ -604,8 +604,8 @@ const es: StarterContent = {
       "description": "Cómo modela Clayware la actividad de una organización.",
       "elements": [
         {
-          "title": "Pedirle un trabajo a Athena",
-          "description": "Selecciona Athena en la parte superior de la barra para abrir el chat de Agent desde cualquier pantalla. Athena planifica y hace el trabajo, y solo pasa a las personas las decisiones y aprobaciones."
+          "title": "Pedirle un trabajo a Athenya",
+          "description": "Selecciona Athenya en la parte superior de la barra para abrir el chat de Agent desde cualquier pantalla. Athenya planifica y hace el trabajo, y solo pasa a las personas las decisiones y aprobaciones."
         },
         {
           "title": "Conocer las tres áreas: Strategy, Execution, Sustainment",
