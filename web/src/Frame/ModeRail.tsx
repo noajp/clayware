@@ -14,8 +14,8 @@ import { useAthenaMood, useCopilotStreaming } from '@/AIP/ai/CopilotProvider';
 import { Plus } from '@/ui/icons';
 import type { Sustainment } from '@/types/database';
 
-// The thin column at the far left: Athena (the companion portrait medallion,
-// anchored at the top like the user's avatar at the bottom), a hairline,
+// The thin column at the far left: Athena (her character, anchored at the
+// top like the user's avatar at the bottom), a hairline,
 // Inbox, Strategy, Execution and Team; under a second hairline, the Space's
 // Sustainments, one button each, and "+" to add one. It is sunk into the
 // window's ground, with no frame of its own, beside the one island that
@@ -72,14 +72,12 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
                 onBlur={() => setAthenaHover(false)}
                 aria-label={name}
                 aria-current={on ? 'page' : undefined}
-                className={`group/athena relative ${CELL} outline-none`}
+                className="group/athena relative flex h-8 w-10 shrink-0 items-center justify-center rounded-md outline-none"
               >
                 <AthenaAvatar
                   size="rail"
                   mood={athenaMood}
-                  active={on}
                   working={athenaWorking}
-                  className="group-hover/athena:scale-[1.06] group-active/athena:scale-[0.97]"
                 />
                 {/* Muse-style compact floating pill label on hover */}
                 <span

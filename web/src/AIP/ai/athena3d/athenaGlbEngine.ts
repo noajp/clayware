@@ -3,7 +3,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createStudioEnvironment } from './studioEnv';
-import type { AthenaMood } from '../athenaSpriteEngine';
+
+export type AthenaMood = 'idle' | 'wave' | 'thinking' | 'working' | 'cheer' | 'surprise';
 
 const ATHENA_GLB_URL = '/athena/athena.glb';
 

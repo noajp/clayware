@@ -5,7 +5,7 @@ import { copilotTitleOf, toKeptMessages, useClaywareCopilot, type CopilotMessage
 import { shouldResetOnArrival, type CopilotArrivalTransition } from './copilotArrival';
 import { useAiConversations } from '@/hooks/useAiConversations';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
-import type { AthenaMood } from './athenaSpriteEngine';
+import type { AthenaMood } from './athena3d/athenaGlbEngine';
 
 // One conversation with the AI across the app: the pop-up and the AI screen
 // are two windows onto it, so expanding the pop-up carries the talk along.

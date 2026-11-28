@@ -1,4 +1,5 @@
-"""Builds web/public/athena/athena.glb (the crowned ghost) in Blender.
+"""Builds web/public/athena/athena.glb (the crowned ghost) in Blender, and the two still
+images shown while the model cannot be drawn (still-bust.png, still-full.png).
 
 Run:  /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
         --python web/scripts/athena-glb/build.py -- [--out PATH] [--render DIR]
@@ -673,29 +674,66 @@ bpy.ops.export_scene.gltf(
 )
 print('EXPORTED', OUT, os.path.getsize(OUT))
 
+# ---------------------------------------------------------------- stage
+world = bpy.data.worlds.new('W')
+scene.world = world
+world.use_nodes = True
+world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.92, 0.92, 0.93, 1)
+world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.9
+for lname, loc, energy in (('Key', (-2.2, -3.4, 3.6), 900), ('Fill', (3.0, -2.2, 1.6), 350),
+                           ('Rim', (2.0, 2.8, 2.6), 600)):
+    ld = bpy.data.lights.new(lname, 'AREA')
+    ld.energy = energy
+    ld.size = 2.5
+    lo = link(bpy.data.objects.new(lname, ld))
+    lo.location = loc
+    lo.rotation_euler = (Vector((0, 0, 0.6)) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
+cam = link(bpy.data.objects.new('Cam', bpy.data.cameras.new('Cam')))
+scene.camera = cam
+try:
+    scene.render.engine = 'BLENDER_EEVEE'
+except TypeError:
+    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+
+
+def aim(location, target):
+    cam.location = location
+    cam.rotation_euler = (Vector(target) - Vector(location)).to_track_quat('-Z', 'Y').to_euler()
+
+
+# ---------------------------------------------------------------- stills
+# The picture the app shows when the .glb cannot be drawn, framed exactly as athenaGlbEngine
+# frames it: the model scaled to 1.65 units and centred, a 26 degree camera, the same two views.
+bpy.context.view_layer.update()
+_corners = [o.matrix_world @ Vector(c) for o in bpy.data.objects if o.type == 'MESH' for c in o.bound_box]
+_lo = Vector([min(c[i] for c in _corners) for i in range(3)])
+_hi = Vector([max(c[i] for c in _corners) for i in range(3)])
+_centre = (_lo + _hi) / 2
+_unit = max(_hi.z - _lo.z, (_hi.x - _lo.x) * 0.85) / 1.65  # Blender metres per engine unit
+
+
+def engine_point(x, y, z):
+    """A point given in the engine's Y-up space, in this scene."""
+    return _centre + Vector((x, -z, y)) * _unit
+
+
+cam.data.sensor_fit = 'VERTICAL'
+cam.data.angle = math.radians(26)
+scene.render.resolution_x = scene.render.resolution_y = 288
+scene.render.film_transparent = True
+scene.render.image_settings.file_format = 'PNG'
+scene.render.image_settings.color_mode = 'RGBA'
+for label, eye, look in (('still-bust', (0, 0.30, 2.5), (0, 0.27, 0)), ('still-full', (0, 0.06, 4.15), (0, 0.04, 0))):
+    aim(engine_point(*eye), engine_point(*look))
+    scene.render.filepath = os.path.join(os.path.dirname(OUT), label + '.png')
+    bpy.ops.render.render(write_still=True)
+print('STILLS', os.path.dirname(OUT))
+
 # ---------------------------------------------------------------- preview renders
 if RENDER_DIR:
     os.makedirs(RENDER_DIR, exist_ok=True)
-    world = bpy.data.worlds.new('W')
-    scene.world = world
-    world.use_nodes = True
-    world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.92, 0.92, 0.93, 1)
-    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.9
-    for lname, loc, energy in (('Key', (-2.2, -3.4, 3.6), 900), ('Fill', (3.0, -2.2, 1.6), 350),
-                               ('Rim', (2.0, 2.8, 2.6), 600)):
-        ld = bpy.data.lights.new(lname, 'AREA')
-        ld.energy = energy
-        ld.size = 2.5
-        lo = link(bpy.data.objects.new(lname, ld))
-        lo.location = loc
-        lo.rotation_euler = (Vector((0, 0, 0.6)) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
-    cam = link(bpy.data.objects.new('Cam', bpy.data.cameras.new('Cam')))
+    cam.data.sensor_fit = 'AUTO'
     cam.data.lens = 85
-    scene.camera = cam
-    try:
-        scene.render.engine = 'BLENDER_EEVEE'
-    except TypeError:
-        scene.render.engine = 'BLENDER_EEVEE_NEXT'
     scene.render.resolution_x = 720
     scene.render.resolution_y = 900
     scene.render.film_transparent = False
@@ -706,8 +744,7 @@ if RENDER_DIR:
         scene.frame_set(frame)
         a = math.radians(yaw)
         dist, cz, tz = (1.9, 1.05, 0.98) if label == 'crown' else (4.6, 0.72, 0.66)
-        cam.location = (dist * math.sin(a), -dist * math.cos(a), cz)
-        cam.rotation_euler = (Vector((0, 0, tz)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+        aim((dist * math.sin(a), -dist * math.cos(a), cz), (0, 0, tz))
         scene.render.filepath = os.path.join(RENDER_DIR, label + '.png')
         bpy.ops.render.render(write_still=True)
     print('RENDERED', RENDER_DIR)
