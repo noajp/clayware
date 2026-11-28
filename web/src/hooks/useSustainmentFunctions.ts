@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { nextOrder, statusPatch, type FunctionDefinition, type FunctionStatus } from '@/Function/sustainment/definition';
-import { isMissingTable, type NewFunctionInput } from '@/hooks/useSustainments';
+import { assertChanged, isMissingTable, type NewFunctionInput } from '@/hooks/useSustainments';
 import { supabase } from '@/lib/supabase';
 import { useCurrentUserId } from '@/providers/authContext';
 import type { SustainmentFunction } from '@/types/database';
@@ -82,8 +82,9 @@ export function useSustainmentFunctions(sustainmentId: string | null) {
         ...(definition ? { definition: definition as unknown as Json } : {}),
         ...(status ? statusPatch(status) : {}),
       };
-      const { error } = await supabase.from('sustainment_functions').update(row).eq('id', id);
+      const { data: rows, error } = await supabase.from('sustainment_functions').update(row).eq('id', id).select('id');
       if (error) throw error;
+      assertChanged(rows);
     },
     onMutate: ({ id, patch }) => {
       const { status, ...rest } = patch;
@@ -95,8 +96,9 @@ export function useSustainmentFunctions(sustainmentId: string | null) {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('sustainment_functions').delete().eq('id', id);
+      const { data: rows, error } = await supabase.from('sustainment_functions').delete().eq('id', id).select('id');
       if (error) throw error;
+      assertChanged(rows);
     },
     onSuccess: (_, id) => qc.setQueryData<SustainmentFunction[]>(key, (rows) => rows?.filter((r) => r.id !== id)),
     onSettled: () => qc.invalidateQueries({ queryKey: ['sustainment-functions'] }),

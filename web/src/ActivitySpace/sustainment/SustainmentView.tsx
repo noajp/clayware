@@ -69,6 +69,10 @@ export function SustainmentView({ sustainmentId, functionId, onOpenFunction }: {
     );
   }
 
+  // The page head shows what a failed save throws; say it in the person's language.
+  const save = (patch: Partial<Pick<Sustainment, 'name' | 'description'>>) => updateSustainment({ id: sustainment.id, patch })
+    .catch((e) => { throw new Error(t(e instanceof Error ? e.message : "Couldn't save")); });
+
   const addButton = (
     <Button type="button" variant="ghost" size="sm" onClick={() => setAdding(true)}>
       <Plus size={14} />{t('Add function')}
@@ -83,8 +87,8 @@ export function SustainmentView({ sustainmentId, functionId, onOpenFunction }: {
             titleLabel={t('Sustainment name')} titlePlaceholder={t('Sustainment name')}
             descriptionLabel={t('What it is for')}
             descriptionPlaceholder={t('What this Sustainment keeps right for the company')}
-            onSaveTitle={(name) => updateSustainment({ id: sustainment.id, patch: { name } })}
-            onSaveDescription={(description) => updateSustainment({ id: sustainment.id, patch: { description: description || null } })} />
+            onSaveTitle={(name) => save({ name })}
+            onSaveDescription={(description) => save({ description: description || null })} />
         }>
           <PageSection title={t('Functions')} action={functions.data.length > 0 ? addButton : undefined}>
             {functions.error ? (
