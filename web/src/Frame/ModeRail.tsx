@@ -10,12 +10,12 @@ import { useSustainments } from '@/hooks/useSustainments';
 import { useNotifications } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { AthenaAvatar } from '@/AIP/ai/AthenaAvatar';
-import { useCopilotStreaming } from '@/AIP/ai/CopilotProvider';
+import { useAthenaMood, useCopilotStreaming } from '@/AIP/ai/CopilotProvider';
 import { Plus } from '@/ui/icons';
 import type { Sustainment } from '@/types/database';
 
-// The thin column at the far left: Athena (the companion portrait medallion,
-// anchored at the top like the user's avatar at the bottom), a hairline,
+// The thin column at the far left: Athena (her character, anchored at the
+// top like the user's avatar at the bottom), a hairline,
 // Inbox, Strategy, Execution and Team; under a second hairline, the Space's
 // Sustainments, one button each, and "+" to add one. It is sunk into the
 // window's ground, with no frame of its own, beside the one island that
@@ -48,11 +48,14 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
   const { user } = useAuthContext();
   const { unreadCount } = useNotifications(user?.id ?? null);
   const athenaWorking = useCopilotStreaming();
+  const baseAthenaMood = useAthenaMood();
+  const [athenaHover, setAthenaHover] = useState(false);
+  const athenaMood = athenaHover && baseAthenaMood === 'idle' ? 'wave' : baseAthenaMood;
   const [creating, setCreating] = useState(false);
   const openId = activeView === 'sustainment' ? sustainmentId : null;
   return (
     <nav aria-label={t('Places')}
-      className={`app-sidebar flex w-[52px] shrink-0 flex-col items-center gap-1 overflow-hidden bg-none py-3 ${className}`}>
+      className={`app-sidebar relative z-20 flex w-[52px] shrink-0 flex-col items-center gap-1 overflow-x-visible overflow-y-hidden bg-none py-3 ${className}`}>
       {RAIL_SECTIONS.map(({ id, label, icon: Icon }) => {
         const on = active === id;
         const unread = id === 'inbox' && unreadCount > 0;
@@ -63,17 +66,26 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
               <button
                 type="button"
                 onClick={() => onSelect(id)}
+                onMouseEnter={() => setAthenaHover(true)}
+                onMouseLeave={() => setAthenaHover(false)}
+                onFocus={() => setAthenaHover(true)}
+                onBlur={() => setAthenaHover(false)}
                 aria-label={name}
-                title={name}
                 aria-current={on ? 'page' : undefined}
-                className="group/athena relative flex size-10 shrink-0 items-center justify-center rounded-full outline-none"
+                className="group/athena relative flex h-8 w-10 shrink-0 items-center justify-center rounded-md outline-none"
               >
                 <AthenaAvatar
                   size="rail"
-                  active={on}
+                  mood={athenaMood}
                   working={athenaWorking}
-                  className="group-hover/athena:scale-[1.05] group-active/athena:scale-[0.98]"
                 />
+                {/* Muse-style compact floating pill label on hover */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-full top-1/2 z-50 ml-2.5 -translate-y-1/2 whitespace-nowrap rounded-full border border-[var(--border-default)] bg-[var(--surface-overlay)] px-2.5 py-1 text-[12px] font-medium text-foreground opacity-0 shadow-[var(--shadow-overlay)] transition-all duration-150 group-hover/athena:translate-x-0 group-hover/athena:opacity-100 -translate-x-1"
+                >
+                  {name}
+                </span>
               </button>
               <div role="separator" aria-hidden className="my-1.5 h-px w-5 shrink-0 bg-border/80" />
             </Fragment>

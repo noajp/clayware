@@ -26,7 +26,7 @@ import { useStrategies } from '@/hooks/strategyData';
 import { CopilotMessageView, AttachmentChips } from './CopilotMessages';
 import { ATTACH_ACCEPT, AttachError, MAX_FILES, MAX_PDF_BYTES, readAttachment } from './copilotFiles';
 import { ClaywareFilePicker } from './ClaywareFilePicker';
-import { useCopilotConversation } from './CopilotProvider';
+import { useAthenaMood, useCopilotConversation } from './CopilotProvider';
 import { CredentialChatHint } from '@/AIP/connectors/CredentialChatHint';
 import { getActiveSpaceId, useActiveSpaceId } from '@/Function/space/activeSpaceStore';
 import { useIsSpaceOwner } from '@/AIP/connectors/data';
@@ -132,6 +132,17 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
+  const [heroHover, setHeroHover] = useState(false);
+  const [heroCheer, setHeroCheer] = useState(false);
+  const heroCheerTimer = useRef<number | null>(null);
+  const baseAthenaMood = useAthenaMood();
+  const heroMood = heroCheer ? 'cheer' : heroHover && baseAthenaMood === 'idle' ? 'wave' : baseAthenaMood;
+  const triggerHeroCheer = () => {
+    setHeroCheer(true);
+    if (heroCheerTimer.current) window.clearTimeout(heroCheerTimer.current);
+    heroCheerTimer.current = window.setTimeout(() => setHeroCheer(false), 1800);
+  };
+  useEffect(() => () => { if (heroCheerTimer.current) window.clearTimeout(heroCheerTimer.current); }, []);
   const {
     messages,
     streaming,
@@ -516,7 +527,19 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
            and one curated row of quick actions directly below the input. */
         <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-16 pt-4">
           <div className="flex w-full max-w-[660px] flex-col items-center">
-            <AthenaAvatar size="hero" />
+            <div
+              onMouseEnter={() => setHeroHover(true)}
+              onMouseLeave={() => setHeroHover(false)}
+              className="relative flex flex-col items-center"
+            >
+              <AthenaAvatar
+                size="hero"
+                mood={heroMood}
+                working={streaming}
+                orbitable
+                onTap={triggerHeroCheer}
+              />
+            </div>
             <h2 className="mt-4 text-[21px] font-semibold tracking-[-0.02em] text-foreground">
               {t('How can I help?')}
             </h2>
@@ -558,7 +581,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
         <div ref={listRef} className={`flex-1 overflow-y-auto pb-6 pt-5 text-[13.5px] leading-[1.65] ${page ? 'px-8' : 'px-3.5'}`}>
           {isEmpty ? (
             <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-2 text-center">
-              <AthenaAvatar size="md" />
+              <AthenaAvatar size="md" mood={heroMood} working={streaming} />
               <h2 className="mt-3 text-[15px] font-semibold tracking-[-0.015em] text-foreground">
                 {t('How can I help?')}
               </h2>

@@ -5,6 +5,7 @@ import { copilotTitleOf, toKeptMessages, useClaywareCopilot, type CopilotMessage
 import { shouldResetOnArrival, type CopilotArrivalTransition } from './copilotArrival';
 import { useAiConversations } from '@/hooks/useAiConversations';
 import { useActiveSpaceId } from '@/Function/space/activeSpaceStore';
+import type { AthenaMood } from './athena3d/athenaGlbEngine';
 
 // One conversation with the AI across the app: the pop-up and the AI screen
 // are two windows onto it, so expanding the pop-up carries the talk along.
@@ -162,4 +163,47 @@ export function useCopilotConversation(): Conversation {
 /** Reads whether Athena is currently streaming a reply; safe outside CopilotProvider. */
 export function useCopilotStreaming(): boolean {
   return useContext(CopilotContext)?.streaming ?? false;
+}
+
+/**
+ * Derives Athena's live 3D emotional state from the current conversation:
+ * - working: actively executing tool calls
+ * - thinking: streaming / composing a reply
+ * - cheer: briefly celebrates for 2.6s right after finishing a reply
+ * - surprise: an error occurred or an approval decision needs attention
+ * - idle: calm living presence
+ * Safe outside CopilotProvider (returns 'idle').
+ */
+export function useAthenaMood(): AthenaMood {
+  const ctx = useContext(CopilotContext);
+  const streaming = ctx?.streaming ?? false;
+  const error = ctx?.error ?? null;
+  const messages = ctx?.messages;
+
+  const [celebrating, setCelebrating] = useState(false);
+  const prevStreaming = useRef(false);
+
+  useEffect(() => {
+    const justFinished = prevStreaming.current && !streaming;
+    prevStreaming.current = streaming;
+    if (!justFinished || error || !messages?.length) return;
+    const last = messages[messages.length - 1];
+    if (last?.role !== 'assistant' || last.stopped) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- transient celebration window after streaming completes
+    setCelebrating(true);
+    const id = window.setTimeout(() => setCelebrating(false), 2600);
+    return () => window.clearTimeout(id);
+  }, [streaming, error, messages]);
+
+  if (streaming) {
+    const last = messages?.[messages.length - 1];
+    const hasRunningTool = last?.toolEvents?.some((e) => e.result === undefined) ?? false;
+    return hasRunningTool ? 'working' : 'thinking';
+  }
+  if (error) return 'surprise';
+  const last = messages?.[messages.length - 1];
+  const needsApproval = last?.approvals?.some((a) => a.status === 'pending') ?? false;
+  if (needsApproval) return 'surprise';
+  if (celebrating) return 'cheer';
+  return 'idle';
 }
