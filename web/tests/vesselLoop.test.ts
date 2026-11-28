@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { elementFor, openLine } from '../../.claude/ops/vessel.mjs';
+import { elementFor, moveFor, openLine } from '../../.claude/ops/vessel.mjs';
 
 describe('elementFor', () => {
   it('hands a gap to the runner ahead of the next simulation', () => {
@@ -14,15 +14,34 @@ describe('elementFor', () => {
     expect(elementFor('gap', { title: 't', description: '', hold: true }).labels).toEqual(['vessel']);
   });
 
-  it('never dispatches a decision: a person decides it', () => {
+  it('never dispatches a decision, and keeps it out of the loop\'s own work', () => {
     const d = elementFor('decision', { title: 't', description: '', hold: false });
-    expect(d.labels).not.toContain('dispatch');
+    expect(d.labels).toEqual(['decision']);
     expect(d).toMatchObject({ is_approval: true, approval_state: 'pending' });
   });
 
   it('refuses an unknown kind or an empty title', () => {
     expect(() => elementFor('task' as never, { title: 't', description: '' })).toThrow();
     expect(() => elementFor('gap', { title: '  ', description: '' })).toThrow();
+  });
+});
+
+describe('moveFor', () => {
+  it('closes an Element so the dispatcher never starts it again', () => {
+    expect(moveFor('done', ['simulate', 'dispatch'])).toEqual({ status: 'done', progress: 100, labels: ['simulate'] });
+    expect(moveFor('block', ['vessel', 'dispatch'])).toEqual({ status: 'blocked', labels: ['vessel'] });
+  });
+
+  it('hands an Element back with one dispatch label', () => {
+    expect(moveFor('reopen', ['vessel'])).toEqual({ status: 'todo', labels: ['vessel', 'dispatch'] });
+    expect(moveFor('go', ['vessel', 'dispatch'])).toEqual({ labels: ['vessel', 'dispatch'] });
+    expect(moveFor('go', null)).toEqual({ labels: ['dispatch'] });
+  });
+
+  it('never dispatches a decision', () => {
+    expect(() => moveFor('go', ['decision'])).toThrow();
+    expect(() => moveFor('reopen', ['decision'])).toThrow();
+    expect(moveFor('done', ['decision'])).toMatchObject({ status: 'done' });
   });
 });
 

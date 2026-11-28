@@ -24,9 +24,12 @@
 //
 // The vessel loop (.claude/vessel/README.md) adds two labels. An Element
 // labelled 'simulate' runs one simulation and starts with prompts/simulate.md
-// instead of implement.md. It waits while any 'vessel' Element (a gap a
-// simulation found) is still open, so the next simulation meets the vessel
-// with the last round's gaps closed, and only one simulation runs at a time.
+// instead of implement.md. It waits while a 'vessel' Element (a gap a
+// simulation found) is handed over and todo or in_progress, so the next
+// simulation meets the vessel with the last round's gaps worked through.
+// A gap that went blocked (waiting on a person) or was filed held does not
+// hold the loop: the next simulation runs and meets it again. Only one
+// simulation runs at a time.
 //
 // It polls once a minute: an assignment or a label change has no realtime
 // event board-listen hears, and a minute is nothing next to a session that
@@ -85,8 +88,9 @@ export function pickDispatchable(rows, { running, slots, now }) {
   const has = (r, label) => (r.labels ?? []).includes(label)
   const open = (r) => r.status === 'todo' || r.status === 'in_progress'
   const handed = rows.filter((r) => has(r, DISPATCH_LABEL) && open(r) && r.runners.includes(RUNNER))
-  // A simulation waits for the gaps the last one found, and for any other
-  // simulation still being worked on (held or started here).
+  // A simulation waits for handed-over gaps still to be worked (todo or
+  // in_progress; a blocked one waits on a person and does not hold the loop),
+  // and for any other simulation being worked on (held or started here).
   const gapsOpen = handed.some((r) => has(r, VESSEL_LABEL))
   const held = (r) => !!r.claimed_by && !!r.claim_expires_at && Date.parse(r.claim_expires_at) > now
   let simulating = handed.some((r) => has(r, SIMULATE_LABEL) && (held(r) || running.has(r.id)))

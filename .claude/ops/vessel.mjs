@@ -10,17 +10,24 @@
 //
 //   gap       labels vessel + dispatch, high, assigned to the Claude Code runner
 //   sim       labels simulate + dispatch, low, assigned to the Claude Code runner
-//   decision  labels vessel + decision, an approval for the Space's owner;
-//             never dispatched (a person decides it)
+//   decision  label decision, an approval for the Space's owner (reviewer,
+//             notified); never dispatched, and not counted as loop work
+//
+// A dispatched session ends its Element here too: lease.mjs release only
+// drops the lease, and an Element left in_progress with 'dispatch' would be
+// started again. Every command acts only on Elements of this Object, so a
+// display_id shared with another Space never reaches it.
 //
 // Usage (from anywhere in the repo):
 //   node .claude/ops/vessel.mjs open
+//   node .claude/ops/vessel.mjs closed [--limit 20]
 //   node .claude/ops/vessel.mjs file --kind gap|sim|decision --title "…" --file body.md [--hold]
-//   node .claude/ops/vessel.mjs go <display_id>
+//   node .claude/ops/vessel.mjs go|done|block|reopen <display_id>
 //
-// `open` lists the Object's Elements that are not done or cancelled, one per
-// line, so a session can see what is already filed before it files more.
-// `--hold` files without the dispatch label; `go` adds it later.
+// `open` lists what is not done or cancelled; `closed` what is done, newest
+// first, with the time it changed. `--hold` files without the dispatch label;
+// `go` adds it. `done` and `block` take the dispatch label off; `reopen`
+// puts the Element back to todo with it.
 
 import { readFileSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -46,7 +53,7 @@ export function elementFor(kind, { title, description, hold = false }) {
   if (kind === 'decision') {
     return {
       title: t, description, status: 'todo', priority: 'high',
-      labels: ['vessel', 'decision'], is_approval: true, approval_state: 'pending',
+      labels: ['decision'], is_approval: true, approval_state: 'pending',
     }
   }
   const label = kind === 'gap' ? 'vessel' : 'simulate'
@@ -54,6 +61,25 @@ export function elementFor(kind, { title, description, hold = false }) {
     title: t, description, status: 'todo', priority: kind === 'gap' ? 'high' : 'low',
     labels: hold ? [label] : [label, 'dispatch'],
   }
+}
+
+export const MOVES = ['go', 'done', 'block', 'reopen']
+
+/**
+ * What a move writes to an Element with these labels. Pure.
+ * @param {'go'|'done'|'block'|'reopen'} move
+ * @param {string[] | null} labels
+ */
+export function moveFor(move, labels) {
+  const current = labels ?? []
+  if (current.includes('decision') && (move === 'go' || move === 'reopen')) throw new Error('a decision is not dispatched')
+  const without = current.filter((l) => l !== 'dispatch')
+  const withIt = [...without, 'dispatch']
+  if (move === 'go') return { labels: withIt }
+  if (move === 'done') return { status: 'done', progress: 100, labels: without }
+  if (move === 'block') return { status: 'blocked', labels: without }
+  if (move === 'reopen') return { status: 'todo', labels: withIt }
+  throw new Error(`unknown move: ${move}`)
 }
 
 /** One line for `open`. Pure. */
@@ -102,6 +128,7 @@ function board() {
     get: (path) => call('GET', path),
     insert: (table, row) => call('POST', table, row, 'return=representation'),
     patch: (table, query, row) => call('PATCH', `${table}?${query}`, row, 'return=minimal'),
+    remove: (table, query) => call('DELETE', `${table}?${query}`, undefined, 'return=minimal'),
   }
 }
 
@@ -117,7 +144,14 @@ async function context(db) {
   if (!runner) throw new Error('no Worker with ai_config.runner = claude-code in the dev Space')
   const [owner] = await db.get(`activity_space_members?activity_space_id=eq.${space}&role=eq.owner&select=user_id`)
   const [human] = owner ? await db.get(`workers?user_id=eq.${owner.user_id}&type=eq.human&select=id`) : []
-  return { objectId: object.id, runnerId: runner.id, ownerWorkerId: human?.id ?? null }
+  return { objectId: object.id, runnerId: runner.id, ownerUserId: owner?.user_id ?? null, ownerWorkerId: human?.id ?? null }
+}
+
+/** An Element of the vessel Object by display_id. */
+async function vesselElement(db, objectId, ref) {
+  const [el] = await db.get(`elements?object_id=eq.${objectId}&display_id=eq.${encodeURIComponent(ref)}&select=id,display_id,labels,status`)
+  if (!el) throw new Error(`not found in '${VESSEL_OBJECT}': ${ref}`)
+  return el
 }
 
 async function cmdOpen(db) {
@@ -128,32 +162,53 @@ async function cmdOpen(db) {
   if (rows.length === 0) console.log('(nothing open)')
 }
 
+async function cmdClosed(db, args) {
+  const { objectId } = await context(db)
+  const limit = Math.max(1, Math.min(100, Number(args.limit ?? 20) || 20))
+  const rows = await db.get(`elements?object_id=eq.${objectId}&status=eq.done`
+    + `&select=id,display_id,title,status,labels,claimed_by,updated_at&order=updated_at.desc&limit=${limit}`)
+  for (const r of rows) console.log(`${r.updated_at}\t${openLine(r)}`)
+  if (rows.length === 0) console.log('(nothing closed)')
+}
+
 async function cmdFile(db, args) {
   const kind = String(args.kind ?? '')
   const title = typeof args.title === 'string' ? args.title : ''
   const description = readBody(args) ?? ''
   const row = elementFor(kind, { title, description, hold: args.hold === true })
   const ctx = await context(db)
+  // Everything that can fail before the row exists is checked first, and a
+  // failure after it takes the row back: a half-filed gap with no assignee
+  // would sit in `open` and never be picked up.
+  const assignee = kind === 'decision'
+    ? { worker_id: ctx.ownerWorkerId, role: 'reviewer' }
+    : { worker_id: ctx.runnerId, role: 'assignee' }
+  if (!assignee.worker_id) throw new Error('the Space owner has no human Worker to decide this')
   const [el] = await db.insert('elements', { ...row, object_id: ctx.objectId })
-  await db.insert('element_objects', { element_id: el.id, object_id: ctx.objectId, is_primary: true })
-    .catch((err) => { if (!/duplicate|23505/.test(err.message)) throw err })
-  if (kind === 'decision') {
-    if (!ctx.ownerWorkerId) throw new Error('the Space owner has no human Worker to decide this')
-    await db.insert('element_assignees', { element_id: el.id, worker_id: ctx.ownerWorkerId, role: 'reviewer' })
-  } else {
-    await db.insert('element_assignees', { element_id: el.id, worker_id: ctx.runnerId, role: 'assignee' })
+  try {
+    await db.insert('element_objects', { element_id: el.id, object_id: ctx.objectId, is_primary: true })
+      .catch((err) => { if (!/duplicate|23505/.test(err.message)) throw err })
+    await db.insert('element_assignees', { element_id: el.id, ...assignee })
+  } catch (err) {
+    await db.remove('elements', `id=eq.${el.id}`).catch(() => {})
+    throw err
   }
   const [filed] = await db.get(`elements?id=eq.${el.id}&select=display_id`)
-  console.log(`FILED     ${filed?.display_id ?? el.id}\t${kind}\t${row.title}`)
+  const ref = filed?.display_id ?? el.id
+  if (kind === 'decision' && ctx.ownerUserId) {
+    await db.insert('notifications', {
+      recipient_id: ctx.ownerUserId, kind: 'approval_requested', actor_name: 'Claude',
+      element_id: el.id, object_id: ctx.objectId, title: `判断が必要です: ${row.title}`,
+    }).catch((err) => console.error(`WARN      the decision is filed but not notified: ${err.message}`))
+  }
+  console.log(`FILED     ${ref}\t${kind}\t${row.title}`)
 }
 
-async function cmdGo(db, ref) {
-  const [el] = await db.get(`elements?display_id=eq.${encodeURIComponent(ref)}&select=id,labels`)
-  if (!el) throw new Error(`not found: ${ref}`)
-  const labels = el.labels ?? []
-  if (labels.includes('decision')) throw new Error('a decision is not dispatched')
-  if (!labels.includes('dispatch')) await db.patch('elements', `id=eq.${el.id}`, { labels: [...labels, 'dispatch'] })
-  console.log(`GO        ${ref}`)
+async function cmdMove(db, move, ref) {
+  const { objectId } = await context(db)
+  const el = await vesselElement(db, objectId, ref)
+  await db.patch('elements', `id=eq.${el.id}`, moveFor(move, el.labels))
+  console.log(`${move.toUpperCase().padEnd(10)}${el.display_id}`)
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -165,11 +220,12 @@ if (isMain) {
   const args = parseArgs(process.argv.slice(2))
   const cmd = args._[0]
   const run = cmd === 'open' ? (db) => cmdOpen(db)
+    : cmd === 'closed' ? (db) => cmdClosed(db, args)
     : cmd === 'file' ? (db) => cmdFile(db, args)
-    : cmd === 'go' && args._[1] ? (db) => cmdGo(db, args._[1])
+    : MOVES.includes(cmd) && args._[1] ? (db) => cmdMove(db, cmd, args._[1])
     : null
   if (!run) {
-    console.error('usage: vessel.mjs open | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go <display_id>')
+    console.error('usage: vessel.mjs open | closed [--limit n] | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go|done|block|reopen <display_id>')
     process.exit(2)
   }
   run(board()).catch((err) => {
