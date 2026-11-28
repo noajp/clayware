@@ -194,8 +194,11 @@
   --sidebar-width: 240px;
 
   /* ---- Typography ---- */
-  --font-sans: "Inter Variable", "Clayware JP", -apple-system, "SF Pro Display", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Berkeley Mono", ui-monospace, monospace;
+  /* Inter has no Japanese: "Clayware JP" (below) takes those glyphs, at weights
+     matched to Inter's, before the system's own Japanese font. Both families
+     are loaded in app/layout.tsx. */
+  --font-sans: "Inter Variable", "Clayware JP", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   /* ---- Shadcn/UI token mapping — Light ---- */
   --background:           var(--surface-bg);
