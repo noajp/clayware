@@ -49,3 +49,7 @@ next-env.d.ts
 
 # python
 __pycache__/
+
+# Scratch files sessions write (the vessel loop's Element bodies). Kept out
+# of git so a session's worktree stays clean for `npm run sync`.
+.tmp/

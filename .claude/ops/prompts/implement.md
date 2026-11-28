@@ -9,3 +9,4 @@ Element: {{display_id}} — {{title}} (id {{element_id}})
 4. If a tool you need is refused, do not work around it: that is a reason to stop (point 3).
 5. Remove the `dispatch` label when the Element is done or blocked, so it is not started again.
 6. Do not start other Elements. When this one is done or blocked, end the session.
+7. If the Element is in the Object「Sustainment — 器」(label `vessel`), follow `.claude/vessel/README.md`, and end it with `node .claude/ops/vessel.mjs done {{display_id}}` or `block {{display_id}}` after releasing the lease: these set the status and take the `dispatch` label off.
