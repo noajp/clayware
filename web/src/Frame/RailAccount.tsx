@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { WorkerAvatar } from '@/Function/shared/WorkerAvatar';
 import { useI18n } from '@/Function/i18n/I18nProvider';
@@ -9,7 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/ui/popover';
 import { NavCalendarIcon, NavMyTasksIcon, NavNoteIcon } from '@/Frame/sidebar/NavIcons';
 import { ProfileMenu } from '@/Frame/sidebar/ProfileMenu';
 
-// The foot of the ModeRail: the gear to Settings, and under it, last, who
+// The foot of the ModeRail: what the rail hands in (Inbox), the gear to
+// Settings, and under it, last, who
 // you are — your face, with a dot for whether this window is connected. The
 // face opens the account card (ProfileMenu): the Profile from its header,
 // then Note, My Elements and Calendar, then Settings and signing out. Online
@@ -22,7 +23,7 @@ const subscribe = (fn: () => void) => {
   return () => { window.removeEventListener('online', fn); window.removeEventListener('offline', fn); };
 };
 
-export function RailAccount({ profileOpen, settingsOpen, onOpenProfile, onOpenView, onSettings }: {
+export function RailAccount({ profileOpen, settingsOpen, onOpenProfile, onOpenView, onSettings, children }: {
   /** The Profile is the open screen. */
   profileOpen: boolean;
   /** Settings is the open screen. */
@@ -31,6 +32,8 @@ export function RailAccount({ profileOpen, settingsOpen, onOpenProfile, onOpenVi
   /** Open one of the person's own screens (Note, My Elements, Calendar). */
   onOpenView: (view: string) => void;
   onSettings: () => void;
+  /** Buttons drawn above the gear. */
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const { user, profile, signOut } = useAuthContext();
@@ -43,6 +46,7 @@ export function RailAccount({ profileOpen, settingsOpen, onOpenProfile, onOpenVi
   const label = `${name ?? t('Profile')} — ${online ? t('Online') : t('Offline')}`;
   return (
     <div className="mt-auto flex flex-col items-center gap-1">
+      {children}
       <button type="button" onClick={onSettings} title={t('Settings')} aria-label={t('Settings')}
         aria-current={settingsOpen ? 'page' : undefined}
         className={`${cell} ${settingsOpen ? 'bg-sidebar-accent text-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground'}`}>

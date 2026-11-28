@@ -16,12 +16,12 @@ import type { Sustainment } from '@/types/database';
 
 // The thin column at the far left: Athena (her character, anchored at the
 // top like the user's avatar at the bottom), a hairline,
-// Inbox, Strategy, Execution and Team; under a second hairline, the Space's
+// Strategy, Execution and Team; under a second hairline, the Space's
 // Sustainments, one button each, and "+" to add one. It is sunk into the
 // window's ground, with no frame of its own, beside the one island that
 // holds the sidebar and the screen; picking a place swaps what the sidebar
 // lists. Icons only; each is named for the screen reader and the tooltip.
-// At its foot, Settings and, last, you.
+// At its foot, Inbox, Settings and, last, you.
 
 const CELL = 'flex size-10 shrink-0 items-center justify-center rounded-md transition-colors';
 const cellTone = (on: boolean) => (on
@@ -56,10 +56,9 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
   return (
     <nav aria-label={t('Places')}
       className={`app-sidebar relative z-20 flex w-[52px] shrink-0 flex-col items-center gap-1 overflow-x-visible overflow-y-hidden bg-none py-3 ${className}`}>
-      {RAIL_SECTIONS.map(({ id, label, icon: Icon }) => {
+      {RAIL_SECTIONS.filter((s) => !s.foot).map(({ id, label, icon: Icon }) => {
         const on = active === id;
-        const unread = id === 'inbox' && unreadCount > 0;
-        const name = unread ? `${t(label)} (${unreadCount})` : t(label);
+        const name = t(label);
         if (id === 'assistant') {
           return (
             <Fragment key={id}>
@@ -94,9 +93,8 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
         return (
           <button key={id} type="button" onClick={() => onSelect(id)}
             aria-label={name} title={name} aria-current={on ? 'page' : undefined}
-            className={`relative ${CELL} ${cellTone(on)}`}>
+            className={`${CELL} ${cellTone(on)}`}>
             <Icon size={18} />
-            {unread && <span aria-hidden className="absolute right-2 top-2 size-2 rounded-full bg-primary" />}
           </button>
         );
       })}
@@ -111,7 +109,21 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
         </button>
       </div>
       <RailAccount profileOpen={activeView === 'profile'} settingsOpen={activeView === 'settings'}
-        onOpenProfile={() => onOpenView('profile')} onOpenView={onOpenView} onSettings={onSettings} />
+        onOpenProfile={() => onOpenView('profile')} onOpenView={onOpenView} onSettings={onSettings}>
+        {RAIL_SECTIONS.filter((s) => s.foot).map(({ id, label, icon: Icon }) => {
+          const on = active === id;
+          const unread = id === 'inbox' && unreadCount > 0;
+          const name = unread ? `${t(label)} (${unreadCount})` : t(label);
+          return (
+            <button key={id} type="button" onClick={() => onSelect(id)}
+              aria-label={name} title={name} aria-current={on ? 'page' : undefined}
+              className={`relative ${CELL} ${cellTone(on)}`}>
+              <Icon size={18} />
+              {unread && <span aria-hidden className="absolute right-2 top-2 size-2 rounded-full bg-primary" />}
+            </button>
+          );
+        })}
+      </RailAccount>
       {creating && <CreateSustainmentDialog onClose={() => setCreating(false)} onCreate={createSustainment}
         onCreated={(row) => { setCreating(false); onOpenSustainment(row.id); }} />}
     </nav>
