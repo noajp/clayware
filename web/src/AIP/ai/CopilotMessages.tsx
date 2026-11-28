@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { AiGraph, Check, CheckCheck, Code, Copy, FileText, Globe, Pencil, Plus, RotateCcw, Search, Trash2, Wrench, X } from '@/ui/icons';
+import { Check, CheckCheck, Code, Copy, FileText, Globe, Pencil, Plus, RotateCcw, Search, Trash2, Wrench, X } from '@/ui/icons';
+import { AthenaAvatar } from './AthenaAvatar';
 import { formatAge } from '@/Function/shared/dateUtils';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { MarkdownLite } from '@/Function/shared/MarkdownLite';
@@ -55,7 +56,7 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
       <div className="group flex flex-col items-end gap-1 animate-fade-in">
         {message.attachments?.length ? <AttachmentChips files={message.attachments} /> : null}
         {message.content && (
-          <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3.5 py-2.5 text-[13.5px] leading-[1.55] text-foreground">
+          <div className="max-w-[82%] whitespace-pre-wrap break-words rounded-[16px] rounded-br-[4px] bg-[var(--surface-muted)] px-4 py-2.5 text-[13.5px] leading-[1.6] text-foreground">
             {message.content}
           </div>
         )}
@@ -73,10 +74,8 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
   const settled = message.done && !streaming;
   return (
     <div className="group space-y-2.5">
-      <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-muted-foreground">
-        <span className="flex size-5 items-center justify-center rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-well)] text-[var(--accent-default)]">
-          <AiGraph size={12} />
-        </span>
+      <div className="flex items-center gap-2 text-[12px] font-medium text-foreground/85">
+        <AthenaAvatar size="xs" working={streaming} />
         <span>{t('Athena')}</span>
       </div>
       <ToolSteps events={events} live={streaming} answered={!!message.content} />

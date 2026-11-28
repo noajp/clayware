@@ -17,6 +17,9 @@ type Conversation = ReturnType<typeof useClaywareCopilot> & {
   library: ReturnType<typeof useAiConversations>;
   /** The kept session on screen; null for one not yet answered. */
   sessionId: string | null;
+  /** Folder a fresh unsaved conversation will be filed into; null for Recent. */
+  draftFolderId: string | null;
+  setDraftFolderId: (folderId: string | null) => void;
   openSession: (id: string) => Promise<void>;
   /** A fresh conversation, kept in this folder once answered (none: loose). */
   newConversation: (folderId?: string | null) => void;
@@ -41,6 +44,11 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   const loadMessagesRef = useRef<((id: string) => Promise<unknown[] | null>) | null>(null);
   const saveSessionRef = useRef<((id: string | null, patch: { title?: string; folder_id?: string | null; messages: unknown[] }) => Promise<string | null>) | null>(null);
   const folderForNew = useRef<string | null>(null);
+  const [draftFolderId, setDraftFolderIdState] = useState<string | null>(null);
+  const setDraftFolderId = useCallback((folderId: string | null) => {
+    folderForNew.current = folderId;
+    setDraftFolderIdState(folderId);
+  }, []);
   const adoptSession = useCallback((id: string | null) => {
     sessionIdRef.current = id;
     setSessionId(id);
@@ -98,9 +106,9 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
 
   const newConversation = useCallback((folderId: string | null = null) => {
     reset();
-    folderForNew.current = folderId;
+    setDraftFolderId(folderId);
     adoptSession(null);
-  }, [reset, adoptSession]);
+  }, [reset, setDraftFolderId, adoptSession]);
 
   // Coming to the AI chat lands on a fresh conversation (the previous
   // one is never resumed automatically; it waits in the sidebar list).
@@ -117,9 +125,9 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     if (!kept) return;
     load(kept as CopilotMessage[]);
     // A kept conversation is already filed; its saves never move it.
-    folderForNew.current = null;
+    setDraftFolderId(null);
     adoptSession(id);
-  }, [loadMessages, load, adoptSession]);
+  }, [loadMessages, load, setDraftFolderId, adoptSession]);
 
   // Another Space has its own conversations.
   // eslint-disable-next-line react-hooks/set-state-in-effect -- the Space is an outside store; its change starts afresh
@@ -134,12 +142,12 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     wasStreaming.current = streaming;
     if (!finished || messages.length === 0 || !sessionId) return;
     const folderId = folderForNew.current;
-    folderForNew.current = null;
+    setDraftFolderId(null);
     void fileSession(sessionId, { title: copilotTitleOf(messages), folder_id: folderId });
-  }, [streaming, messages, sessionId, fileSession]);
+  }, [streaming, messages, sessionId, fileSession, setDraftFolderId]);
 
   return (
-    <CopilotContext.Provider value={{ ...conversation, library, sessionId, openSession, newConversation, arriveAtAi }}>
+    <CopilotContext.Provider value={{ ...conversation, library, sessionId, draftFolderId, setDraftFolderId, openSession, newConversation, arriveAtAi }}>
       {children}
     </CopilotContext.Provider>
   );
@@ -149,4 +157,9 @@ export function useCopilotConversation(): Conversation {
   const conversation = useContext(CopilotContext);
   if (!conversation) throw new Error('useCopilotConversation needs a CopilotProvider');
   return conversation;
+}
+
+/** Reads whether Athena is currently streaming a reply; safe outside CopilotProvider. */
+export function useCopilotStreaming(): boolean {
+  return useContext(CopilotContext)?.streaming ?? false;
 }
