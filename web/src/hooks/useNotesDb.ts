@@ -59,41 +59,27 @@ function rowToNode(r: NoteRow): NoteNode {
 /** App overview written into the seeded readme. Sanitiser-safe HTML
  *  (h1/h2/p/ul/li/strong — see brief/editor/htmlSanitizer). */
 const APP_GUIDE_README_HTML = `<h1>Clayware へようこそ</h1>
-<p>Clayware は世界最高の組織活動支援ツールを目指しています。企業・軍事作戦・病院など業界を問わず、あらゆる組織活動を業界非依存の少数概念で扱います。</p>
-<h2>三分類</h2>
-<p>機能は Strategy / Execution / Sustainment の三つに分類されます。全体の体系はクラウゼヴィッツ『戦争論』の 戦略・戦闘・兵站 に着想を得ています。</p>
+<p>Clayware は、チームの業務アシスタント Athena を起点にした業務基盤です。チームの誰もが Athena に頼み、Athena が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。</p>
+<p>すべてが Space ごとの一つの共有データの上にあり、個人ではなくチームで使います。誰が頼んだ仕事でも、目的・判断・結果は組織の記録として残り、見られる範囲は権限で決まります。</p>
+<h2>Athena と Inbox</h2>
 <ul>
-<li><strong>Strategy（戦略）</strong> — 何を達成し、どう勝つか。Strategy が単位で、複数の Strategy を束ねると戦略になる。</li>
-<li><strong>Execution（戦闘）</strong> — 実際に行動する。Element → Object → Domain。</li>
-<li><strong>Sustainment（兵站）</strong> — 行動を支える仕事道具。</li>
+<li><strong>Athena</strong> — レールの一番上。押すと、どの画面からでも Agent のチャットが開く</li>
+<li><strong>Inbox</strong> — その下。承認待ちと通知が届く</li>
 </ul>
-<h2>機能</h2>
-<h3>Strategy</h3>
+<h2>三つの分類</h2>
+<p>Strategy と Execution が、仕事を管理する単位です。</p>
 <ul>
-<li><strong>Strategy</strong> — 複数の Object を束ね、意図・前提・決定・成功条件を持つ。Strategy は Strategy を内包できる</li>
-<li><strong>Phase</strong> — 努力をどの段階に配分するかの時間箱</li>
-<li><strong>Timeline</strong> — Strategy の期間・シーケンスを Gantt で俯瞰</li>
+<li><strong>Strategy</strong> — 何を達成し、どう勝つか。Vision（Space の目指す姿）と、それを勝ち取る筋道の Portfolio（入れ子にできる）。目的・前提・意思決定・成功条件を持つ</li>
+<li><strong>Execution</strong> — 実際の行動。Domain（活動の場）→ Object（Element をまとめる持ち場）→ Element（行動の最小単位）。担当・期限・進捗・依存はここで扱う</li>
+<li><strong>Sustainment</strong> — 経理・CRM など、会社ごとに作る業務アプリ。Strategy・Execution とは独立していて、人との接点は Inbox だけ。レールの区切り線の下に並び、＋で作る。中の機能（請求・経費など）はまだない</li>
 </ul>
-<h3>Execution</h3>
-<p>三層はアーレント『人間の条件』の 労働・仕事・活動 に着想を得ています。</p>
+<h2>道具</h2>
 <ul>
-<li><strong>Element</strong> — 行動の最小単位。複数の Object に同時に所属可能</li>
-<li><strong>Object</strong> — Element を束ねる単位。Domain 直下のフラット構造（病棟 / プロジェクト）</li>
-<li><strong>Domain</strong> — Object の集合（病院 / 会社 / 作戦）</li>
-<li><strong>Property</strong> — 実行単位に付与する型付きメタデータ（期限・担当・ステータス）</li>
-</ul>
-<h3>Sustainment</h3>
-<ul>
-<li><strong>Workload</strong> — Worker 別の日次負荷</li>
-<li><strong>Notebook</strong> — ドキュメント（議事録 / メモ）</li>
-<li><strong>Table</strong> — 任意の表</li>
-<li><strong>Team</strong> — Worker と所属</li>
-<li><strong>Calendar</strong> — Element の期日を時間軸で管理</li>
-</ul>
-<h3>Home</h3>
-<ul>
-<li><strong>Inbox</strong> — 通知フィード</li>
-<li><strong>My Elements</strong> — 自分が所有・アサインされた Element</li>
+<li><strong>Team</strong> — Worker（人と AI）と所属、Worker ごとの負荷（Workload）</li>
+<li><strong>Table</strong> — 顧客・候補・問い合わせなど、任意の分類の表</li>
+<li><strong>Note</strong> — 文章（議事録・メモ）。プロフィールから開く</li>
+<li><strong>My Elements</strong> — 自分が担当する Element。プロフィールから開く</li>
+<li><strong>Calendar</strong> — 期限のある Element と予定。プロフィールから開く</li>
 </ul>
 <p>このノートはいつでも編集・削除できます。</p>`;
 

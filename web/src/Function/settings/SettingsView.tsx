@@ -191,7 +191,7 @@ function PreferencesPanel() {
           <LanguageSelect field />
         </SettingRow>
         <SegmentedRow
-          label={t('Default home view')}
+          label={t('Opening view')}
           desc={t('Select which view to open when launching Clayware')}
           value={preferences.home_view}
           options={['My Elements', 'Inbox', 'Calendar']}
