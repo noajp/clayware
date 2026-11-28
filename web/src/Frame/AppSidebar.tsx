@@ -52,7 +52,7 @@ import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
 import { getActiveDomainId, setActiveDomainId, ACTIVE_DOMAIN_CHANGE_EVENT } from '@/Function/space/domainsStore';
 import { SpaceSwitcher } from '@/Function/space/SpaceSwitcher';
 
-import { MODE_META, railModeOf } from '@/Frame/railApps';
+import { railModeOf } from '@/Frame/railApps';
 import type { RailMode } from '@/Frame/railApps';
 import { CREATE_ELEMENT_EVENT, type CreateElementDetail } from '@/Frame/QuickAddElementLauncher';
 import { useCalendarDay } from '@/ActivitySpace/calendar/calendarStore';
@@ -168,7 +168,6 @@ export function AppSidebar({
   const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'assistant');
   if (viewSection && viewSection !== lastSection) setLastSection(viewSection);
   const section = viewSection ?? lastSection;
-  const { label: aiLabel, icon: AiIcon } = MODE_META.ai;
   const [draggingDomain, setDraggingDomain] = useState<Domain | null>(null);
   const [width, setWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return SIDEBAR_MIN_WIDTH;
@@ -462,9 +461,6 @@ export function AppSidebar({
             {sidebarOrder.map((item) => {
               const row = (() => {
                 switch (item) {
-                  case 'ai':
-                    return <SidebarRow active={activeView === 'ai'} icon={<AiIcon size={16} />} label={t(aiLabel)}
-                      onClick={() => onViewChange('ai')} />;
                   case 'inbox':
                     return <SidebarRow active={activeView === 'inbox'} icon={<NavInboxIcon size={16} />} label={t('Inbox')}
                       meta={unreadCount > 0 ? unreadCount : undefined}

@@ -10,7 +10,7 @@ import { useSustainments } from '@/hooks/useSustainments';
 import { Plus } from '@/ui/icons';
 import type { Sustainment } from '@/types/database';
 
-// The thin column at the far left: Athena (the Agent, under the Clayware
+// The thin column at the far left: Athena (the Agent's chat, under its
 // mark), Strategy, Execution and Team; under a hairline, the Space's
 // Sustainments, one button each, and "+" to add one. It is sunk into the
 // window's ground, with no frame of its own, beside the one island that
@@ -23,9 +23,9 @@ const cellTone = (on: boolean) => (on
   ? 'bg-sidebar-accent text-foreground'
   : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground');
 
-/** The Clayware mark: the wordmark's first letter, as the site's header
- *  sets the name (there is no drawn logo). */
-function ClaywareMark() {
+/** Athena's mark, the rail's top button. Athena's character logo goes
+ *  here; until it is in the repo, the letter C stands in. */
+function AthenaMark() {
   return <span aria-hidden className="text-[17px] font-semibold leading-none tracking-[-0.01em]">C</span>;
 }
 
@@ -56,7 +56,7 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
           <button key={id} type="button" onClick={() => onSelect(id)}
             aria-label={t(label)} title={t(label)} aria-current={on ? 'page' : undefined}
             className={`${CELL} ${cellTone(on)}`}>
-            {id === 'assistant' ? <ClaywareMark /> : <Icon size={18} />}
+            {id === 'assistant' ? <AthenaMark /> : <Icon size={18} />}
           </button>
         );
       })}

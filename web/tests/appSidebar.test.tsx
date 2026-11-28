@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 //
-// Home's rows in the sidebar: Inbox carrying its unread count as a plain
-// number in the row's meta slot, then the Agent, My Elements and Calendar.
+// Athena's rows in the sidebar: Inbox carrying its unread count as a plain
+// number in the row's meta slot, then My Elements and Calendar (the Agent
+// itself is the rail's top button, not a row).
 // The count is the StatusBar badge's own source — useNotifications over
 // the signed-in user — and at zero unread the row carries no meta at
 // all. Rows stay icon + name (+ count): no subtitle, no annotation.
@@ -113,9 +114,10 @@ afterEach(() => {
 });
 
 describe('AppSidebar fixed top block', () => {
-  it('renders Home as Inbox → Agent → My Elements → Calendar by default', () => {
+  it('renders Inbox → My Elements → Calendar by default, with no Agent row', () => {
     renderSidebar();
-    const order = ['Inbox', 'Agent', 'My Elements', 'Calendar'].map(rowOf);
+    expect(screen.queryByText('Agent')).toBeNull();
+    const order = ['Inbox', 'My Elements', 'Calendar'].map(rowOf);
     for (let i = 0; i < order.length - 1; i++) {
       expect(
         order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,

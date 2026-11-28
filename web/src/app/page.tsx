@@ -533,8 +533,10 @@ function WorkspaceContent({
   // keeps whatever is open in it. Unlike a sidebar row it leaves the phone's
   // drawer open, so the place's list can be chosen from next.
   const handleRailSelect = (section: RailSection) => {
+    // Athena opens the Agent's chat in one press, even from its own place
+    // (Inbox, My Elements, Calendar).
+    if (section === 'assistant') { if (activeTab.activeView !== 'ai') setActiveView('ai'); return; }
     if (railSectionOf(activeTab.activeView) === section) return;
-    if (section === 'assistant') { setActiveView('ai'); return; }
     if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
     if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
     setActiveNavigation({ workerId: null, unitId: null });

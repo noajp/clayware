@@ -5,7 +5,7 @@ import { NavAiIcon, NavDomainIcon, NavStrategyIcon, NavTeamsIcon } from '@/Frame
 
 // The ModeRail's four places, left of the sidebar. Each picks what the
 // sidebar lists: the assistant, Athena (what is yours — the Agent, Inbox,
-// your Elements, your Calendar; its rail button is the Clayware mark), Strategy (the Visions, each with its Portfolios, as
+// your Elements, your Calendar; its rail button is Athena's mark and opens the Agent's chat), Strategy (the Visions, each with its Portfolios, as
 // Execution has Domains with their Objects), Execution (what you starred,
 // and the Domains) and Team (the organisation's units and who is in them). A unit says who
 // someone answers to and a Domain where they work, so Team and Execution

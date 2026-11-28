@@ -58,7 +58,7 @@ Urgent（赤）/ High（橙）/ Medium / Low（灰の濃淡）/ 未設定。`PRI
 
 ## Athena と動詞
 
-- Athena は印を持たず名前の文字だけ。例外はレールの一番上の入口で、Clayware の印（`ModeRail` の `ClaywareMark`）を使う。モデル名を出さない。性能は Most capable / Advanced / Standard / Fast（`athenaSettings.ts`・`AthenaControls.tsx`）
+- Athena は印を持たず名前の文字だけ。例外はレールの一番上の入口で、Athena のキャラクターのロゴ（`ModeRail` の `AthenaMark`）を使う。モデル名を出さない。性能は Most capable / Advanced / Standard / Fast（`athenaSettings.ts`・`AthenaControls.tsx`）
 - 人だけの動詞 Judge / Decide / Approve / Answer は警告の橙。ほかの 9 動詞は AI もできる
 
 ## 面と島

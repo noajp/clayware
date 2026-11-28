@@ -1,9 +1,10 @@
-// The order of Home's rows in the sidebar. Each person drags them into the
+// The order of Athena's rows in the sidebar (the Agent itself is the rail's
+// top button, not a row). Each person drags them into the
 // order they want; it is kept in this browser (a convenience, not a
 // record). A saved order is read leniently: an unknown row is dropped
 // and a row it never knew — one added since — joins at its default place.
 
-export const SIDEBAR_ITEMS = ['inbox', 'ai', 'my-elements', 'calendar'] as const;
+export const SIDEBAR_ITEMS = ['inbox', 'my-elements', 'calendar'] as const;
 export type SidebarItem = (typeof SIDEBAR_ITEMS)[number];
 
 const KEY = 'clayware:sidebar-order';
