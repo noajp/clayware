@@ -25,9 +25,8 @@ const cellTone = (on: boolean) => (on
   ? 'bg-sidebar-accent text-foreground'
   : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground');
 
-/** Athena's mark, the rail's top button: the crowned ghost from the chest
- *  up, idling, cut out on its own (no circle, no tile) and fading out
- *  below. With reduced motion it holds still
+/** Athena's mark, the rail's top button: the crowned ghost down to its
+ *  arms, idling, cut out on its own (no circle, no tile, no shadow). With reduced motion it holds still
  *  on its first frame. The button carries the name, so the picture is
  *  decorative. */
 function AthenaMark() {
