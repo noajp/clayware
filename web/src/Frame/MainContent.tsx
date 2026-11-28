@@ -108,7 +108,9 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
           )}
 
           {activeActivity === 'sustainment' && (
-            <SustainmentView sustainmentId={navigation.sustainmentId ?? null} />
+            <SustainmentView sustainmentId={navigation.sustainmentId ?? null}
+              functionId={navigation.sustainmentFunctionId ?? null}
+              onOpenFunction={(id) => onNavigate({ sustainmentFunctionId: id })} />
           )}
 
           {activeActivity === 'vision' && (

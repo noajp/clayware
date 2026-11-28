@@ -2138,6 +2138,29 @@ export interface Sustainment {
   activity_space_id: string
   name: string
   icon: string | null
+  /** What it is for, in a sentence or two. */
+  description: string | null
+  order_index: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** One function of a Sustainment (billing, expenses, deals …): its
+ *  definition document in contract `sustainment/v0`. */
+export interface SustainmentFunction {
+  id: string
+  activity_space_id: string
+  sustainment_id: string
+  name: string
+  icon: string | null
+  /** The business template it started from, if any. */
+  template_key: string | null
+  /** What differs for this company, in the team's own words. */
+  differences: string | null
+  definition: unknown
+  status: 'draft' | 'published'
+  published_at: string | null
   order_index: number | null
   created_by: string | null
   created_at: string
