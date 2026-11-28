@@ -42,6 +42,10 @@ order by (e.phase_id is not null) desc,
 
 途中経過は `node .claude/ops/lease.mjs comment <id> --text "…"` で Element にコメントする。このコメントが、その Element を作業中として押さえておく期限（`claim_expires_at`）を延ばす。書き出しは `▶ 着手` / `● 進捗` / `⬆ PR — URL` / `✔ 完了` / `■ Blocked — 原因と必要な判断`。
 
+## 器を育てるループ
+
+Sustainment を会社ごとの業務アプリの器に育てる仕事は、人を待たずに回る。架空の会社の業務を器だけで組み立て（`simulate`）、組み立てられなかった所を欠け（`vessel`）として起票して直し、また次を回す。どちらも開発 Domain の Object「Sustainment — 器」に `dispatch` 付きで入り、dispatcher が拾う。規則は [.claude/vessel/README.md](../../vessel/README.md)、起票は `node .claude/ops/vessel.mjs`。
+
 ## Clayware から渡された仕事（dispatcher）
 
 人が Element を Claude Code に渡すと、その Element に `dispatch` ラベルが付く（Portfolio のページで分解案を承認したとき、Execution の「Hand to Claude Code」）。primary checkout で `cd web && npm run dispatch` を動かしておくと、`.claude/ops/dispatch.mjs` が1分ごとに次の Element を探し、1件ずつ新しい worktree（`.claude/worktrees/agent-<display_id>`）で headless の Claude Code を起動する。

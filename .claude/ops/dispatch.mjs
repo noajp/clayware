@@ -22,6 +22,12 @@
 // and never more than dev_control.max_concurrent at once, nothing at all
 // while dev_control.paused.
 //
+// The vessel loop (.claude/vessel/README.md) adds two labels. An Element
+// labelled 'simulate' runs one simulation and starts with prompts/simulate.md
+// instead of implement.md. It waits while any 'vessel' Element (a gap a
+// simulation found) is still open, so the next simulation meets the vessel
+// with the last round's gaps closed, and only one simulation runs at a time.
+//
 // It polls once a minute: an assignment or a label change has no realtime
 // event board-listen hears, and a minute is nothing next to a session that
 // runs for half an hour. One dispatcher per machine (singleLease).
@@ -47,6 +53,10 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 export const DISPATCH_LABEL = 'dispatch'
 export const RUNNER = 'claude-code'
+/** One simulation of a company's work, run against the vessel. */
+export const SIMULATE_LABEL = 'simulate'
+/** A gap in the vessel that a simulation found. */
+export const VESSEL_LABEL = 'vessel'
 
 // What a session may do without asking. Edits are accepted; shell commands
 // are limited to the tools the clayware skill's protocol uses. Anything else is
@@ -72,17 +82,36 @@ export const ALLOWED_TOOLS = [
 export function pickDispatchable(rows, { running, slots, now }) {
   if (slots <= 0) return []
   const rank = { urgent: 0, high: 1, medium: 2, low: 3 }
-  return rows
-    .filter((r) => (r.labels ?? []).includes(DISPATCH_LABEL))
-    .filter((r) => r.status === 'todo' || r.status === 'in_progress')
-    .filter((r) => r.runners.includes(RUNNER))
-    .filter((r) => !r.claimed_by || !r.claim_expires_at || Date.parse(r.claim_expires_at) <= now)
+  const has = (r, label) => (r.labels ?? []).includes(label)
+  const open = (r) => r.status === 'todo' || r.status === 'in_progress'
+  const handed = rows.filter((r) => has(r, DISPATCH_LABEL) && open(r) && r.runners.includes(RUNNER))
+  // A simulation waits for the gaps the last one found, and for any other
+  // simulation still being worked on (held or started here).
+  const gapsOpen = handed.some((r) => has(r, VESSEL_LABEL))
+  const held = (r) => !!r.claimed_by && !!r.claim_expires_at && Date.parse(r.claim_expires_at) > now
+  let simulating = handed.some((r) => has(r, SIMULATE_LABEL) && (held(r) || running.has(r.id)))
+  const picked = []
+  const ordered = handed
+    .filter((r) => !held(r))
     .filter((r) => !running.has(r.id))
     .sort((a, b) =>
       (a.phase_id ? 0 : 1) - (b.phase_id ? 0 : 1)
       || (rank[a.priority ?? 'medium'] ?? 2) - (rank[b.priority ?? 'medium'] ?? 2)
       || String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
-    .slice(0, slots)
+  for (const r of ordered) {
+    if (picked.length >= slots) break
+    if (has(r, SIMULATE_LABEL)) {
+      if (gapsOpen || simulating) continue
+      simulating = true
+    }
+    picked.push(r)
+  }
+  return picked
+}
+
+/** The prompt file an Element's session starts with. Pure. */
+export function promptFileFor(el) {
+  return (el.labels ?? []).includes(SIMULATE_LABEL) ? 'simulate.md' : 'implement.md'
 }
 
 /** The worktree directory and lease holder for an Element. `agent-` is the
@@ -187,7 +216,7 @@ function start(el, db, logKey, dryRun) {
   console.log(`START     ${el.display_id ?? el.id} ${el.title} → ${name}${dryRun ? ' (dry run)' : ''}`)
   if (dryRun) return
   const dir = prepareWorktree(name)
-  const prompt = implementPrompt(el, readFileSync(join(REPO, '.claude/ops/prompts/implement.md'), 'utf8'))
+  const prompt = implementPrompt(el, readFileSync(join(REPO, '.claude/ops/prompts', promptFileFor(el)), 'utf8'))
   const log = createWriteStream(join(tmpdir(), `dev-loop-${logKey}-${name}.log`), { flags: 'a' })
   const child = spawn('claude', [
     '-p', prompt,

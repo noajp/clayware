@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { implementPrompt, pickDispatchable, sessionName } from '../../.claude/ops/dispatch.mjs';
+import { implementPrompt, pickDispatchable, promptFileFor, sessionName } from '../../.claude/ops/dispatch.mjs';
 
 const now = Date.parse('2026-11-07T10:00:00Z');
 const row = (over: Record<string, unknown> = {}) => ({
@@ -58,5 +58,37 @@ describe('implementPrompt', () => {
   it('fills in the Element', () => {
     expect(implementPrompt({ id: 'u1', display_id: 'ELE_FN-001', title: '検索' }, '{{display_id}} {{title}} {{element_id}} {{display_id}}'))
       .toBe('ELE_FN-001 検索 u1 ELE_FN-001');
+  });
+});
+
+describe('the vessel loop', () => {
+  const sim = (over: Record<string, unknown> = {}) => row({ id: 'sim', labels: ['dispatch', 'simulate'], priority: 'low', ...over });
+  const gap = (over: Record<string, unknown> = {}) => row({ id: 'gap', labels: ['dispatch', 'vessel'], priority: 'high', ...over });
+  const pick = (rows: ReturnType<typeof row>[], running = new Set<string>()) =>
+    pickDispatchable(rows, { running, slots: 5, now }).map((r) => r.id);
+
+  it('runs a simulation when no gap is open', () => {
+    expect(pick([sim(), gap({ status: 'done' })])).toEqual(['sim']);
+  });
+
+  it('holds the simulation while a gap is open, even one being worked on', () => {
+    expect(pick([sim(), gap()])).toEqual(['gap']);
+    expect(pick([sim(), gap({ claimed_by: 'agent-ves-001', claim_expires_at: '2026-11-07T10:30:00Z' })])).toEqual([]);
+  });
+
+  it('runs one simulation at a time', () => {
+    expect(pick([sim({ id: 'a' }), sim({ id: 'b' })])).toEqual(['a']);
+    expect(pick([sim({ id: 'a' }), sim({ id: 'b' })], new Set(['a']))).toEqual([]);
+    expect(pick([sim({ id: 'a', claimed_by: 'agent-a', claim_expires_at: '2026-11-07T10:30:00Z' }), sim({ id: 'b' })])).toEqual([]);
+  });
+
+  it('leaves other work alone', () => {
+    expect(pick([sim(), gap(), row({ id: 'other' })])).toEqual(['gap', 'other']);
+  });
+
+  it('starts a simulation with its own prompt', () => {
+    expect(promptFileFor({ labels: ['dispatch', 'simulate'] })).toBe('simulate.md');
+    expect(promptFileFor({ labels: ['dispatch', 'vessel'] })).toBe('implement.md');
+    expect(promptFileFor({ labels: null })).toBe('implement.md');
   });
 });
