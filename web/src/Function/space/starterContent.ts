@@ -50,7 +50,8 @@ const ja: StarterContent = {
       name: 'はじめに — Clayware の考え方',
       description: 'Clayware が組織の活動をどう捉えるかを知る。',
       elements: [
-        { title: 'Strategy・Execution・Sustainment の 3 分類を知る', description: 'Strategy は「何を達成し、どう勝つか」、Execution は「実際の行動」、Sustainment は「仕事道具」です。左端のレールで切り替えます。' },
+        { title: 'Athena に仕事を頼む', description: 'レールの一番上の Athena を押すと、どの画面からでも Agent のチャットが開きます。Athena が計画を立てて作業を進め、判断と承認が要るところだけを人に回します。' },
+        { title: 'Strategy・Execution・Sustainment の 3 分類を知る', description: 'Strategy は「何を達成し、どう勝つか」、Execution は「実際の行動」で、この二つが仕事を管理する単位です。Sustainment は経理・CRM など会社ごとに作る業務アプリで、レールの区切り線の下に並びます。' },
         { title: 'Domain → Object → Element の階層を理解する', description: 'Domain は活動の場、Object は Element をまとめる持ち場（プロジェクトに近い）、Element は行動の最小単位です。いま見ているこの行が Element です。' },
         { title: 'この Element を完了にしてみる', description: 'ステータスを変更すると、Object の進捗に反映されます。' },
         { title: '⌘K でコマンドパレットを開く', description: '検索と画面の移動は ⌘K からまとめて行えます。' },
@@ -93,11 +94,11 @@ const ja: StarterContent = {
     {
       key: 'sustainment',
       name: '仕事道具を使う',
-      description: 'Sustainment の道具を一通り触る。',
+      description: 'Notebook・Table・Calendar・Workload を一通り触る。',
       elements: [
         { title: 'Notebook にノートを書く', description: '文章は Note に残します。' },
         { title: 'Table を作る', description: '任意の分類でデータを整理・分析するには Table を使います。' },
-        { title: 'Calendar で予定を確認する', description: '期限のある Element と予定を日付で見渡せます。' },
+        { title: 'Calendar で予定を確認する', description: '期限のある Element と予定を日付で見渡せます。プロフィールから開きます。' },
         { title: 'Workload で負荷を見る', description: '誰にどれだけ仕事が乗っているかを確認できます。' },
       ],
     },
@@ -139,7 +140,8 @@ const en: StarterContent = {
       name: 'Start here — how Clayware thinks',
       description: 'How Clayware models an organisation\'s activity.',
       elements: [
-        { title: 'Learn the three areas: Strategy, Execution, Sustainment', description: 'Strategy is what to achieve and how to win, Execution is the actual work, and Sustainment is the tools for the job. Switch between them on the left rail.' },
+        { title: 'Ask Athena to do a piece of work', description: 'Select Athena at the top of the rail to open the Agent chat from any screen. Athena plans the work and does it, and sends only judgments and approvals to people.' },
+        { title: 'Learn the three areas: Strategy, Execution, Sustainment', description: 'Strategy is what to achieve and how to win, and Execution is the actual work: these two are the units work is managed in. Sustainment holds your company\'s own business apps, such as Accounting or CRM, listed below the divider on the rail.' },
         { title: 'Understand Domain → Object → Element', description: 'A Domain is where work happens, an Object holds the Elements of one project, and an Element is the smallest unit of action. This row is an Element.' },
         { title: 'Mark this Element as done', description: 'Changing the status updates the Object\'s progress.' },
         { title: 'Open the command palette with ⌘K', description: 'Search and navigation both live behind ⌘K.' },
@@ -182,11 +184,11 @@ const en: StarterContent = {
     {
       key: 'sustainment',
       name: 'Use the tools',
-      description: 'Try each Sustainment tool once.',
+      description: 'Try Notebook, Table, Calendar and Workload once each.',
       elements: [
         { title: 'Write a note in Notebook', description: 'Prose belongs in a Note.' },
         { title: 'Create a Table', description: 'Use a Table to organise and analyse data by any classification.' },
-        { title: 'Check Calendar', description: 'See dated Elements and schedules by day.' },
+        { title: 'Check Calendar', description: 'See dated Elements and schedules by day. Open it from your profile.' },
         { title: 'Look at Workload', description: 'See how much work sits on each Worker.' },
       ],
     },
@@ -229,8 +231,12 @@ const ko: StarterContent = {
       "description": "Clayware이 조직의 활동을 어떻게 다루는지 알아봅니다.",
       "elements": [
         {
+          "title": "Athena에게 일 맡기기",
+          "description": "레일 맨 위의 Athena를 누르면 어느 화면에서든 Agent 채팅이 열립니다. Athena가 계획을 세워 일을 진행하고, 판단과 승인이 필요한 것만 사람에게 넘깁니다."
+        },
+        {
           "title": "Strategy·Execution·Sustainment 세 영역 알기",
-          "description": "Strategy는 무엇을 달성하고 어떻게 이길지, Execution은 실제 행동, Sustainment는 업무 도구입니다. 왼쪽 레일에서 전환합니다."
+          "description": "Strategy는 무엇을 달성하고 어떻게 이길지, Execution은 실제 행동이며, 이 둘이 일을 관리하는 단위입니다. Sustainment는 경리·CRM처럼 회사마다 만드는 업무 앱으로, 레일의 구분선 아래에 놓입니다."
         },
         {
           "title": "Domain → Object → Element 계층 이해하기",
@@ -322,7 +328,7 @@ const ko: StarterContent = {
     {
       "key": "sustainment",
       "name": "업무 도구 쓰기",
-      "description": "Sustainment 도구를 한 번씩 써 봅니다.",
+      "description": "Notebook, Table, Calendar, Workload를 한 번씩 써 봅니다.",
       "elements": [
         {
           "title": "Notebook에 노트 쓰기",
@@ -334,7 +340,7 @@ const ko: StarterContent = {
         },
         {
           "title": "Calendar에서 일정 확인하기",
-          "description": "기한이 있는 Element와 일정을 날짜별로 봅니다."
+          "description": "기한이 있는 Element와 일정을 날짜별로 봅니다. 프로필에서 엽니다."
         },
         {
           "title": "Workload에서 부하 보기",
@@ -411,8 +417,12 @@ const fr: StarterContent = {
       "description": "Comment Clayware modélise l’activité d’une organisation.",
       "elements": [
         {
+          "title": "Confier un travail à Athena",
+          "description": "Sélectionnez Athena en haut de la barre pour ouvrir le chat Agent depuis n’importe quel écran. Athena planifie et fait le travail, et ne renvoie aux personnes que les jugements et les approbations."
+        },
+        {
           "title": "Découvrir les trois domaines : Strategy, Execution, Sustainment",
-          "description": "Strategy : quoi atteindre et comment gagner. Execution : le travail réel. Sustainment : les outils de travail. Passez de l’un à l’autre dans la barre de gauche."
+          "description": "Strategy : quoi atteindre et comment gagner. Execution : le travail réel. Ces deux domaines sont les unités dans lesquelles le travail est géré. Sustainment regroupe les applications métier propres à votre entreprise, comme la comptabilité ou le CRM, affichées sous le séparateur de la barre."
         },
         {
           "title": "Comprendre Domain → Object → Element",
@@ -504,7 +514,7 @@ const fr: StarterContent = {
     {
       "key": "sustainment",
       "name": "Utiliser les outils",
-      "description": "Essayer une fois chaque outil de Sustainment.",
+      "description": "Essayer une fois Notebook, Table, Calendar et Workload.",
       "elements": [
         {
           "title": "Écrire une note dans Notebook",
@@ -516,7 +526,7 @@ const fr: StarterContent = {
         },
         {
           "title": "Consulter Calendar",
-          "description": "Voyez par jour les Elements datés et les plannings."
+          "description": "Voyez par jour les Elements datés et les plannings. Ouvrez-le depuis votre profil."
         },
         {
           "title": "Regarder Workload",
@@ -593,8 +603,12 @@ const es: StarterContent = {
       "description": "Cómo modela Clayware la actividad de una organización.",
       "elements": [
         {
+          "title": "Pedirle un trabajo a Athena",
+          "description": "Selecciona Athena en la parte superior de la barra para abrir el chat de Agent desde cualquier pantalla. Athena planifica y hace el trabajo, y solo pasa a las personas las decisiones y aprobaciones."
+        },
+        {
           "title": "Conocer las tres áreas: Strategy, Execution, Sustainment",
-          "description": "Strategy es qué lograr y cómo ganar, Execution es el trabajo real y Sustainment son las herramientas de trabajo. Cambia entre ellas en la barra izquierda."
+          "description": "Strategy es qué lograr y cómo ganar, y Execution es el trabajo real: son las unidades en las que se gestiona el trabajo. Sustainment reúne las aplicaciones de negocio propias de tu empresa, como Contabilidad o CRM, que aparecen bajo el separador de la barra."
         },
         {
           "title": "Entender Domain → Object → Element",
@@ -686,7 +700,7 @@ const es: StarterContent = {
     {
       "key": "sustainment",
       "name": "Usa las herramientas",
-      "description": "Prueba una vez cada herramienta de Sustainment.",
+      "description": "Prueba una vez Notebook, Table, Calendar y Workload.",
       "elements": [
         {
           "title": "Escribir una nota en Notebook",
@@ -698,7 +712,7 @@ const es: StarterContent = {
         },
         {
           "title": "Consultar Calendar",
-          "description": "Consulta por día los Elements con fecha y las agendas."
+          "description": "Consulta por día los Elements con fecha y las agendas. Ábrelo desde tu perfil."
         },
         {
           "title": "Mirar Workload",

@@ -364,7 +364,7 @@ function WorkspaceContent({
   // working set: a reload restores only the active tab's screen
   // (openScreen.ts), with empty history stacks.
   // A reload opens the screen this browser tab had open in this Space;
-  // otherwise Settings > Preferences > "Default home view" — honoured at launch.
+  // otherwise Settings > Preferences > "Opening view" — honoured at launch.
   const [restored] = useState<OpenScreen | null>(() => {
     const screen = typeof window === 'undefined' ? null : readOpenScreen(activeSpaceId, isShellView);
     if (screen?.settings) setActiveSettingsSection(screen.settings.section);

@@ -14,8 +14,8 @@ import { runHarnessTool } from "./harnessTools.ts";
 
 /** The design in a few lines: sent to every client at initialize. */
 export const GUIDE_SUMMARY = [
-  "Clayware は、組織の仕事を人と AI が一緒に進める運用基盤。あなたは Clayware の AI（Athena）の代わりに、接続した本人として働く。",
-  "仕事を始める前に getClaywareGuide を一度読む。設計の考え方と、その Space の目指す姿・ハーネスが分かる。",
+  "Clayware は、チームの業務アシスタント Athena を起点にした業務基盤。チームの誰もが Athena に頼み、Athena が計画を立てて作業を進め、判断と承認だけを人に回す。あなたは Athena の代わりに、接続した本人として働く。",
+  "仕事を始める前に getClaywareGuide を一度読む。設計の考え方と、その Space の Portfolio・ハーネスが分かる。",
   "人は判断・承認・対外的な約束、AI は調査・下書き・集計・分析・実行。judge / decide / approve / answer の Element は人の仕事なので、代わりに閉じない。",
   "Strategy（目的・成功条件・前提・意思決定）から Object（持ち場）と Element（行動の最小単位）へ。Element は何のためにあるか（basisIntentIds）を Strategy に結び付ける。",
   "顧客・候補・問い合わせのような外の世界のものは Object にせず、Table の行（tableData）に置く。Object は入れ子にしない。",
@@ -26,7 +26,8 @@ export const GUIDE_SUMMARY = [
 export const GUIDE_PRINCIPLES = `# Clayware の考え方
 
 ## 何のための道具か
-組織の仕事を人と AI が一緒に進める運用基盤。チームの誰かに頼むように AI に伝えると、AI が計画を立てて作業を進め、人は判断と評価をする。クリエイティブな作業ではなく、現実の課題を解決するために使う。
+チームの業務アシスタント Athena を起点にした業務基盤。チームの誰もが Athena に頼み、Athena が計画を立てて作業を進め、判断と承認が要るところだけを人に回す。仕事は Strategy と Execution という管理の単位で整理し、会社ごとの業務は Sustainment（会社ごとに作る業務アプリ）として持つ。
+すべてが Space ごとの一つの共有データの上にあり、個人ではなくチームで使う。誰が頼んだ仕事でも、目的・判断・結果は組織の記録として残り、見られる範囲は権限で決まる。クリエイティブな作業ではなく、現実の課題を解決するために使う。
 
 ## 人と AI の分担
 - AI：調査・下書き・集計・分析・実行。
@@ -37,11 +38,12 @@ export const GUIDE_PRINCIPLES = `# Clayware の考え方
 ## 概念のつながり
 | 分類 | 何を扱うか | 単位 |
 |---|---|---|
-| Strategy | 何を達成し、どう勝つか | Strategy（入れ子にできる。最上位が Space の目指す姿、配下がそれを勝ち取る筋道） |
+| Strategy | 何を達成し、どう勝つか | Vision（Space の目指す姿）→ Portfolio（それを勝ち取る筋道。入れ子にできる）。道具の Initiative（Strategy）は Portfolio に当たる |
 | Execution | 実際に行動する | Domain（活動の場）→ Object（Element をまとめる持ち場。プロジェクトに近い）→ Element（行動の最小単位） |
-| Sustainment | 活動を続ける道具 | Table / ファイル / Team / Calendar |
+| Sustainment | 会社の資源を正しく保つ | 会社ごとに作る業務アプリ（経理・CRM など）。中に請求・経費などの機能を持つ |
 
-- Strategy は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。
+- Strategy と Execution が仕事を管理する単位。Vision と Portfolio は目的・前提・意思決定・成功条件を持ち、担当や進捗は持たない。担当・期限・進捗・依存は Execution 側で扱う。
+- Sustainment は Strategy・Execution とは結び付けない別のアプリで、人との接点は Inbox だけ。今は Sustainment を作ってレールに並べるところまでで、中の機能はまだない。Table・ファイル・Team・Calendar は Sustainment ではなく、どの仕事でも使う道具。
 - Element を作るときは、何のためにあるか（Strategy の成功条件・前提・意思決定の intent id）を basisIntentIds に渡す。Strategy が変わったとき、影響を受ける Element を見つけるのに使う。
 - Object は入れ子にしない。一つの Element を複数の Object に属させるときは linkElementToObject を使う。
 - 顧客・候補・問い合わせのような外の世界のものは Object ではなく Table の行に置く。分類は Table、文章はファイル、仕事のやり方はハーネスに置く。
@@ -63,7 +65,7 @@ export const GUIDE_PRINCIPLES = `# Clayware の考え方
 
 export const GUIDE_TOOL: ToolDef = {
   name: "getClaywareGuide",
-  description: "Clayware の設計の考え方（人と AI の分担、Strategy → Object → Element、Table とハーネスの使い分け、進め方）と、見られる Space ごとの目指す姿（最上位の Strategy）とハーネスの一覧を返す。仕事を始める前に一度読む。",
+  description: "Clayware の設計の考え方（人と AI の分担、Strategy → Object → Element、Table とハーネスの使い分け、進め方）と、見られる Space ごとの最上位の Portfolio とハーネスの一覧を返す。仕事を始める前に一度読む。",
   input_schema: {
     type: "object",
     properties: { spaceId: { type: "string", description: "その Space のものだけにするとき、Space の UUID（省略可）" } },
