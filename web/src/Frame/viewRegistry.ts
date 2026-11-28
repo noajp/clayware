@@ -48,6 +48,7 @@ export type ViewId =
   | 'settings'
   | 'profile'
   | 'account'
+  | 'sustainment'
   | 'ai';
 
 export interface ViewMeta {
@@ -79,6 +80,7 @@ export const VIEW_REGISTRY: Record<ViewId, ViewMeta> = {
   settings:      { label: 'Settings',    icon: NavSettingsIcon },
   profile:       { label: 'Profile', icon: NavTeamsIcon },
   account:       { label: 'Account' },
+  sustainment:   { label: 'Sustainment', icon: NavDomainIcon },
   ai:            { label: 'Agent',       icon: NavAiIcon },
 };
 

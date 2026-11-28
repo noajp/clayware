@@ -6429,6 +6429,47 @@ export type Database = {
           },
         ]
       }
+      sustainments: {
+        Row: {
+          activity_space_id: string
+          created_at: string
+          created_by: string | null
+          icon: string | null
+          id: string
+          name: string
+          order_index: number | null
+          updated_at: string
+        }
+        Insert: {
+          activity_space_id: string
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          updated_at?: string
+        }
+        Update: {
+          activity_space_id?: string
+          created_at?: string
+          created_by?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sustainments_activity_space_id_fkey"
+            columns: ["activity_space_id"]
+            isOneToOne: false
+            referencedRelation: "activity_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_cells: {
         Row: {
           column_id: string

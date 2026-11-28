@@ -34,6 +34,7 @@ const FilesView = dynamic(() => import('@/ActivitySpace/artifacts').then(m => m.
 const SlidesView = dynamic(() => import('@/ActivitySpace/artifacts/slides').then(m => m.SlidesView), { ssr: false, loading: viewLoading });
 const MyCalendarView = dynamic(() => import('@/ActivitySpace/home/MyCalendarView').then(m => m.MyCalendarView), { ssr: false, loading: viewLoading });
 const ProfileView = dynamic(() => import('@/ActivitySpace/home/ProfileView').then(m => m.ProfileView), { ssr: false, loading: viewLoading });
+const SustainmentView = dynamic(() => import('@/ActivitySpace/sustainment/SustainmentView').then(m => m.SustainmentView), { ssr: false, loading: viewLoading });
 const SettingsView = dynamic(() => import('@/Function/settings/SettingsView').then(m => m.SettingsView), { ssr: false, loading: viewLoading });
 
 
@@ -104,6 +105,10 @@ export function MainContent({ activeActivity, navigation, onNavigate, onViewChan
                 if (onOpenItem) onOpenItem('domain-elements', { elementId: id });
                 else { onNavigate({ elementId: id }); onViewChange?.('domain-elements'); }
               }} />
+          )}
+
+          {activeActivity === 'sustainment' && (
+            <SustainmentView sustainmentId={navigation.sustainmentId ?? null} />
           )}
 
           {activeActivity === 'vision' && (

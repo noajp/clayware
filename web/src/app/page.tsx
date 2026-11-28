@@ -532,13 +532,24 @@ function WorkspaceContent({
   // The ModeRail: a place opens on its first screen; the place already open
   // keeps whatever is open in it. Unlike a sidebar row it leaves the phone's
   // drawer open, so the place's list can be chosen from next.
+  // Athena (the Agent's chat) and Inbox are whole screens: their own list
+  // stands where the sidebar would.
+  const sidebarless = activeTab.activeView === 'ai' || activeTab.activeView === 'inbox';
   const handleRailSelect = (section: RailSection) => {
+    // Athena opens the Agent's chat in one press, even from its own place
+    // (Inbox, My Elements, Calendar).
+    if (section === 'assistant') { if (activeTab.activeView !== 'ai') setActiveView('ai'); return; }
+    if (section === 'inbox') { if (activeTab.activeView !== 'inbox') setActiveView('inbox'); return; }
     if (railSectionOf(activeTab.activeView) === section) return;
-    if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
     if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
     if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
     setActiveNavigation({ workerId: null, unitId: null });
     setActiveView('team');
+  };
+  // A Sustainment's rail button opens its page in this tab, as a place does.
+  const handleOpenSustainment = (id: string) => {
+    setActiveNavigation({ sustainmentId: id });
+    setActiveView('sustainment');
   };
 
   // Item opens get a tab of their own (tabState.ts): a followed Object,
@@ -878,7 +889,7 @@ function WorkspaceContent({
   return (
     <ExplorerDataProvider value={explorerData}>
     <WorkspaceActionsProvider onOpenCreateObject={openObjectPopup} onOpenCreateNotebook={openNotebookPopup} onOpenCreateVision={openVisionPopup}>
-    <SidebarRevealContext.Provider value={{ hidden: sidebarCollapsed && !sidebarOverlay, show: handleSidebarToggle }}>
+    <SidebarRevealContext.Provider value={{ hidden: !sidebarless && sidebarCollapsed && !sidebarOverlay, show: handleSidebarToggle }}>
     <CopilotProvider>
     <CopilotArrivalWatcher visible={aiScreen || copilotOpen} carryRef={aiCarryRef} />
     <div
@@ -895,7 +906,9 @@ function WorkspaceContent({
             around the island): no frame of its own.
             On a phone it shows with the drawer, above the scrim. */}
         <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
-          activeView={activeTab.activeView} onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
+          activeView={activeTab.activeView} sustainmentId={activeTab.navigation.sustainmentId ?? null}
+          onOpenSustainment={handleOpenSustainment}
+          onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
           className={sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'} />
 
         {sidebarCollapsed && sidebarOverlay && (
@@ -919,7 +932,7 @@ function WorkspaceContent({
                 the drawer (absolute) escapes the frame and opens from the
                 island's left edge; the island clips it while it slides in and
                 out. Open as a drawer, the holder rises over the scrim. */}
-            <div className={`relative flex shrink-0 ${sidebarCollapsed && sidebarOverlay ? 'z-50' : ''}`}>
+            {!sidebarless && (<div className={`relative flex shrink-0 ${sidebarCollapsed && sidebarOverlay ? 'z-50' : ''}`}>
             <div className={`flex shrink-0 overflow-hidden ${sidebarCollapsed ? '' : 'border-r border-sidebar-border'}`}>
             <AppSidebar
               onToggleSidebar={handleSidebarToggle}
@@ -938,7 +951,7 @@ function WorkspaceContent({
               onSearch={() => setDiscoverOpen(true)}
             />
             </div>
-            </div>
+            </div>)}
             {/* The open tool's own list (Tables, Artifacts, People …), left
                 of what it opens; the Workspace has none. */}
             {!createType && (

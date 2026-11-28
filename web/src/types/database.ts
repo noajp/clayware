@@ -2131,6 +2131,19 @@ export interface Vision {
   updated_at: string
 }
 
+/** The upkeep behind Strategy and Execution (accounting, CRM, people …):
+ *  one button each on the ModeRail. It holds no functions yet. */
+export interface Sustainment {
+  id: string
+  activity_space_id: string
+  name: string
+  icon: string | null
+  order_index: number | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Strategy {
   id: string
   name: string

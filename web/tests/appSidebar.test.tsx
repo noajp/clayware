@@ -1,13 +1,11 @@
 /** @vitest-environment jsdom */
 //
-// Home's rows in the sidebar: Inbox carrying its unread count as a plain
-// number in the row's meta slot, then the Agent, My Elements and Calendar.
-// The count is the StatusBar badge's own source — useNotifications over
-// the signed-in user — and at zero unread the row carries no meta at
-// all. Rows stay icon + name (+ count): no subtitle, no annotation.
+// The sidebar lists no personal rows: Inbox is a place on the rail, the
+// Agent is Athena's rail button, and My Elements and Calendar open from
+// the profile.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { I18nProvider } from '@/Function/i18n/I18nProvider';
 
 const state = vi.hoisted(() => ({ unreadCount: 0 }));
@@ -112,33 +110,10 @@ afterEach(() => {
   state.unreadCount = 0;
 });
 
-describe('AppSidebar fixed top block', () => {
-  it('renders Home as Inbox → Agent → My Elements → Calendar by default', () => {
-    renderSidebar();
-    const order = ['Inbox', 'Agent', 'My Elements', 'Calendar'].map(rowOf);
-    for (let i = 0; i < order.length - 1; i++) {
-      expect(
-        order[i].compareDocumentPosition(order[i + 1]) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
-  });
-
-  it('shows the unread count in the Inbox row meta only when it is above zero', () => {
+describe('AppSidebar personal rows', () => {
+  it('lists no Agent, Inbox, My Elements or Calendar row', () => {
     state.unreadCount = 3;
-    const first = renderSidebar();
-    expect(within(rowOf('Inbox')).getByText('3')).toBeTruthy();
-    first.unmount();
-
-    state.unreadCount = 0;
-    renderSidebar();
-    // No meta number at all — the row is icon + name only.
-    expect(within(rowOf('Inbox')).queryByText(/^\d+$/)).toBeNull();
-  });
-
-  it('the Inbox row navigates to the inbox view', () => {
-    const { onViewChange } = renderSidebar();
-    // The row's label sits inside its button; the click bubbles to it.
-    fireEvent.click(screen.getByText('Inbox'));
-    expect(onViewChange).toHaveBeenCalledWith('inbox');
+    renderSidebar('ai');
+    for (const label of ['Agent', 'Inbox', 'My Elements', 'Calendar']) expect(screen.queryByText(label)).toBeNull();
   });
 });

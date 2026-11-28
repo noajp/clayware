@@ -13,10 +13,9 @@ import { FONT } from '@/shared/designTokens';
 import { DomainAgentSettings } from '@/ActivitySpace/execution/domain/DomainAgentSettings';
 import { SettingsModal } from '@/Function/settings/SettingsModal';
 import { SegmentedControl, SettingField } from '@/Function/settings/SettingsControls';
-import { NavCalendarIcon, NavInboxIcon, NavMyTasksIcon, NavStrategyIcon } from './sidebar/NavIcons';
+import { NavStrategyIcon } from './sidebar/NavIcons';
 import { TeamList } from './sidebar/TeamList';
 import { railSectionOf, type RailSection } from '@/Frame/railSections';
-import { loadSidebarOrder, moveSidebarItem, saveSidebarOrder, type SidebarItem } from './sidebarOrder';
 import { DomainNavigationRow } from './sidebar/DomainNavigationRow';
 import { useWorkspaceActions } from '@/Frame/WorkspaceActionsContext';
 
@@ -24,8 +23,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { OPEN_DOMAIN_SETTINGS_EVENT } from '@/Function/shared/appNavigation';
 import type { Domain, DomainPrivacy } from '@/hooks/useSupabase';
 import { ArrowLeft, Compass, Plus, Bot, Settings, Users, FilePlus, FolderPlus, FileUp } from '@/ui/icons';
-import { updateDomain, deleteDomain, leaveDomain, useNotifications } from '@/hooks/useSupabase';
-import { useAuthContext } from '@/providers/AuthProvider';
+import { updateDomain, deleteDomain, leaveDomain } from '@/hooks/useSupabase';
 import { domainHasObjectsMessage, useDomainRole, type DomainRole } from '@/hooks/domainData';
 import { countDomainObjects } from '@/hooks/useObjectArchive';
 import { ConfirmDialog } from '@/Function/shared/ConfirmDialog';
@@ -52,13 +50,12 @@ import { useSustainmentDomains } from '@/hooks/useSustainmentDomains';
 import { getActiveDomainId, setActiveDomainId, ACTIVE_DOMAIN_CHANGE_EVENT } from '@/Function/space/domainsStore';
 import { SpaceSwitcher } from '@/Function/space/SpaceSwitcher';
 
-import { MODE_META, railModeOf } from '@/Frame/railApps';
+import { railModeOf } from '@/Frame/railApps';
 import type { RailMode } from '@/Frame/railApps';
 import { CREATE_ELEMENT_EVENT, type CreateElementDetail } from '@/Frame/QuickAddElementLauncher';
 import { useCalendarDay } from '@/ActivitySpace/calendar/calendarStore';
 import { SettingsSidebarPanel } from '@/Function/settings/SettingsSidebarPanel';
 import { TeamSettings } from '@/Function/settings/TeamSettings';
-import { SidebarRow } from '@/Function/shared/SidebarRow';
 import { createDeckHere, createFolderHere, pickDeckFile } from '@/ActivitySpace/artifacts/slides/SlidesSidebar';
 import { useSlidesReady } from '@/ActivitySpace/artifacts/slides/sync';
 import type { NavigationState } from '@/types/navigation';
@@ -93,7 +90,7 @@ interface AppSidebarProps {
 const SIDEBAR_CLOSE_PULL = 72;
 
 
-// The sidebar lists what the ModeRail's place holds: Home (Inbox, the
+// The sidebar lists what the ModeRail's place holds: Athena's (Inbox, the
 // Agent, your Elements and Calendar, what you follow), Strategy (the
 // Strategies), Execution (the Domain tree, whose rows carry the D/O/E
 // surfaces) or Team (the units and who is in them). A screen under none
@@ -122,11 +119,6 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const { openCreate } = useWorkspaceActions();
   const { t } = useI18n();
-  // The Inbox row's unread count — the same hook and count the StatusBar's
-  // badge reads (useNotifications over the signed-in user), projected as a
-  // plain number in the row's meta slot.
-  const { user } = useAuthContext();
-  const { unreadCount } = useNotifications(user?.id ?? null);
   const { guestDomains, refetch: refetchMemberDomains } = useDomains();
   const { data: visibleDomains, refetch: refetchVisibleDomains } = useSustainmentDomains();
   const domains = useMemo(() => [...visibleDomains].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)), [visibleDomains]);
@@ -137,10 +129,6 @@ export function AppSidebar({
   // Without this the list would snap back to the server order for the frame
   // between releasing and refetchDomains() resolving — a visible flicker.
   // Kept in sync with the hook's data whenever it changes.
-  // The fixed rows' order, this person's, kept in this browser.
-  const [sidebarOrder, setSidebarOrder] = useState<SidebarItem[]>(loadSidebarOrder);
-  const [draggedRow, setDraggedRow] = useState<SidebarItem | null>(null);
-  const [rowDrop, setRowDrop] = useState<{ item: SidebarItem; place: 'before' | 'after' } | null>(null);
   const [orderedDomains, setOrderedDomains] = useState<Domain[]>(domains);
   // Synced while rendering rather than in an effect: the mirror and the list
   // it mirrors then reach the screen in the same commit, instead of the list
@@ -165,10 +153,12 @@ export function AppSidebar({
   const railMode = railModeOf(activeView);
   // The rail's place: the open screen's, else the last one shown.
   const viewSection = railSectionOf(activeView);
-  const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'home');
-  if (viewSection && viewSection !== lastSection) setLastSection(viewSection);
-  const section = viewSection ?? lastSection;
-  const { label: aiLabel, icon: AiIcon } = MODE_META.ai;
+  // Athena and Inbox are whole screens with no sidebar, so only the places
+  // that list something are remembered.
+  const listingSection = viewSection === 'strategy' || viewSection === 'execution' || viewSection === 'team' ? viewSection : null;
+  const [lastSection, setLastSection] = useState<RailSection>(listingSection ?? 'execution');
+  if (listingSection && listingSection !== lastSection) setLastSection(listingSection);
+  const section = listingSection ?? lastSection;
   const [draggingDomain, setDraggingDomain] = useState<Domain | null>(null);
   const [width, setWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return SIDEBAR_MIN_WIDTH;
@@ -455,69 +445,6 @@ export function AppSidebar({
             <SettingsSidebarPanel />
           ) : (
           <>
-          {section === 'home' && <>
-          {/* Home: the person's own rows, in their order (drag a row to
-              move it). */}
-          <div className="mt-3 space-y-0.5">
-            {sidebarOrder.map((item) => {
-              const row = (() => {
-                switch (item) {
-                  case 'ai':
-                    return <SidebarRow active={activeView === 'ai'} icon={<AiIcon size={16} />} label={t(aiLabel)}
-                      onClick={() => onViewChange('ai')} />;
-                  case 'inbox':
-                    return <SidebarRow active={activeView === 'inbox'} icon={<NavInboxIcon size={16} />} label={t('Inbox')}
-                      meta={unreadCount > 0 ? unreadCount : undefined}
-                      onClick={() => onViewChange('inbox')} />;
-                  case 'my-elements':
-                    return <SidebarRow active={activeView === 'my-elements'} icon={<NavMyTasksIcon size={16} />} label={t('My Elements')}
-                      onClick={() => onViewChange('my-elements')} />;
-                  case 'calendar':
-                    return <SidebarRow active={activeView === 'calendar' || activeView === 'schedule'} icon={<NavCalendarIcon size={16} />} label={t('Calendar')}
-                      onClick={() => onViewChange('calendar')} />;
-                }
-              })();
-              const over = rowDrop?.item === item && draggedRow !== null && draggedRow !== item ? rowDrop.place : null;
-              return (
-                <div key={item} draggable className="relative"
-                  // Alt+↑ / Alt+↓ moves the focused row, the keyboard's drag.
-                  onKeyDown={(e) => {
-                    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-                    const at = sidebarOrder.indexOf(item);
-                    const target = sidebarOrder[e.key === 'ArrowUp' ? at - 1 : at + 1];
-                    if (!target) return;
-                    e.preventDefault();
-                    const next = moveSidebarItem(sidebarOrder, item, target, e.key === 'ArrowUp' ? 'before' : 'after');
-                    setSidebarOrder(next);
-                    saveSidebarOrder(next);
-                  }}
-                  onDragStart={(e) => { setDraggedRow(item); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', item); }}
-                  onDragEnd={() => { setDraggedRow(null); setRowDrop(null); }}
-                  onDragOver={(e) => {
-                    if (!draggedRow) return;
-                    e.preventDefault();
-                    const box = e.currentTarget.getBoundingClientRect();
-                    const place = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
-                    if (rowDrop?.item !== item || rowDrop.place !== place) setRowDrop({ item, place });
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedRow && rowDrop) {
-                      const next = moveSidebarItem(sidebarOrder, draggedRow, rowDrop.item, rowDrop.place);
-                      setSidebarOrder(next);
-                      saveSidebarOrder(next);
-                    }
-                    setDraggedRow(null); setRowDrop(null);
-                  }}>
-                  {over && <div aria-hidden className={`pointer-events-none absolute inset-x-1 h-0.5 rounded-full bg-primary ${over === 'before' ? '-top-px' : '-bottom-px'}`} />}
-                  {row}
-                </div>
-              );
-            })}
-          </div>
-
-          </>}
-
           {section === 'team' && (
             <TeamList navigation={activeView === 'team' || activeView === 'workload' ? navigation : undefined}
               onOpen={(nav) => { onNavigate(nav); onViewChange('team'); }} />
