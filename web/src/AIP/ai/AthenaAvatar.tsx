@@ -142,7 +142,7 @@ export function AthenaAvatar({
       onPointerCancel={handlePointerUp}
       onClick={!canOrbit && onTap ? onTap : undefined}
       className={cn(
-        'relative inline-flex shrink-0 items-center justify-center transition-transform duration-150',
+        'relative inline-flex shrink-0 items-center justify-center',
         SIZE_CLASS[size],
         canOrbit && 'cursor-grab touch-none select-none active:cursor-grabbing',
         className,

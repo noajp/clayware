@@ -72,13 +72,12 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
                 onBlur={() => setAthenaHover(false)}
                 aria-label={name}
                 aria-current={on ? 'page' : undefined}
-                className={`group/athena relative ${CELL} outline-none`}
+                className="group/athena relative flex h-8 w-10 shrink-0 items-center justify-center rounded-md outline-none"
               >
                 <AthenaAvatar
                   size="rail"
                   mood={athenaMood}
                   working={athenaWorking}
-                  className="group-hover/athena:scale-[1.06] group-active/athena:scale-[0.97]"
                 />
                 {/* Muse-style compact floating pill label on hover */}
                 <span

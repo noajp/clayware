@@ -530,7 +530,7 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
             <div
               onMouseEnter={() => setHeroHover(true)}
               onMouseLeave={() => setHeroHover(false)}
-              className="group/hero relative flex flex-col items-center"
+              className="relative flex flex-col items-center"
             >
               <AthenaAvatar
                 size="hero"
@@ -538,7 +538,6 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
                 working={streaming}
                 orbitable
                 onTap={triggerHeroCheer}
-                className="transition-transform duration-150 group-hover/hero:scale-[1.03]"
               />
             </div>
             <h2 className="mt-4 text-[21px] font-semibold tracking-[-0.02em] text-foreground">
