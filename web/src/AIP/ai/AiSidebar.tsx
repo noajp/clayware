@@ -160,9 +160,8 @@ export function AiSidebar({ onOpen }: { onOpen: () => void }) {
 
   return (
     <Panel label={t('Agent')}>
+      {/* No title: Athena's rail button already says where this is. */}
       <PanelHeader
-        title={t('Agent')}
-        count={sessions.length || undefined}
         actions={
           <>
             <Button variant={searching ? 'secondary' : 'ghost'} size="icon-xs" aria-pressed={searching} onClick={() => { setSearching((v) => !v); setQuery(''); }} title={t('Search')} aria-label={t('Search')}>

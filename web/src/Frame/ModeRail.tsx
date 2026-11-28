@@ -7,6 +7,8 @@ import { RailAccount } from '@/Frame/RailAccount';
 import { CreateSustainmentDialog } from '@/Frame/CreateSustainmentDialog';
 import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { useSustainments } from '@/hooks/useSustainments';
+import { useNotifications } from '@/hooks/useSupabase';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { Plus } from '@/ui/icons';
 import type { Sustainment } from '@/types/database';
 
@@ -23,10 +25,16 @@ const cellTone = (on: boolean) => (on
   ? 'bg-sidebar-accent text-foreground'
   : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground');
 
-/** Athena's mark, the rail's top button. Athena's character logo goes
- *  here; until it is in the repo, the letter C stands in. */
+/** Athena's mark, the rail's top button: the crowned ghost, idling. With
+ *  reduced motion it holds still on its first frame. The button carries
+ *  the name, so the picture is decorative. */
 function AthenaMark() {
-  return <span aria-hidden className="text-[17px] font-semibold leading-none tracking-[-0.01em]">C</span>;
+  return (
+    <picture className="block size-8 shrink-0 overflow-hidden rounded-full">
+      <source srcSet="/athena/idle.png" media="(prefers-reduced-motion: reduce)" />
+      <img src="/athena/idle.webp" alt="" width={32} height={32} className="size-8 object-cover" draggable={false} />
+    </picture>
+  );
 }
 
 export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSustainment, onOpenView, onSettings, className = '' }: {
@@ -45,6 +53,9 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
 }) {
   const { t } = useI18n();
   const { data: sustainments, createSustainment } = useSustainments();
+  // Inbox's unread count, the same hook and count the notifications read.
+  const { user } = useAuthContext();
+  const { unreadCount } = useNotifications(user?.id ?? null);
   const [creating, setCreating] = useState(false);
   const openId = activeView === 'sustainment' ? sustainmentId : null;
   return (
@@ -52,11 +63,14 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
       className={`app-sidebar flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden bg-none py-3 ${className}`}>
       {RAIL_SECTIONS.map(({ id, label, icon: Icon }) => {
         const on = active === id;
+        const unread = id === 'inbox' && unreadCount > 0;
+        const name = unread ? `${t(label)} (${unreadCount})` : t(label);
         return (
           <button key={id} type="button" onClick={() => onSelect(id)}
-            aria-label={t(label)} title={t(label)} aria-current={on ? 'page' : undefined}
-            className={`${CELL} ${cellTone(on)}`}>
+            aria-label={name} title={name} aria-current={on ? 'page' : undefined}
+            className={`relative ${CELL} ${cellTone(on)}`}>
             {id === 'assistant' ? <AthenaMark /> : <Icon size={18} />}
+            {unread && <span aria-hidden className="absolute right-2 top-2 size-2 rounded-full bg-primary" />}
           </button>
         );
       })}

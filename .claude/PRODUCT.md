@@ -93,7 +93,7 @@ Discover にある業務のハーネスを使う。
 
 ## 5. 操作画面
 
-- **レール**：上から Athena（キャラクターのロゴ。押すとどこからでも Agent のチャットが開き、サイドバーに Inbox・自分の Element・Calendar が並ぶ）、Strategy、Execution、Team、区切り線、その Space の Sustainment、＋（Create Sustainment）。足元に設定とアカウント
+- **レール**：上から Athena（王冠の幽霊のロゴ。押すとどこからでも Agent のチャットが開く）、Inbox、Strategy、Execution、Team、区切り線、その Space の Sustainment、＋（Create Sustainment）。足元に設定とアカウント。Athena と Inbox はサイドバーを持たない。自分の Element と Calendar はプロフィールから開く
 - **流れのボード**：Element が状態の列（案 → 判断待ち → 実行中 → 評価待ち → 完了）を左から右へ移る。人だけの動詞を持つ未完了の Element、承認待ち・回答待ちの実行は、判断待ちの列に入る。列はハーネスから作り、人が追加・削除できる
 - **Vision のページ**：目指す姿と、その下の Portfolio を並べる
 - **Portfolio のページ**：目的と成功条件、Element の進み具合、判断待ち（Your turn）を一つのページに並べる。Element の完了数と成功条件の達成を別々に表示する
