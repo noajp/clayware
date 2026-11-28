@@ -29,8 +29,8 @@ const CANVAS_PX: Record<AthenaAvatarSize, number> = {
  * - Primary: 60fps real-time 3D WebGL engine loading `/athena/athena.glb`
  *   (full PBR studio lighting, cursor LookAt, 360° drag-to-spin on hero,
  *   organic floating, and embedded glTF skeletal clips when present).
- *   On the AI screen hero, Athena stands frameless right in the center with a
- *   soft ground shadow so she feels like a real floating 3D companion.
+ *   With the .glb loaded she is drawn frameless (no portrait window); the rail
+ *   shows her upper body, the AI screen hero her whole figure.
  * - Fallback: while `/athena/athena.glb` is not present (or WebGL unavailable),
  *   smoothly renders the crossfaded 6-pose sprite-sheet engine.
  */
@@ -124,8 +124,9 @@ export function AthenaAvatar({
   }, [isLive, backend, mood]);
 
   const dotSize = size === 'hero' ? 'size-3' : size === 'rail' ? 'size-2.5' : 'size-1.5';
-  // On the hero with real 3D GLB, Athena floats frameless in midair with a soft ground shadow
-  const framelessHero = size === 'hero' && backend === 'glb';
+  // With the real 3D GLB, Athena stands frameless (no portrait window) so her arms and
+  // sceptre show
+  const frameless = backend === 'glb';
   const canOrbit = orbitable && backend === 'glb';
 
   const handlePointerDown = canOrbit
@@ -173,23 +174,17 @@ export function AthenaAvatar({
         'relative inline-flex shrink-0 items-center justify-center rounded-full transition-transform duration-150',
         SIZE_CLASS[size],
         canOrbit && 'cursor-grab touch-none select-none active:cursor-grabbing',
-        active && 'ring-[1.5px] ring-[var(--accent-default)] ring-offset-2 ring-offset-[var(--surface-bg)]',
+        active && !frameless && 'ring-[1.5px] ring-[var(--accent-default)] ring-offset-2 ring-offset-[var(--surface-bg)]',
         className,
       )}
     >
-      {framelessHero && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -bottom-1 left-1/2 h-3 w-14 -translate-x-1/2 rounded-full bg-foreground/15 blur-md dark:bg-black/60"
-        />
-      )}
       <span
         className={cn(
           'relative flex size-full items-center justify-center overflow-hidden',
-          framelessHero ? 'rounded-2xl' : 'rounded-full',
+          frameless ? 'rounded-2xl' : 'rounded-full',
         )}
         style={
-          framelessHero
+          frameless
             ? undefined
             : {
                 background: backend === 'sprite' ? 'var(--surface-bg)' : 'var(--athena-backdrop)',
@@ -217,7 +212,7 @@ export function AthenaAvatar({
             className="size-full object-cover select-none"
           />
         )}
-        {!framelessHero && (
+        {!frameless && (
           <span
             aria-hidden
             className="pointer-events-none absolute inset-0 rounded-full"

@@ -274,10 +274,10 @@ class AthenaGlbEngine {
     this.syncMixerAction(opts.mood);
     this.renderSubscriber(sub, performance.now() / 1000, 0.016);
 
-    if (!this.prefersReducedMotion()) {
-      this.lastMs = performance.now();
-      this.scheduleLoop();
-    }
+    // The loop always runs: dragging, hover and click must answer even with reduced motion.
+    // Reduced motion only calms the motion Athena makes on her own (see stepMotion).
+    this.lastMs = performance.now();
+    this.scheduleLoop();
 
     return () => {
       this.subscribers.delete(sub);
@@ -293,9 +293,6 @@ class AthenaGlbEngine {
       if (sub.canvas !== canvas) continue;
       sub.mood = mood;
       this.syncMixerAction(mood);
-      if (this.prefersReducedMotion()) {
-        this.renderSubscriber(sub, performance.now() / 1000, 0.25);
-      }
       return;
     }
   }
@@ -318,9 +315,6 @@ class AthenaGlbEngine {
       sub.state.dragYaw += dYaw;
       sub.state.dragPitch = Math.max(-0.55, Math.min(0.55, sub.state.dragPitch + dPitch));
       sub.state.dragVelYaw = dYaw * 50;
-      if (this.prefersReducedMotion()) {
-        this.renderSubscriber(sub, performance.now() / 1000, 0.016);
-      }
       return;
     }
   }
@@ -361,7 +355,6 @@ class AthenaGlbEngine {
   private scheduleLoop() {
     if (this.rafId !== null || this.subscribers.size === 0) return;
     if (typeof document !== 'undefined' && document.hidden) return;
-    if (this.prefersReducedMotion()) return;
 
     const tick = (nowMs: number) => {
       this.rafId = null;
@@ -370,7 +363,7 @@ class AthenaGlbEngine {
       this.lastMs = nowMs;
       const nowSec = nowMs / 1000;
 
-      this.mixer?.update(dt);
+      this.mixer?.update(this.prefersReducedMotion() ? dt * 0.6 : dt);
       for (const sub of this.subscribers) {
         this.renderSubscriber(sub, nowSec, dt);
       }
@@ -409,14 +402,15 @@ class AthenaGlbEngine {
     const mt = s.moodTime;
     const hasEmbeddedClip = this.actions.has(mood);
 
-    // Gentle living float + breathing baseline
-    let posX = Math.sin(t * 1.1) * 0.014;
-    let posY = Math.sin(t * 2.1) * 0.042;
-    let rotX = lookY + Math.sin(t * 1.5) * 0.025;
-    let rotY = lookX + Math.sin(t * 0.9) * 0.075;
-    let rotZ = Math.sin(t * 1.3) * 0.024;
-    let scaleX = 1 + Math.sin(t * 2.1 - 0.5) * 0.012;
-    let scaleY = 1 - Math.sin(t * 2.1 - 0.5) * 0.012;
+    // Gentle living float + breathing baseline (much smaller under reduced motion)
+    const calm = this.prefersReducedMotion() ? 0.3 : 1;
+    let posX = Math.sin(t * 1.1) * 0.014 * calm;
+    let posY = Math.sin(t * 2.1) * 0.042 * calm;
+    let rotX = lookY + Math.sin(t * 1.5) * 0.025 * calm;
+    let rotY = lookX + Math.sin(t * 0.9) * 0.075 * calm;
+    let rotZ = Math.sin(t * 1.3) * 0.024 * calm;
+    let scaleX = 1 + Math.sin(t * 2.1 - 0.5) * 0.012 * calm;
+    let scaleY = 1 - Math.sin(t * 2.1 - 0.5) * 0.012 * calm;
 
     // Layer expressive procedural choreography (dialed back when a skeletal clip drives that mood)
     if (!hasEmbeddedClip) {
@@ -482,9 +476,9 @@ class AthenaGlbEngine {
     if (!this.pivot || !this.camera) return;
 
     if (framing === 'bust') {
-      // Tight Meta Muse chest-up portrait inside the 36px circular rail portal
-      this.camera.position.set(0, 0.24, 3.05);
-      this.camera.lookAt(0, 0.20, 0);
+      // Upper body for the 36px rail: crown, face, both arms and the sceptre head
+      this.camera.position.set(0, 0.30, 2.5);
+      this.camera.lookAt(0, 0.27, 0);
     } else {
       // Full floating figure with generous headroom for the AI screen hero
       this.camera.position.set(0, 0.06, 4.15);

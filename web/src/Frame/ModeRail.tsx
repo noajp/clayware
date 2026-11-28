@@ -72,7 +72,7 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
                 onBlur={() => setAthenaHover(false)}
                 aria-label={name}
                 aria-current={on ? 'page' : undefined}
-                className="group/athena relative flex size-10 shrink-0 items-center justify-center rounded-full outline-none"
+                className={`group/athena relative ${CELL} outline-none`}
               >
                 <AthenaAvatar
                   size="rail"
