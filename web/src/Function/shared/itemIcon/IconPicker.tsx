@@ -49,7 +49,7 @@ const RAINBOW = `conic-gradient(${[...ITEM_COLORS.slice(2), ITEM_COLORS[2]].map(
  * them), an emoji, or a drawing of one's own — an SVG file, or one Athena
  * draws from words. Nothing is saved here — `onChange` gets the new look.
  */
-function IconPicker({ value, onChange, children, defaultIcon, align = 'start' }: {
+export function IconPicker({ value, onChange, children, defaultIcon, align = 'start' }: {
   value: ItemLook;
   onChange: (next: ItemLook) => void;
   children: ReactNode;

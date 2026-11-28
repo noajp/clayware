@@ -93,7 +93,7 @@ interface AppSidebarProps {
 const SIDEBAR_CLOSE_PULL = 72;
 
 
-// The sidebar lists what the ModeRail's place holds: Home (Inbox, the
+// The sidebar lists what the ModeRail's place holds: Athena's (Inbox, the
 // Agent, your Elements and Calendar, what you follow), Strategy (the
 // Strategies), Execution (the Domain tree, whose rows carry the D/O/E
 // surfaces) or Team (the units and who is in them). A screen under none
@@ -165,7 +165,7 @@ export function AppSidebar({
   const railMode = railModeOf(activeView);
   // The rail's place: the open screen's, else the last one shown.
   const viewSection = railSectionOf(activeView);
-  const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'home');
+  const [lastSection, setLastSection] = useState<RailSection>(viewSection ?? 'assistant');
   if (viewSection && viewSection !== lastSection) setLastSection(viewSection);
   const section = viewSection ?? lastSection;
   const { label: aiLabel, icon: AiIcon } = MODE_META.ai;
@@ -455,9 +455,9 @@ export function AppSidebar({
             <SettingsSidebarPanel />
           ) : (
           <>
-          {section === 'home' && <>
-          {/* Home: the person's own rows, in their order (drag a row to
-              move it). */}
+          {section === 'assistant' && <>
+          {/* Athena's place: the person's own rows, in their order (drag a
+              row to move it). */}
           <div className="mt-3 space-y-0.5">
             {sidebarOrder.map((item) => {
               const row = (() => {

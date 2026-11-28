@@ -33,7 +33,7 @@ Clayware の中心は AIP（AI に業務をさせる仕組み）の統制 — �
 |---|---|---|
 | **Strategy** | 何を達成し、どう勝つか | Vision → Portfolio（入れ子にできる） |
 | **Execution** | 実際の行動 | Domain → Object → Element |
-| **Sustainment** | 会社の資源を正しく保つ。Strategy・Execution とは結び付けない別のアプリ | 会社ごとに足す機能（請求・経費・在庫など）と、共通の台帳（検討中） |
+| **Sustainment** | 会社の資源を正しく保つ。Strategy・Execution とは結び付けない別のアプリ | 会社ごとに作る Sustainment（経理・CRM など）と、その中の機能（請求・経費など）、共通の台帳（検討中） |
 
 - **Vision**: Space の目指す姿。入れ子にしない。Domain と同じくメンバーと権限を持つ
 - **Portfolio**: Vision を勝ち取る筋道。入れ子にでき、Portfolio・Domain・Object を持つ。必ずどれか一つの Vision に属する

@@ -44,6 +44,9 @@ export interface NavigationState {
   /** The Vision the Strategy place shows: its page on the 'vision' screen,
    *  its Portfolios on the 'strategy' list. null = the Space's first. */
   visionId?: string | null;
+  /** The Sustainment the 'sustainment' screen shows (a `sustainments` row
+   *  id), picked from its button on the ModeRail. */
+  sustainmentId?: string | null;
   /** The sidebar's "+" in Strategy mode asked for a new Strategy. The
    *  Strategy list opens its create dialog and clears this. Carried in
    *  navigation so the request lands in this tab's surface once it is

@@ -534,11 +534,16 @@ function WorkspaceContent({
   // drawer open, so the place's list can be chosen from next.
   const handleRailSelect = (section: RailSection) => {
     if (railSectionOf(activeTab.activeView) === section) return;
-    if (section === 'home') { setActiveView(getCachedHomeViewId()); return; }
+    if (section === 'assistant') { setActiveView('ai'); return; }
     if (section === 'strategy') { setActiveNavigation({ strategyId: null }); setActiveView('vision'); return; }
     if (section === 'execution') { setActiveNavigation({ objectId: null, landOnTab: 'overview' }); setActiveView('domain-overview'); return; }
     setActiveNavigation({ workerId: null, unitId: null });
     setActiveView('team');
+  };
+  // A Sustainment's rail button opens its page in this tab, as a place does.
+  const handleOpenSustainment = (id: string) => {
+    setActiveNavigation({ sustainmentId: id });
+    setActiveView('sustainment');
   };
 
   // Item opens get a tab of their own (tabState.ts): a followed Object,
@@ -895,7 +900,9 @@ function WorkspaceContent({
             around the island): no frame of its own.
             On a phone it shows with the drawer, above the scrim. */}
         <ModeRail active={railSectionOf(activeTab.activeView)} onSelect={handleRailSelect}
-          activeView={activeTab.activeView} onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
+          activeView={activeTab.activeView} sustainmentId={activeTab.navigation.sustainmentId ?? null}
+          onOpenSustainment={handleOpenSustainment}
+          onOpenView={handleSidebarViewChange} onSettings={handleOpenSettings}
           className={sidebarCollapsed && sidebarOverlay ? 'relative z-50' : 'max-md:hidden'} />
 
         {sidebarCollapsed && sidebarOverlay && (

@@ -83,10 +83,10 @@ export function SpaceSwitcher({ onSettings }: SpaceSwitcherProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="group/space flex h-7 max-w-full items-center gap-2 rounded-[6px] px-1.5 transition-colors hover:bg-sidebar-accent/70"
+          className="group/space flex h-7 max-w-full items-center gap-2 rounded-[6px] px-2 transition-colors hover:bg-sidebar-accent/70"
           title={t('Switch Space')}
         >
-          <SpaceMark space={active} size={20} />
+          {/* No Space logo here: the rail's Athena mark sits just left of it. */}
           <span className="min-w-0 max-w-[136px] truncate text-left text-[13px] font-semibold tracking-[-0.01em] text-foreground">
             {active?.name ?? 'Space'}
           </span>
