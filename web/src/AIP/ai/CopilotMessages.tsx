@@ -76,7 +76,7 @@ export function CopilotMessageView({ message, streaming, onRetry, onEdit, onDeci
     <div className="group space-y-2.5">
       <div className="flex items-center gap-2 text-[12px] font-medium text-foreground/85">
         <AthenaAvatar size="xs" working={streaming} />
-        <span>{t('Athena')}</span>
+        <span>{t('Athenya')}</span>
       </div>
       <ToolSteps events={events} live={streaming} answered={!!message.content} />
       {message.content && (

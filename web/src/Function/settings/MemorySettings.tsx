@@ -103,7 +103,7 @@ function MemoryView({ state, userId, isSpaceOwner, captureEditable, onToggleCapt
     <>
       <ToggleRow
         label={t('Auto-capture')}
-        desc={t('When work finishes, Athena distils what it taught into a memory. Turning this off stops new memories; the ones already kept stay.')}
+        desc={t('When work finishes, Athenya distils what it taught into a memory. Turning this off stops new memories; the ones already kept stay.')}
         caption={!captureEditable ? t('Only the owner can change auto-capture here.') : undefined}
         value={state.autoCapture ?? true}
         disabled={!captureEditable || busy}
@@ -142,7 +142,7 @@ function MemoryView({ state, userId, isSpaceOwner, captureEditable, onToggleCapt
       {candidates.length > 0 && layer !== 'episode' && (
         <div className="px-5 py-3.5">
           <p className="text-[12px] font-medium text-foreground">{t('Promotion candidates')}</p>
-          <p className="text-[12px] text-muted-foreground">{t('The procedures Athena reaches for most — where turning know-how into a harness would start.')}</p>
+          <p className="text-[12px] text-muted-foreground">{t('The procedures Athenya reaches for most — where turning know-how into a harness would start.')}</p>
           <ul className="mt-1.5 space-y-1">
             {candidates.map((m) => (
               <li key={m.id} className="flex items-baseline justify-between gap-3 text-[12px]">
@@ -285,7 +285,7 @@ function MemoryView({ state, userId, isSpaceOwner, captureEditable, onToggleCapt
   );
 }
 
-const DESCRIPTION = 'What Athena keeps from finished work, and what it brings back when similar work comes. A memory is a record of what was learned — never an instruction, and always traceable to the work it came from.';
+const DESCRIPTION = 'What Athenya keeps from finished work, and what it brings back when similar work comes. A memory is a record of what was learned — never an instruction, and always traceable to the work it came from.';
 
 export function SpaceMemorySettings({ spaceId, isOwner, userId }: { spaceId: string; isOwner: boolean; userId: string | null }) {
   const { t } = useI18n();
@@ -314,7 +314,7 @@ export function PersonalMemorySettings({ userId }: { userId: string }) {
     return () => { live = false; };
   }, [userId]);
   return (
-    <SettingsIsland title={t('Memory')} description={t('Your own memories: what Athena kept from your work outside a Space, and from your conversations. Only you can read them; sharing one into a Space is always your explicit act, from the opened memory.')}>
+    <SettingsIsland title={t('Memory')} description={t('Your own memories: what Athenya kept from your work outside a Space, and from your conversations. Only you can read them; sharing one into a Space is always your explicit act, from the opened memory.')}>
       <MemoryView
         state={state}
         userId={userId}

@@ -92,7 +92,7 @@ export function GeneratedAppWidget({ host, instanceId, params }: WidgetProps) {
   return <div className="space-y-3">
     <WidgetHeaderAction>
       {!host.readOnly && <Button variant="ghost" size="sm" onClick={() => setSkillsOpen(true)}>{t('Skills')}</Button>}
-      {app?.current_app && <Button variant="ghost" size="sm" disabled={locked} onClick={() => setEditing(v => !v)}>{showEditor ? t('Close editor') : t('Edit with Athena')}</Button>}
+      {app?.current_app && <Button variant="ghost" size="sm" disabled={locked} onClick={() => setEditing(v => !v)}>{showEditor ? t('Close editor') : t('Edit with Athenya')}</Button>}
     </WidgetHeaderAction>
     {showEditor && <div className="space-y-3">
       <form className="space-y-2" onSubmit={e => { e.preventDefault(); void run(() => store.generate(prompt)); }}>

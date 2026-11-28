@@ -297,7 +297,7 @@ function BuilderDraftStart({ spaceId, objects, onCancel, onCreated }: {
   return (
     <div className="space-y-3 rounded-md border border-[var(--border-default)] p-3">
       <p className="text-[12px] text-muted-foreground">
-        {t('Athena drafts the harness from these picks. It goes live only after rehearsal and your review — nothing runs before that.')}
+        {t('Athenya drafts the harness from these picks. It goes live only after rehearsal and your review — nothing runs before that.')}
       </p>
       <label className="block">
         <span className="mb-1 block text-[12px] text-muted-foreground">{t('Name')}</span>

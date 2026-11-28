@@ -489,7 +489,7 @@ function WebsiteSignInCard({ onOpen }: { onOpen: () => void }) {
       <IntegrationIcon name={t('Website sign-in')} icon={null} size={32} />
       <div className="min-w-0">
         <div className="text-[13px] font-semibold text-foreground">{t('Website sign-in')}</div>
-        <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{t('For a website with no API: Athena signs in with a login you save.')}</p>
+        <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{t('For a website with no API: Athenya signs in with a login you save.')}</p>
       </div>
     </button>
   );

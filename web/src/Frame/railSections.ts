@@ -20,7 +20,7 @@ export interface RailSectionMeta {
 }
 
 export const RAIL_SECTIONS: readonly RailSectionMeta[] = [
-  { id: 'assistant', label: 'Athena', icon: NavAiIcon },
+  { id: 'assistant', label: 'Athenya', icon: NavAiIcon },
   { id: 'inbox', label: 'Inbox', icon: NavInboxIcon },
   { id: 'strategy', label: 'Strategy', icon: NavStrategyIcon },
   { id: 'execution', label: 'Execution', icon: NavDomainIcon },

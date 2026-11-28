@@ -208,7 +208,7 @@ function AgentTurn({ segments, onPlan, onAnswered, elementStatus, runStatuses, s
   const { t } = useI18n();
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-medium text-muted-foreground">{t('Athena')}</div>
+      <div className="text-[11px] font-medium text-muted-foreground">{t('Athenya')}</div>
       {segments.map((s, i) => s.kind === 'text'
         ? <MarkdownLite key={i} text={s.text} className="text-[13px] leading-relaxed text-foreground" />
         : (

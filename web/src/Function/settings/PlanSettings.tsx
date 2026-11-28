@@ -31,7 +31,7 @@ export function PlanSettings() {
   const unit = (p: SpacePlan) => (p === 'team' ? t('per member a month') : null);
   const rows: { label: string; cells: Record<SpacePlan, string | false> }[] = [
     { label: t('Domains'), cells: { free: '2', team: t('Unlimited'), enterprise: t('Unlimited') } },
-    { label: t('Athena (AI)'), cells: { free: false, team: t('Billed by use'), enterprise: t('In the contract') } },
+    { label: t('Athenya (AI)'), cells: { free: false, team: t('Billed by use'), enterprise: t('In the contract') } },
   ];
 
   return (

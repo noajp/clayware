@@ -307,9 +307,9 @@ export function AutomationBuilder({ a, spaceId, harnesses, objects, sources, tok
 
         {/* ── Athena: the work itself — the automation's own canvas,
             and the harness's flow when it still follows one. ── */}
-        <section aria-label={t('Athena')} className={`${SETTINGS_ISLAND} min-w-0 p-3`}>
+        <section aria-label={t('Athenya')} className={`${SETTINGS_ISLAND} min-w-0 p-3`}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-[12px] font-medium text-muted-foreground">{t('Athena')}</h4>
+            <h4 className="text-[12px] font-medium text-muted-foreground">{t('Athenya')}</h4>
             {sources.length > 0 && tab === 'flow' && (
               <OptionMenu label={t('Choose a workflow')} value={PICK} className="text-muted-foreground"
                 onChange={(v) => { const src = sources.find((x) => x.id === v); if (src) { saveGraph(src.graph); setDrawing((d) => d + 1); } }}

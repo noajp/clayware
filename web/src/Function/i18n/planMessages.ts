@@ -16,12 +16,12 @@ const PLAN_MESSAGES: Record<string, Row> = {
   'Fixed price': ['定額', '정액', 'Prix fixe', 'Precio fijo'],
   'per member a month': ['1 人あたり月額', '1인당 월', 'par membre et par mois', 'por miembro al mes'],
   'Unlimited': ['無制限', '무제한', 'Illimité', 'Ilimitado'],
-  'Athena (AI)': ['Athena（AI）', 'Athena (AI)', 'Athena (IA)', 'Athena (IA)'],
+  'Athenya (AI)': ['Athenya（AI）', 'Athenya (AI)', 'Athenya (IA)', 'Athenya (IA)'],
   'Not included': ['含まれない', '미포함', 'Non inclus', 'No incluido'],
   'The Free plan holds up to 2 Domains. Move this Space to Team to add more.': ['Free プランの Domain は 2 つまでです。増やすには、この Space を Team にしてください。', 'Free 플랜은 Domain을 2개까지 둘 수 있습니다. 더 추가하려면 이 Space를 Team으로 바꾸세요.', 'L’offre Free accepte 2 Domains au plus. Passez cet Space à Team pour en ajouter.', 'El plan Free admite hasta 2 Domains. Pasa este Space a Team para añadir más.'],
   'Free plan: up to 2 Domains.': ['Free プランの Domain は 2 つまでです。', 'Free 플랜: Domain 최대 2개.', 'Offre Free : 2 Domains au plus.', 'Plan Free: hasta 2 Domains.'],
   'See plans': ['プランを見る', '플랜 보기', 'Voir les offres', 'Ver planes'],
-  'Athena is available from the Team plan. This Space is on Free.': ['Athena は Team プランから使えます。この Space は Free プランです。', 'Athena는 Team 플랜부터 사용할 수 있습니다. 이 Space는 Free 플랜입니다.', 'Athena est disponible à partir de l’offre Team. Cet Space est sur Free.', 'Athena está disponible desde el plan Team. Este Space está en Free.'],
+  'Athenya is available from the Team plan. This Space is on Free.': ['Athenya は Team プランから使えます。この Space は Free プランです。', 'Athenya는 Team 플랜부터 사용할 수 있습니다. 이 Space는 Free 플랜입니다.', 'Athenya est disponible à partir de l’offre Team. Cet Space est sur Free.', 'Athenya está disponible desde el plan Team. Este Space está en Free.'],
 };
 
 const column = (index: 0 | 1 | 2 | 3) => Object.fromEntries(Object.entries(PLAN_MESSAGES).map(([key, row]) => [key, row[index]]));
