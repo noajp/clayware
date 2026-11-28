@@ -64,7 +64,7 @@ const APP_GUIDE_README_HTML = `<h1>Clayware へようこそ</h1>
 <h2>Athenya と Inbox</h2>
 <ul>
 <li><strong>Athenya</strong> — レールの一番上。押すと、どの画面からでも Agent のチャットが開く</li>
-<li><strong>Inbox</strong> — その下。承認待ちと通知が届く</li>
+<li><strong>Inbox</strong> — レールの下、設定の上。承認待ちと通知が届く</li>
 </ul>
 <h2>三つの分類</h2>
 <p>Strategy と Execution が、仕事を管理する単位です。</p>

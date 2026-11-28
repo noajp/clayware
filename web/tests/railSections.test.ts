@@ -12,7 +12,8 @@ describe('railSectionOf', () => {
   it('leaves Settings and the tools under none of them', () => {
     expect(['settings', 'sustainment', 'my-elements', 'calendar', 'profile', 'note', 'tables', 'files', 'slides', 'nope'].map(railSectionOf)).toEqual(Array(10).fill(null));
   });
-  it('lists Athena, Inbox, Strategy, Execution, Team in that order', () => {
-    expect(RAIL_SECTIONS.map((s) => s.id)).toEqual(['assistant', 'inbox', 'strategy', 'execution', 'team']);
+  it('lists Athena, Strategy, Execution, Team at the top and Inbox at the foot', () => {
+    expect(RAIL_SECTIONS.filter((s) => !s.foot).map((s) => s.id)).toEqual(['assistant', 'strategy', 'execution', 'team']);
+    expect(RAIL_SECTIONS.filter((s) => s.foot).map((s) => s.id)).toEqual(['inbox']);
   });
 });

@@ -17,14 +17,16 @@ export interface RailSectionMeta {
   id: RailSection;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
+  /** Drawn at the foot of the rail, above Settings, instead of at the top. */
+  foot?: true;
 }
 
 export const RAIL_SECTIONS: readonly RailSectionMeta[] = [
   { id: 'assistant', label: 'Athenya', icon: NavAiIcon },
-  { id: 'inbox', label: 'Inbox', icon: NavInboxIcon },
   { id: 'strategy', label: 'Strategy', icon: NavStrategyIcon },
   { id: 'execution', label: 'Execution', icon: NavDomainIcon },
   { id: 'team', label: 'Team', icon: NavTeamsIcon },
+  { id: 'inbox', label: 'Inbox', icon: NavInboxIcon, foot: true },
 ];
 
 const SECTION_OF_VIEW: Partial<Record<string, RailSection>> = {
