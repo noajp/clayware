@@ -62,6 +62,7 @@ Sustainment を、会社ごとの業務アプリを組み立てる器に育て�
 
 ```bash
 node .claude/ops/vessel.mjs open                                          # 開いている Element
+node .claude/ops/vessel.mjs show <display_id>                             # 本文とコメントを読む
 node .claude/ops/vessel.mjs recheck                                       # 閉じたが、まだ確かめ直していない欠け
 node .claude/ops/vessel.mjs done|block|reopen|checked <display_id>        # 状態を変える（dispatch・recheck も付け外し）
 node .claude/ops/vessel.mjs file --kind gap --title "…" --file body.md    # 欠け

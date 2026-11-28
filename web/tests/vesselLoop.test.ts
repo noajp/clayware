@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { elementFor, moveFor, openLine } from '../../.claude/ops/vessel.mjs';
+import { elementFor, moveFor, openLine, showText } from '../../.claude/ops/vessel.mjs';
 
 describe('elementFor', () => {
   it('hands a gap to the runner ahead of the next simulation', () => {
@@ -50,6 +50,27 @@ describe('moveFor', () => {
 
   it('never moves a decision: a person decides it', () => {
     for (const move of ['go', 'done', 'block', 'reopen', 'checked'] as const) expect(() => moveFor(move, ['decision'])).toThrow();
+  });
+});
+
+describe('showText', () => {
+  const el = { display_id: 'ELE_VES-001', title: '器の原則', status: 'todo', priority: 'high', labels: ['vessel', 'dispatch'], description: '## 観察\n本文' };
+
+  it('gives a session everything it was handed: state, description, comments in order', () => {
+    const text = showText(el, [
+      { created_at: '2026-11-28T09:00:00Z', author_name: 'Claude', content: '● 進捗 — 一' },
+      { created_at: '2026-11-28T10:00:00Z', author_name: 'TAKA', content: '二' },
+    ]);
+    expect(text).toContain('# ELE_VES-001 器の原則');
+    expect(text).toContain('labels: vessel, dispatch');
+    expect(text).toContain('## 観察\n本文');
+    expect(text.indexOf('● 進捗 — 一')).toBeLessThan(text.indexOf('二'));
+  });
+
+  it('says so when there is no description or comment', () => {
+    const text = showText({ ...el, description: null, labels: null }, []);
+    expect(text).toContain('(no description)');
+    expect(text).toContain('(none)');
   });
 });
 
