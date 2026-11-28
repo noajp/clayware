@@ -20,11 +20,16 @@
 //
 // Usage (from anywhere in the repo):
 //   node .claude/ops/vessel.mjs open
+//   node .claude/ops/vessel.mjs show <display_id>
 //   node .claude/ops/vessel.mjs recheck
 //   node .claude/ops/vessel.mjs file --kind gap|sim|decision --title "…" --file body.md [--hold]
 //   node .claude/ops/vessel.mjs go|done|block|reopen|checked <display_id>
 //
-// `open` lists what is not done or cancelled; `recheck` the closed gaps the
+// `show` prints an Element's title, state, description and comments: the
+// one way a headless session reads what it was handed (the MCP tools it may
+// be offered are named after whichever server is connected, so a permission
+// list cannot be relied on to match). `open` lists what is not done or
+// cancelled; `recheck` the closed gaps the
 // next simulation still has to try again. `--hold` files without the
 // dispatch label; `go` adds it. `done` and `block` take the dispatch label
 // off (closing a gap marks it for re-check); `reopen` puts the Element back to
@@ -93,6 +98,25 @@ export function moveFor(move, labels) {
   if (move === 'reopen') return { status: 'todo', labels: [...base, 'dispatch'] }
   if (move === 'checked') return { labels: base }
   throw new Error(`unknown move: ${move}`)
+}
+
+/**
+ * An Element and its comments as text, oldest comment first. Pure.
+ * @param {{ display_id: string|null, title: string, status: string, priority: string|null, labels: string[]|null,
+ *   description: string|null }} el
+ * @param {Array<{ created_at: string, author_name: string|null, content: string }>} comments
+ */
+export function showText(el, comments) {
+  const head = [
+    `# ${el.display_id ?? ''} ${el.title}`.trim(),
+    `status: ${el.status} / priority: ${el.priority ?? '-'} / labels: ${(el.labels ?? []).join(', ') || '-'}`,
+    '',
+    el.description?.trim() || '(no description)',
+  ]
+  const body = comments.length === 0 ? ['', '## Comments', '', '(none)'] : ['', '## Comments', ...comments.flatMap((c) => [
+    '', `### ${c.created_at} — ${c.author_name ?? 'unknown'}`, '', c.content.trim(),
+  ])]
+  return [...head, ...body].join('\n')
 }
 
 /** One line for `open`. Pure. */
@@ -175,6 +199,15 @@ async function cmdOpen(db) {
   if (rows.length === 0) console.log('(nothing open)')
 }
 
+async function cmdShow(db, ref) {
+  const { objectId } = await context(db)
+  const [el] = await db.get(`elements?object_id=eq.${objectId}&display_id=eq.${encodeURIComponent(ref)}`
+    + '&select=id,display_id,title,status,priority,labels,description')
+  if (!el) throw new Error(`not found in '${VESSEL_OBJECT}': ${ref}`)
+  const comments = await db.get(`element_comments?element_id=eq.${el.id}&select=created_at,author_name,content&order=created_at.asc`)
+  console.log(showText(el, comments))
+}
+
 async function cmdRecheck(db) {
   const { objectId } = await context(db)
   const rows = await db.get(`elements?object_id=eq.${objectId}&status=eq.done`
@@ -233,12 +266,13 @@ if (isMain) {
   const args = parseArgs(process.argv.slice(2))
   const cmd = args._[0]
   const run = cmd === 'open' ? (db) => cmdOpen(db)
+    : cmd === 'show' && args._[1] ? (db) => cmdShow(db, args._[1])
     : cmd === 'recheck' ? (db) => cmdRecheck(db)
     : cmd === 'file' ? (db) => cmdFile(db, args)
     : MOVES.includes(cmd) && args._[1] ? (db) => cmdMove(db, cmd, args._[1])
     : null
   if (!run) {
-    console.error('usage: vessel.mjs open | recheck | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go|done|block|reopen|checked <display_id>')
+    console.error('usage: vessel.mjs open | show <display_id> | recheck | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go|done|block|reopen|checked <display_id>')
     process.exit(2)
   }
   run(board()).catch((err) => {

@@ -2,7 +2,7 @@ You were started by the Clayware dispatcher to run one simulation of the vessel 
 
 Element: {{display_id}} — {{title}} (id {{element_id}})
 
-Read first: `.claude/vessel/README.md` (the loop's rules: follow them), `.claude/vessel/catalog.md`, `.claude/PRODUCT.md` §9, and `.claude/skills/clayware/SKILL.md` (claiming, branches, review, merge, stopping).
+Read first: this Element with `node .claude/ops/vessel.mjs show {{display_id}}` (its description and comments; this is how you read it, not an MCP tool), `.claude/vessel/README.md` (the loop's rules: follow them), `.claude/vessel/catalog.md`, `.claude/PRODUCT.md` §9, and `.claude/skills/clayware/SKILL.md` (claiming, branches, review, merge, stopping).
 
 1. **Claim** — `node .claude/ops/lease.mjs claim {{display_id}} --branch claude/ves-sim-<id> --note "<方針1行>"`. If it says HELD, end the session.
 2. **Check the last round** — `node .claude/ops/vessel.mjs recheck` lists the closed gaps not yet re-checked. For each, run again the condition it named, without reading its PR, and comment on it: `◎ 解消` / `○ 部分的` / `△ 未解消` / `＋ 別の問題`, with a one-line reason. Then `node .claude/ops/vessel.mjs checked <display_id>`, or for a `△`, `node .claude/ops/vessel.mjs reopen <display_id>`.
