@@ -2,10 +2,24 @@
 import { formatError } from '@/Function/shared/formatError';
 import dynamic from 'next/dynamic';
 import { Button } from '@/ui/button';
-import { SendIcon } from '@/Function/shared/SendIcon';
 
 import { useEffect, useRef, useState } from 'react';
-import { AiGraph, AlertCircle, CornerDownRight, X, Maximize2, Minimize2, Paperclip, Plus, Square } from '@/ui/icons';
+import {
+  AlertCircle,
+  ArrowUp,
+  Calendar,
+  Clock,
+  Compass,
+  Folder as FolderIcon,
+  ListChecks,
+  Maximize2,
+  Minimize2,
+  Paperclip,
+  Plus,
+  Square,
+  X,
+} from '@/ui/icons';
+import { AthenaAvatar } from './AthenaAvatar';
 import { SidebarReveal } from '@/Function/shared/SidebarReveal';
 import { buildCopilotContext, type CopilotAttachment, type CopilotContext, type CopilotSubject } from './useClaywareCopilot';
 import { useStrategies } from '@/hooks/strategyData';
@@ -25,13 +39,29 @@ import { openPlanSettings } from '@/Function/settings/settingsNav';
 
 const SlidesAssistant = dynamic(() => import('@/ActivitySpace/artifacts/slides/SlidesAssistant').then((m) => m.SlidesAssistant), { ssr: false });
 
-/** Where a conversation can start. Each is a request the AI can carry out
- *  with what the Space already holds. Two, so the empty screen has one
- *  thing to do — type — and a nudge, not a menu to read. */
-const STARTERS = [
-  'Show what is waiting on me',
-  'Find Elements that have stalled',
-];
+/** Single curated set of starters shown beneath the empty-state composer. */
+const QUICK_STARTERS = [
+  {
+    icon: ListChecks,
+    label: 'Review priorities',
+    prompt: 'Summarize my highest-priority and overdue Elements right now.',
+  },
+  {
+    icon: Compass,
+    label: 'Check Strategy progress',
+    prompt: 'Summarize current progress and blockers across our Strategies.',
+  },
+  {
+    icon: Calendar,
+    label: 'Plan today',
+    prompt: 'Suggest a focused plan for what I should tackle today.',
+  },
+  {
+    icon: Clock,
+    label: 'Find stalled Elements',
+    prompt: 'Find Elements that have stalled',
+  },
+] as const;
 
 const FLOAT_KEY = 'clayware.copilot.float';
 const FLOAT_MIN_W = 320;
@@ -102,8 +132,26 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeDomainId, setActiveDomainId] = useState<string | null>(null);
-  const { messages, streaming, error, send, cancel, newConversation, retry, truncate, decideApproval, setChartColors, library, sessionId } = useCopilotConversation();
-  const activeSessionTitle = sessionId ? library.sessions.find((s) => s.id === sessionId)?.title : null;
+  const {
+    messages,
+    streaming,
+    error,
+    send,
+    cancel,
+    newConversation,
+    retry,
+    truncate,
+    decideApproval,
+    setChartColors,
+    library,
+    sessionId,
+    draftFolderId,
+    setDraftFolderId,
+  } = useCopilotConversation();
+  const activeSession = sessionId ? library.sessions.find((s) => s.id === sessionId) ?? null : null;
+  const activeSessionTitle = activeSession?.title || null;
+  const activeFolderId = activeSession ? activeSession.folder_id : draftFolderId;
+  const activeFolder = activeFolderId ? library.folders.find((f) => f.id === activeFolderId) ?? null : null;
   // A standing approval on an approval card is the Space owner's to give.
   const canRememberApproval = useIsSpaceOwner(useActiveSpaceId()) === true;
   // A Space whose plan has no Athena: the screen says so instead of letting a message fail.
@@ -276,10 +324,101 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
 
   const boxClass = page
     ? 'flex flex-1 flex-col overflow-hidden bg-card'
-    : `absolute z-40 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl ${rect ? '' : 'bottom-4 right-4 h-[min(600px,calc(100%-2rem))] w-[400px] max-w-[calc(100%-2rem)]'}`;
+    : `absolute z-40 flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl ${rect ? '' : 'bottom-4 right-4 h-[min(600px,calc(100%-2rem))] w-[400px] max-w-[calc(100%-2rem)]'}`;
   const boxStyle = page ? undefined : (rect ?? undefined);
-  // The conversation and composer keep a readable measure on the AI screen.
-  const column = page ? 'mx-auto w-full max-w-3xl' : '';
+  const isEmpty = messages.length === 0 && !error;
+  const centeredEmptyPage = page && isEmpty;
+  // Readable measure for the conversation stream and composer.
+  const column = page ? 'mx-auto w-full max-w-[720px]' : 'w-full';
+  const canSend = !noAthena && (input.trim().length > 0 || files.length > 0);
+
+  const composerForm = (
+    <form
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true); } }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); void addFiles(e.dataTransfer.files); } }}
+      className={`flex flex-col rounded-[16px] border transition-colors focus-within:border-[var(--accent-default)]/55 ${
+        dragging
+          ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]'
+          : 'border-[var(--border-default)] bg-[var(--surface-muted)]/65 focus-within:bg-[var(--surface-raised)] dark:bg-[var(--surface-rail)] dark:focus-within:bg-[var(--surface-rail)]'
+      } ${centeredEmptyPage ? 'w-full' : column}`}
+    >
+      {files.length > 0 && (
+        <div className="flex px-3.5 pt-3">
+          <AttachmentChips files={files} align="start" onRemove={(i) => setFiles((prev) => prev.filter((_, k) => k !== i))} />
+        </div>
+      )}
+      <textarea
+        ref={inputRef}
+        value={input}
+        onChange={(e) => {
+          setInput(e.target.value);
+          // Grows with what is written, up to the cap.
+          e.target.style.height = 'auto';
+          e.target.style.height = `${Math.min(e.target.scrollHeight, 192)}px`;
+          // No scrollbar until the text outgrows the cap.
+          e.target.style.overflowY = e.target.scrollHeight > 192 ? 'auto' : 'hidden';
+        }}
+        onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void addFiles(e.clipboardData.files); } }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        rows={centeredEmptyPage ? 2 : 1}
+        disabled={noAthena || streaming}
+        placeholder={streaming ? '…' : t('Ask Athena anything')}
+        aria-label={t('Message AI')}
+        className={`max-h-48 w-full resize-none overflow-hidden bg-transparent px-4 pt-3.5 text-[14px] leading-[1.55] text-foreground placeholder:text-muted-foreground/60 disabled:opacity-60 ${
+          centeredEmptyPage ? 'min-h-[60px] pb-2' : 'min-h-[44px] pb-1.5'
+        }`}
+        style={{ fontWeight: 400 }}
+      />
+      <div className="flex items-center justify-between gap-2 px-2.5 pb-2.5 pt-1">
+        <div className="flex items-center gap-0.5">
+          <input ref={fileInputRef} type="file" accept={ATTACH_ACCEPT} multiple hidden
+            onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
+          <Button size="icon-xs" type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={streaming}
+            title={t('Attach a file (PDF, Markdown, text)')} aria-label={t('Attach a file (PDF, Markdown, text)')}
+            className="rounded-full text-muted-foreground hover:text-foreground">
+            <Paperclip size={14} />
+          </Button>
+          <ClaywareFilePicker disabled={streaming || files.length >= MAX_FILES} onPick={(f) => { setFileError(null); setFiles((prev) => [...prev, f]); }} />
+        </div>
+        <div className="flex items-center gap-2">
+          {page && !streaming && input.trim().length > 0 && (
+            <span className="hidden items-center gap-1 text-[11px] text-muted-foreground/65 sm:inline-flex">
+              <kbd className="kbd-key">↵</kbd>
+              <span>{t('Send')}</span>
+            </span>
+          )}
+          {streaming ? (
+            <Button size="xs" type="button" onClick={cancel} title={t('Stop')} aria-label={t('Stop')} variant="secondary" shape="tab" className="px-2.5">
+              <Square size={11} />
+              <span>{t('Stop')}</span>
+            </Button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!canSend}
+              title={t('Send (Enter)')}
+              aria-label={t('Send')}
+              className={`flex size-7 items-center justify-center rounded-full transition-colors ${
+                canSend
+                  ? 'bg-[var(--accent-default)] text-primary-foreground hover:bg-[var(--accent-hover)]'
+                  : 'bg-[var(--surface-strong)] text-muted-foreground/60 cursor-not-allowed'
+              }`}
+            >
+              <ArrowUp size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+      {fileError && <span role="alert" className="truncate px-4 pb-2.5 text-[11.5px] text-[var(--status-danger)]" title={fileError}>{fileError}</span>}
+    </form>
+  );
 
   return (
     <aside ref={boxRef} style={boxStyle} className={boxClass}>
@@ -287,24 +426,52 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
         <div key={edge} data-edge={edge} onPointerDown={startEdge} className={`absolute z-10 ${EDGE_CLASS[edge]}`} aria-hidden />
       ))}
 
-      {/* Header. On the AI screen it is h-12 (48px), aligned with every page's
-          PageHeader; as a pop-up it is a draggable title bar. */}
+      {/* Header: airy and borderless on a fresh full-screen conversation; shows
+          folder breadcrumb + conversation title once a chat is underway. */}
       <div
         onPointerDown={floating ? (e) => { if (!(e.target as HTMLElement).closest('button')) startFloat(e, 'move'); } : undefined}
-        className={`flex flex-shrink-0 items-center gap-2 bg-card ${floating ? 'gloss-bar h-12 cursor-grab pl-3.5 pr-2 active:cursor-grabbing' : 'gloss-bar h-12 px-4'}`}
+        className={`flex h-12 flex-shrink-0 items-center gap-2 bg-card ${
+          floating
+            ? 'gloss-bar cursor-grab pl-3.5 pr-2 active:cursor-grabbing'
+            : centeredEmptyPage
+              ? 'px-4'
+              : 'gloss-bar px-4'
+        }`}
       >
         {page && <SidebarReveal />}
         {floating ? (
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
-            <AiGraph size={15} className="text-[var(--accent-default)]" />
-            {t('Agent')}
+          <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-foreground">
+            <AthenaAvatar size="xs" working={streaming} />
+            <span>{t('Athena')}</span>
           </span>
-        ) : (
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-[13.5px] font-semibold text-foreground">
-            <AiGraph size={15} className="shrink-0 text-[var(--accent-default)]" />
-            <span className="truncate">{activeSessionTitle || t('Agent')}</span>
+        ) : !isEmpty ? (
+          <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
+            {activeFolder && (
+              <>
+                <span className="inline-flex max-w-36 shrink-0 items-center gap-1 truncate text-muted-foreground">
+                  <FolderIcon size={13} className="shrink-0" />
+                  <span className="truncate">{activeFolder.name}</span>
+                </span>
+                <span aria-hidden className="text-muted-foreground/45">/</span>
+              </>
+            )}
+            <span className="truncate font-medium text-foreground">{activeSessionTitle || t('New conversation')}</span>
+          </div>
+        ) : activeFolder ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-well)] py-0.5 pl-2.5 pr-1.5 text-[12px] text-muted-foreground">
+            <FolderIcon size={12} className="shrink-0 text-[var(--accent-text)]" />
+            <span className="max-w-44 truncate text-foreground/85">{activeFolder.name}</span>
+            <button
+              type="button"
+              onClick={() => setDraftFolderId(null)}
+              aria-label={t('No folder')}
+              title={t('No folder')}
+              className="flex size-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[var(--surface-strong)] hover:text-foreground"
+            >
+              <X size={11} />
+            </button>
           </span>
-        )}
+        ) : null}
         {subject?.kind === 'slides' && (
           <span className="inline-flex h-5 items-center rounded-[5px] bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium text-muted-foreground">
             {t('Slides')}
@@ -344,157 +511,112 @@ export function ClaywareCopilotPanel({ open, onOpenChange, subject = null, varia
 
       {/* One AI panel across the app: on Slides it is the open deck's
           assistant (its conversation and composer), elsewhere Clayware's. */}
-      {subject?.kind === 'slides' ? <SlidesAssistant /> : <>
-      {/* Conversation — Antigravity-style clean turns & structured empty state */}
-      <div ref={listRef} className={`flex-1 overflow-y-auto pb-6 pt-5 text-[13.5px] leading-[1.65] ${page ? 'px-8' : 'px-3.5'}`}>
-        {messages.length === 0 && !error ? (
-          <div className={`flex h-full min-h-[260px] flex-col items-center justify-center text-center ${column}`}>
-            <span className="mb-3.5 flex size-10 items-center justify-center rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-well)] text-[var(--accent-default)] shadow-[var(--shadow-card)]">
-              <AiGraph size={19} />
-            </span>
-            <h2 className="text-[16px] font-semibold tracking-[-0.015em] text-foreground">
+      {subject?.kind === 'slides' ? <SlidesAssistant /> : centeredEmptyPage ? (
+        /* Centered companion hero + integrated composer — no dead vertical void,
+           and one curated row of quick actions directly below the input. */
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-16 pt-4">
+          <div className="flex w-full max-w-[660px] flex-col items-center">
+            <AthenaAvatar size="hero" />
+            <h2 className="mt-4 text-[21px] font-semibold tracking-[-0.02em] text-foreground">
               {t('How can I help?')}
             </h2>
-            <p className="mt-1 max-w-sm text-[12.5px] leading-relaxed text-muted-foreground">
+            <p className="mt-1 max-w-md text-center text-[13px] leading-relaxed text-muted-foreground">
               {t('Ask about your Elements, Strategies, or schedule — or delegate work directly.')}
             </p>
+
+            {noAthena && (
+              <div role="status" className="mt-5 flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-well)] px-4 py-3">
+                <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
+                <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
+              </div>
+            )}
+
+            <div className="mt-6 w-full">
+              {composerForm}
+            </div>
+
             {!noAthena && (
-              <div className={`mt-5 grid w-full gap-2 ${page ? 'max-w-xl sm:grid-cols-3' : 'grid-cols-1'}`}>
-                {[
-                  { label: t('Review priorities'), prompt: t('Summarize my highest-priority and overdue Elements right now.') },
-                  { label: t('Check Strategy progress'), prompt: t('Summarize current progress and blockers across our Strategies.') },
-                  { label: t('Plan today'), prompt: t('Suggest a focused plan for what I should tackle today.') },
-                ].map((starter) => (
+              <div className="mt-3.5 flex flex-wrap items-center justify-center gap-1.5">
+                {QUICK_STARTERS.map(({ icon: StarterIcon, label, prompt }) => (
                   <button
-                    key={starter.label}
+                    key={label}
                     type="button"
-                    onClick={() => send(starter.prompt, { context: contextNow() })}
-                    className="group/starter flex flex-col items-start gap-1 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-well)] px-3 py-2.5 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-strong)]/60"
+                    onClick={() => send(t(prompt), { context: contextNow() })}
+                    title={t(prompt)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-well)] px-3 text-[12.5px] font-normal text-foreground/85 transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)] hover:text-foreground"
                   >
-                    <span className="text-[12.5px] font-medium text-foreground">{starter.label}</span>
-                    <span className="line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">{starter.prompt}</span>
+                    <StarterIcon size={13} className="shrink-0 text-muted-foreground" />
+                    <span>{t(label)}</span>
                   </button>
                 ))}
               </div>
             )}
           </div>
-        ) : (
-          <div role="log" aria-label={t('Conversation')} className={`space-y-6 ${column}`}>
-            {messages.map((m, i) => (
-              <CopilotMessageView key={i} message={m} streaming={streaming && i === messages.length - 1 && !m.done}
-                onRetry={!streaming && m.role === 'assistant' && i === messages.length - 1 ? () => retry({ context: contextNow() }) : undefined}
-                onEdit={!streaming && i === lastUser ? editLast : undefined}
-                canRememberApproval={canRememberApproval}
-                spaceId={getActiveSpaceId()}
-                onContinueConnection={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (connected {names}).', { work: c.waitingFor, names: c.names.join(', ') }), { context: contextNow() }) : undefined}
-                onContinueCredential={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (entered credentials for {label}).', { work: c.waitingFor || t('the pending work'), label: c.label }), { context: contextNow() }) : undefined}
-                onChartColors={m.role === 'assistant' ? (chartIndex, colors) => setChartColors(i, chartIndex, colors) : undefined}
-                onDecideApproval={!streaming && m.role === 'assistant' ? (a, approve, opts) => void decideApproval(a, approve, opts) : undefined} />
-            ))}
-            {error && (
-              <div role="alert" className="flex items-start gap-2 rounded-[8px] border border-[var(--status-danger)]/25 bg-[var(--status-danger-subtle)] px-3 py-2 text-[12.5px] text-[var(--status-danger)]">
-                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                <span className="min-w-0 flex-1">{error}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Antigravity-style two-tier composer island */}
-      <div className={`pt-2 ${page ? 'px-8 pb-6' : 'px-3.5 pb-3.5'}`}>
-        <div className={column}>
-          <CredentialChatHint requestIds={credentialRequestIds} />
         </div>
-        {noAthena && (
-          <div role="status" className={`mb-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-foreground/[0.04] px-4 py-3 ${column}`}>
-            <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
-            <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
-          </div>
-        )}
-        {messages.length === 0 && !streaming && !noAthena && (
-          // Places to start, while nothing has been said: picking one writes
-          // it into the box, for the person to send or change.
-          <div className={`mb-2 flex flex-wrap gap-1.5 ${column}`}>
-            {STARTERS.map((starter) => (
-              <Button key={starter} type="button" variant="secondary" size="sm" shape="tab"
-                onClick={() => { setInput(t(starter)); inputRef.current?.focus(); }}>
-                <CornerDownRight size={12} />
-                {t(starter)}
-              </Button>
-            ))}
-          </div>
-        )}
-        <form
-          onSubmit={(e) => { e.preventDefault(); submit(); }}
-          onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true); } }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); setDragging(false); void addFiles(e.dataTransfer.files); } }}
-          className={`flex flex-col rounded-[10px] border bg-[var(--surface-raised)] dark:bg-[var(--surface-rail)] shadow-[var(--shadow-card)] transition-colors focus-within:border-[var(--accent-default)]/55 ${dragging ? 'border-[var(--accent-default)] bg-[var(--accent-subtle)]' : 'border-[var(--border-default)]'} ${column}`}
-        >
-          {files.length > 0 && (
-            <div className="flex px-3 pt-2.5">
-              <AttachmentChips files={files} align="start" onRemove={(i) => setFiles((prev) => prev.filter((_, k) => k !== i))} />
+      ) : <>
+        {/* Active conversation stream (or compact floating pop-up empty state) */}
+        <div ref={listRef} className={`flex-1 overflow-y-auto pb-6 pt-5 text-[13.5px] leading-[1.65] ${page ? 'px-8' : 'px-3.5'}`}>
+          {isEmpty ? (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-2 text-center">
+              <AthenaAvatar size="md" />
+              <h2 className="mt-3 text-[15px] font-semibold tracking-[-0.015em] text-foreground">
+                {t('How can I help?')}
+              </h2>
+              <p className="mt-1 max-w-xs text-[12px] leading-relaxed text-muted-foreground">
+                {t('Ask about your Elements, Strategies, or schedule — or delegate work directly.')}
+              </p>
+              {!noAthena && (
+                <div className="mt-4 flex w-full flex-col gap-1.5">
+                  {QUICK_STARTERS.slice(0, 3).map(({ icon: StarterIcon, label, prompt }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => send(t(prompt), { context: contextNow() })}
+                      className="flex items-center gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-well)] px-3 py-2 text-left text-[12.5px] text-foreground/85 transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-muted)] hover:text-foreground"
+                    >
+                      <StarterIcon size={13} className="shrink-0 text-muted-foreground" />
+                      <span className="truncate">{t(label)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div role="log" aria-label={t('Conversation')} className={`space-y-6 ${column}`}>
+              {messages.map((m, i) => (
+                <CopilotMessageView key={i} message={m} streaming={streaming && i === messages.length - 1 && !m.done}
+                  onRetry={!streaming && m.role === 'assistant' && i === messages.length - 1 ? () => retry({ context: contextNow() }) : undefined}
+                  onEdit={!streaming && i === lastUser ? editLast : undefined}
+                  canRememberApproval={canRememberApproval}
+                  spaceId={getActiveSpaceId()}
+                  onContinueConnection={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (connected {names}).', { work: c.waitingFor, names: c.names.join(', ') }), { context: contextNow() }) : undefined}
+                  onContinueCredential={!streaming && m.role === 'assistant' ? (c) => send(t('Please continue "{work}" (entered credentials for {label}).', { work: c.waitingFor || t('the pending work'), label: c.label }), { context: contextNow() }) : undefined}
+                  onChartColors={m.role === 'assistant' ? (chartIndex, colors) => setChartColors(i, chartIndex, colors) : undefined}
+                  onDecideApproval={!streaming && m.role === 'assistant' ? (a, approve, opts) => void decideApproval(a, approve, opts) : undefined} />
+              ))}
+              {error && (
+                <div role="alert" className="flex items-start gap-2 rounded-[10px] border border-[var(--status-danger)]/25 bg-[var(--status-danger-subtle)] px-3.5 py-2.5 text-[12.5px] text-[var(--status-danger)]">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0 flex-1">{error}</span>
+                </div>
+              )}
             </div>
           )}
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              // Grows with what is written, up to the cap.
-              e.target.style.height = 'auto';
-              e.target.style.height = `${Math.min(e.target.scrollHeight, 192)}px`;
-              // No scrollbar until the text outgrows the cap.
-              e.target.style.overflowY = e.target.scrollHeight > 192 ? 'auto' : 'hidden';
-            }}
-            onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void addFiles(e.clipboardData.files); } }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            rows={1}
-            disabled={noAthena || streaming}
-            placeholder={streaming ? '…' : t('Ask Athena anything')}
-            aria-label={t('Message AI')}
-            className="max-h-48 min-h-[42px] w-full resize-none overflow-hidden bg-transparent px-3.5 pb-1.5 pt-2.5 text-[13.5px] leading-[1.55] text-foreground placeholder:text-muted-foreground/65 disabled:opacity-60"
-            style={{ fontWeight: 400 }}
-          />
-          <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)]/70 px-2 pb-1.5 pt-1.5">
-            <div className="flex items-center gap-0.5">
-              <input ref={fileInputRef} type="file" accept={ATTACH_ACCEPT} multiple hidden
-                onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ''; }} />
-              <Button size="icon-xs" type="button" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={streaming}
-                title={t('Attach a file (PDF, Markdown, text)')} aria-label={t('Attach a file (PDF, Markdown, text)')} className="text-muted-foreground hover:text-foreground">
-                <Paperclip size={14} />
-              </Button>
-              <ClaywareFilePicker disabled={streaming || files.length >= MAX_FILES} onPick={(f) => { setFileError(null); setFiles((prev) => [...prev, f]); }} />
-            </div>
-            <div className="flex items-center gap-2">
-              {page && !streaming && (
-                <span className="hidden items-center gap-1 text-[11px] text-muted-foreground/75 sm:inline-flex">
-                  <kbd className="kbd-key">↵</kbd>
-                  <span>{t('Send')}</span>
-                </span>
-              )}
-              {streaming ? (
-                <Button size="xs" type="button" onClick={cancel} title={t('Stop')} aria-label={t('Stop')} variant="secondary">
-                  <Square size={12} />
-                  <span>{t('Stop')}</span>
-                </Button>
-              ) : (
-                <Button size="xs" type="submit" disabled={noAthena || (!input.trim() && files.length === 0)} title={t('Send (Enter)')} aria-label={t('Send')} variant="primary"
-                  className="px-2.5">
-                  <SendIcon size={13} />
-                </Button>
-              )}
-            </div>
+        </div>
+
+        {/* Bottom-docked composer for active conversations and the floating pop-up */}
+        <div className={`pt-2 ${page ? 'bg-gradient-to-t from-card via-card to-transparent px-8 pb-5' : 'px-3.5 pb-3.5'}`}>
+          <div className={column}>
+            <CredentialChatHint requestIds={credentialRequestIds} />
           </div>
-          {fileError && <span role="alert" className="truncate px-3 pb-2 text-[11px] text-[var(--status-danger)]" title={fileError}>{fileError}</span>}
-        </form>
-      </div>
+          {noAthena && (
+            <div role="status" className={`mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] px-4 py-3 ${column}`}>
+              <p className="text-[13px] text-foreground">{t('Athena is available from the Team plan. This Space is on Free.')}</p>
+              <Button type="button" variant="secondary" size="sm" onClick={openPlanSettings}>{t('See plans')}</Button>
+            </div>
+          )}
+          {composerForm}
+        </div>
       </>}
     </aside>
   );

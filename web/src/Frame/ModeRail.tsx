@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { RAIL_SECTIONS, type RailSection } from '@/Frame/railSections';
 import { useI18n } from '@/Function/i18n/I18nProvider';
 import { RailAccount } from '@/Frame/RailAccount';
@@ -9,11 +9,14 @@ import { ItemIcon } from '@/Function/shared/itemIcon/ItemIcon';
 import { useSustainments } from '@/hooks/useSustainments';
 import { useNotifications } from '@/hooks/useSupabase';
 import { useAuthContext } from '@/providers/AuthProvider';
+import { AthenaAvatar } from '@/AIP/ai/AthenaAvatar';
+import { useCopilotStreaming } from '@/AIP/ai/CopilotProvider';
 import { Plus } from '@/ui/icons';
 import type { Sustainment } from '@/types/database';
 
-// The thin column at the far left: Athena (the Agent's chat, under its
-// mark), Strategy, Execution and Team; under a hairline, the Space's
+// The thin column at the far left: Athena (the companion portrait medallion,
+// anchored at the top like the user's avatar at the bottom), a hairline,
+// Inbox, Strategy, Execution and Team; under a second hairline, the Space's
 // Sustainments, one button each, and "+" to add one. It is sunk into the
 // window's ground, with no frame of its own, beside the one island that
 // holds the sidebar and the screen; picking a place swaps what the sidebar
@@ -24,19 +27,6 @@ const CELL = 'flex size-10 shrink-0 items-center justify-center rounded-md trans
 const cellTone = (on: boolean) => (on
   ? 'bg-sidebar-accent text-foreground'
   : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground');
-
-/** Athena's mark, the rail's top button: the crowned ghost down to its
- *  arms, idling, cut out on its own (no circle, no tile, no shadow). With reduced motion it holds still
- *  on its first frame. The button carries the name, so the picture is
- *  decorative. */
-function AthenaMark() {
-  return (
-    <picture className="block size-10 shrink-0">
-      <source srcSet="/athena/idle.png" media="(prefers-reduced-motion: reduce)" />
-      <img src="/athena/idle.webp" alt="" width={40} height={40} className="size-10" draggable={false} />
-    </picture>
-  );
-}
 
 export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSustainment, onOpenView, onSettings, className = '' }: {
   /** The place the open screen is in; null for one under none of them. */
@@ -57,26 +47,48 @@ export function ModeRail({ active, onSelect, activeView, sustainmentId, onOpenSu
   // Inbox's unread count, the same hook and count the notifications read.
   const { user } = useAuthContext();
   const { unreadCount } = useNotifications(user?.id ?? null);
+  const athenaWorking = useCopilotStreaming();
   const [creating, setCreating] = useState(false);
   const openId = activeView === 'sustainment' ? sustainmentId : null;
   return (
     <nav aria-label={t('Places')}
-      className={`app-sidebar flex w-12 shrink-0 flex-col items-center gap-1 overflow-hidden bg-none py-3 ${className}`}>
+      className={`app-sidebar flex w-[52px] shrink-0 flex-col items-center gap-1 overflow-hidden bg-none py-3 ${className}`}>
       {RAIL_SECTIONS.map(({ id, label, icon: Icon }) => {
         const on = active === id;
         const unread = id === 'inbox' && unreadCount > 0;
         const name = unread ? `${t(label)} (${unreadCount})` : t(label);
+        if (id === 'assistant') {
+          return (
+            <Fragment key={id}>
+              <button
+                type="button"
+                onClick={() => onSelect(id)}
+                aria-label={name}
+                title={name}
+                aria-current={on ? 'page' : undefined}
+                className="group/athena relative flex size-10 shrink-0 items-center justify-center rounded-full outline-none"
+              >
+                <AthenaAvatar
+                  size="rail"
+                  active={on}
+                  working={athenaWorking}
+                  className="group-hover/athena:scale-[1.05] group-active/athena:scale-[0.98]"
+                />
+              </button>
+              <div role="separator" aria-hidden className="my-1.5 h-px w-5 shrink-0 bg-border/80" />
+            </Fragment>
+          );
+        }
         return (
           <button key={id} type="button" onClick={() => onSelect(id)}
             aria-label={name} title={name} aria-current={on ? 'page' : undefined}
-            // Athena stands bare: no tile behind it, open or not.
-            className={`relative ${CELL} ${id === 'assistant' ? '' : cellTone(on)}`}>
-            {id === 'assistant' ? <AthenaMark /> : <Icon size={18} />}
+            className={`relative ${CELL} ${cellTone(on)}`}>
+            <Icon size={18} />
             {unread && <span aria-hidden className="absolute right-2 top-2 size-2 rounded-full bg-primary" />}
           </button>
         );
       })}
-      <div role="separator" aria-hidden className="my-1 h-px w-6 shrink-0 bg-border" />
+      <div role="separator" aria-hidden className="my-1.5 h-px w-5 shrink-0 bg-border/80" />
       <div className="flex min-h-0 flex-col items-center gap-1 overflow-y-auto">
         {sustainments.map((s) => <SustainmentButton key={s.id} sustainment={s} on={openId === s.id}
           onOpen={() => onOpenSustainment(s.id)} />)}

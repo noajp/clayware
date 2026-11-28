@@ -79,7 +79,7 @@ function AppShellSkeleton() {
   return (
     <div className="h-dvh flex overflow-hidden bg-background" aria-hidden>
       {/* The rail, sunk into the ground */}
-      <div className="max-md:hidden w-12 shrink-0" />
+      <div className="max-md:hidden w-[52px] shrink-0" />
       {/* One island: the sidebar, then the main screen */}
       <div className="flex-1 flex overflow-hidden py-1.5 pr-1.5 max-md:pl-1.5">
         <div className="flex-1 flex overflow-hidden rounded-lg gloss-island bg-card">
