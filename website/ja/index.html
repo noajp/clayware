@@ -67,6 +67,25 @@ try{var m=localStorage.getItem('cw-theme');if(m==='dark'||m==='light')document.d
   </div>
 </section>
 
+<section class="section section--l" id="ask" aria-labelledby="ask-title">
+  <div class="container">
+    <div class="head">
+      <h2 id="ask-title">チームの誰かに頼むように、Athenaに頼む。</h2>
+      <p class="lead">Athenaが調べ、記録し、下書きします。メールの送信のように取り消せない操作は、あなたの承認まで実行しません。</p>
+    </div>
+    <figure class="run" role="img" aria-label="Athenaへの依頼と、その進み具合の例">
+      <div class="run__ask"><span class="run__who">あなた</span><p>来週の展示会の出展社を調べて、うちと競合する会社を表にまとめて。気になる会社には挨拶メールを下書きしておいて。</p></div>
+      <div class="run__body"><span class="run__who run__who--ai"><span class="core__dot"></span>Athena</span><ol><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>出展社の一覧を集めた</b><span>出典：展示会の公式サイト</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>競合する会社を表にした</b><span>各行に出典と取得日時を付けた</span></li><li class="run__step run__step--done"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="m5 8.2 2 2 4-4.2"/></svg><b>挨拶メールを下書きした</b><span>送信はしていない</span></li><li class="run__step run__step--wait"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 4.5V8l2.2 1.4"/></svg><b>送信するかどうかの判断待ち</b><span>メールの送信は、人の承認まで実行しない</span></li></ol></div>
+      <figcaption class="run__cap">依頼と進み具合の表示例です。</figcaption>
+    </figure>
+    <dl class="facts">
+      <div><dt>承認</dt><dd>実行する入力そのものに結び付く。Athenaは自分で承認できない。</dd></div>
+      <div><dt>資格情報を見せない</dt><dd>ログイン情報は保管庫に置き、Athenaには見せない。</dd></div>
+      <div><dt>すべて記録に残る</dt><dd>実行と承認はすべて記録される。</dd></div>
+    </dl>
+  </div>
+</section>
+
 <section class="section section--l" id="parts" aria-labelledby="parts-title">
   <div class="container">
     <div class="head">
