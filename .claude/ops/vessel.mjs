@@ -20,14 +20,16 @@
 //
 // Usage (from anywhere in the repo):
 //   node .claude/ops/vessel.mjs open
-//   node .claude/ops/vessel.mjs closed [--limit 20]
+//   node .claude/ops/vessel.mjs recheck
 //   node .claude/ops/vessel.mjs file --kind gap|sim|decision --title "…" --file body.md [--hold]
-//   node .claude/ops/vessel.mjs go|done|block|reopen <display_id>
+//   node .claude/ops/vessel.mjs go|done|block|reopen|checked <display_id>
 //
-// `open` lists what is not done or cancelled; `closed` what is done, newest
-// first, with the time it changed. `--hold` files without the dispatch label;
-// `go` adds it. `done` and `block` take the dispatch label off; `reopen`
-// puts the Element back to todo with it.
+// `open` lists what is not done or cancelled; `recheck` the closed gaps the
+// next simulation still has to try again. `--hold` files without the
+// dispatch label; `go` adds it. `done` and `block` take the dispatch label
+// off (closing a gap marks it for re-check); `reopen` puts the Element back to
+// todo with it; `checked` takes the re-check mark off. None of them touches a
+// decision.
 
 import { readFileSync, realpathSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -63,22 +65,33 @@ export function elementFor(kind, { title, description, hold = false }) {
   }
 }
 
-export const MOVES = ['go', 'done', 'block', 'reopen']
+export const MOVES = ['go', 'done', 'block', 'reopen', 'checked']
+
+/** A closed gap the next simulation has not re-checked yet. */
+export const RECHECK_LABEL = 'recheck'
 
 /**
  * What a move writes to an Element with these labels. Pure.
- * @param {'go'|'done'|'block'|'reopen'} move
+ *
+ * Closing a gap marks it 'recheck', and the next simulation takes the mark
+ * off once it has tried the gap's condition again (`checked`, or `reopen`
+ * for a △). The mark is on the work itself, so which gaps are still to be
+ * re-checked does not depend on timestamps or on the order things closed.
+ *
+ * @param {'go'|'done'|'block'|'reopen'|'checked'} move
  * @param {string[] | null} labels
  */
 export function moveFor(move, labels) {
   const current = labels ?? []
-  if (current.includes('decision') && (move === 'go' || move === 'reopen')) throw new Error('a decision is not dispatched')
-  const without = current.filter((l) => l !== 'dispatch')
-  const withIt = [...without, 'dispatch']
-  if (move === 'go') return { labels: withIt }
-  if (move === 'done') return { status: 'done', progress: 100, labels: without }
-  if (move === 'block') return { status: 'blocked', labels: without }
-  if (move === 'reopen') return { status: 'todo', labels: withIt }
+  // A decision is a person's to make: the loop never dispatches or closes one.
+  if (current.includes('decision')) throw new Error('a decision is decided by a person, not moved by the loop')
+  const base = current.filter((l) => l !== 'dispatch' && l !== RECHECK_LABEL)
+  const keepRecheck = current.includes(RECHECK_LABEL) ? [RECHECK_LABEL] : []
+  if (move === 'go') return { labels: [...base, ...keepRecheck, 'dispatch'] }
+  if (move === 'done') return { status: 'done', progress: 100, labels: base.includes('vessel') ? [...base, RECHECK_LABEL] : base }
+  if (move === 'block') return { status: 'blocked', labels: base }
+  if (move === 'reopen') return { status: 'todo', labels: [...base, 'dispatch'] }
+  if (move === 'checked') return { labels: base }
   throw new Error(`unknown move: ${move}`)
 }
 
@@ -162,13 +175,13 @@ async function cmdOpen(db) {
   if (rows.length === 0) console.log('(nothing open)')
 }
 
-async function cmdClosed(db, args) {
+async function cmdRecheck(db) {
   const { objectId } = await context(db)
-  const limit = Math.max(1, Math.min(100, Number(args.limit ?? 20) || 20))
   const rows = await db.get(`elements?object_id=eq.${objectId}&status=eq.done`
-    + `&select=id,display_id,title,status,labels,claimed_by,updated_at&order=updated_at.desc&limit=${limit}`)
-  for (const r of rows) console.log(`${r.updated_at}\t${openLine(r)}`)
-  if (rows.length === 0) console.log('(nothing closed)')
+    + `&labels=cs.${encodeURIComponent(JSON.stringify([RECHECK_LABEL]))}`
+    + '&select=id,display_id,title,status,labels,claimed_by&order=created_at.asc')
+  for (const r of rows) console.log(openLine(r))
+  if (rows.length === 0) console.log('(nothing to re-check)')
 }
 
 async function cmdFile(db, args) {
@@ -207,7 +220,7 @@ async function cmdFile(db, args) {
 async function cmdMove(db, move, ref) {
   const { objectId } = await context(db)
   const el = await vesselElement(db, objectId, ref)
-  await db.patch('elements', `id=eq.${el.id}`, moveFor(move, el.labels))
+  await db.patch('elements', `id=eq.${el.id}`, { ...moveFor(move, el.labels), updated_at: new Date().toISOString() })
   console.log(`${move.toUpperCase().padEnd(10)}${el.display_id}`)
 }
 
@@ -220,12 +233,12 @@ if (isMain) {
   const args = parseArgs(process.argv.slice(2))
   const cmd = args._[0]
   const run = cmd === 'open' ? (db) => cmdOpen(db)
-    : cmd === 'closed' ? (db) => cmdClosed(db, args)
+    : cmd === 'recheck' ? (db) => cmdRecheck(db)
     : cmd === 'file' ? (db) => cmdFile(db, args)
     : MOVES.includes(cmd) && args._[1] ? (db) => cmdMove(db, cmd, args._[1])
     : null
   if (!run) {
-    console.error('usage: vessel.mjs open | closed [--limit n] | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go|done|block|reopen <display_id>')
+    console.error('usage: vessel.mjs open | recheck | file --kind gap|sim|decision --title "…" --file body.md [--hold] | go|done|block|reopen|checked <display_id>')
     process.exit(2)
   }
   run(board()).catch((err) => {

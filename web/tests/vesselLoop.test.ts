@@ -32,16 +32,24 @@ describe('moveFor', () => {
     expect(moveFor('block', ['vessel', 'dispatch'])).toEqual({ status: 'blocked', labels: ['vessel'] });
   });
 
+  it('marks a closed gap for the next simulation to re-check, whatever order things closed in', () => {
+    const closed = moveFor('done', ['vessel', 'dispatch']);
+    expect(closed).toEqual({ status: 'done', progress: 100, labels: ['vessel', 'recheck'] });
+    expect(moveFor('checked', closed.labels)).toEqual({ labels: ['vessel'] });
+    // △: reopened, fixed again, closed again — marked again.
+    const reopened = moveFor('reopen', closed.labels);
+    expect(reopened).toEqual({ status: 'todo', labels: ['vessel', 'dispatch'] });
+    expect(moveFor('done', reopened.labels).labels).toEqual(['vessel', 'recheck']);
+  });
+
   it('hands an Element back with one dispatch label', () => {
     expect(moveFor('reopen', ['vessel'])).toEqual({ status: 'todo', labels: ['vessel', 'dispatch'] });
     expect(moveFor('go', ['vessel', 'dispatch'])).toEqual({ labels: ['vessel', 'dispatch'] });
     expect(moveFor('go', null)).toEqual({ labels: ['dispatch'] });
   });
 
-  it('never dispatches a decision', () => {
-    expect(() => moveFor('go', ['decision'])).toThrow();
-    expect(() => moveFor('reopen', ['decision'])).toThrow();
-    expect(moveFor('done', ['decision'])).toMatchObject({ status: 'done' });
+  it('never moves a decision: a person decides it', () => {
+    for (const move of ['go', 'done', 'block', 'reopen', 'checked'] as const) expect(() => moveFor(move, ['decision'])).toThrow();
   });
 });
 

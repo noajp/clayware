@@ -11,14 +11,15 @@ Sustainment を、会社ごとの業務アプリを組み立てる器に育て�
   架空の会社の業務を、器だけで組み立てる → 組み立てられなかった所を「欠け」として起票
         ↓
 欠けを直す（vessel）── 1 件 = 1 PR、マージまで
-        ↓（欠けが全部閉じたら）
-次のシミュレーション ── 前回の欠けが本当に直ったかも確かめる
+        ↓（手の付けられる欠けがなくなったら）
+次のシミュレーション ── 閉じた欠けが本当に直ったかも確かめる
 ```
 
 - 板（開発 Domain の Object「Sustainment — 器」）に Element として起票し、dispatcher が拾う。書くのも読むのも Claude
 - `simulate` の Element は `.claude/ops/prompts/simulate.md`、`vessel` の Element は `implement.md` で動く
 - dispatcher は、`dispatch` の付いた `vessel` の Element が todo か in_progress の間は `simulate` を始めない。人の判断待ちで blocked になった欠けはループを止めない（次のシミュレーションがまた出会い、コメントを足す）。シミュレーションは同時に 1 件だけ
 - Element を閉じるのは `vessel.mjs done` / `block`。`lease.mjs release` は lease を外すだけで、状態は変えない
+- 欠けを閉じると `recheck` が付き、次のシミュレーションが確かめ直して外す（△ なら開け直す）。判断（`decision`）はループが動かさない
 - シミュレーションは終わりに次のシミュレーションを起票する。鎖が切れていたら、毎日の見回りが起票し直す
 
 ## シミュレーション
@@ -61,8 +62,8 @@ Sustainment を、会社ごとの業務アプリを組み立てる器に育て�
 
 ```bash
 node .claude/ops/vessel.mjs open                                          # 開いている Element
-node .claude/ops/vessel.mjs closed                                        # 閉じた Element（新しい順）
-node .claude/ops/vessel.mjs done|block|reopen <display_id>                # 状態を変える（dispatch も付け外し）
+node .claude/ops/vessel.mjs recheck                                       # 閉じたが、まだ確かめ直していない欠け
+node .claude/ops/vessel.mjs done|block|reopen|checked <display_id>        # 状態を変える（dispatch・recheck も付け外し）
 node .claude/ops/vessel.mjs file --kind gap --title "…" --file body.md    # 欠け
 node .claude/ops/vessel.mjs file --kind sim --title "…" --file body.md    # 次のシミュレーション
 node .claude/ops/vessel.mjs file --kind decision --title "…" --file body.md
